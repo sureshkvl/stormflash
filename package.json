@@ -1,0 +1,10 @@
+{
+	"name": "cloudflash",
+	"version": "0.0.1",
+	"dependencies": {
+		"zappajs": "0.3.x"
+	},
+	"engines": {
+		"node": "0.6.x"
+	}
+}
