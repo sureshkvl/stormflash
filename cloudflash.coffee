@@ -12,18 +12,11 @@
     uuid = require('node-uuid')
     db   = require('dirty') '/tmp/cloudflash.db'
 
+    webreq = require 'request'
+    fs = require 'fs'
+
     db.on 'load', ->
         console.log 'loaded cloudflash.db'
-        ## below for debugging only
-        console.log 'debug: add a service entry every time'
-        id = uuid.v4()
-        db.set id,
-            service:
-                id: id
-                name: 'iptables'
-                type: 'firewall'
-            ->
-                console.log 'saved a dummy entry for testing'
 
     @get '/services': ->
         res = { 'services': [] }
@@ -35,11 +28,23 @@
     @post '/services': ->
         return @next new Error "Invalid service posting!" unless @body.service?
 
+        @body.pkgurl ?= 'http://www.google.com/images/srpr/logo3w.png'
+
+        # let's download this file from the web
         id = uuid.v4()
+        filename = "/tmp/#{id}.pkg"
+        webreq(@body.pkgurl).pipe(fs.createWriteStream(filename)) if @body.pkgurl?
+
+        # invoke dpkg -i on filename, get the response code and if we downloaded ok, then...
+        # 1. verify that file has been downloaded
+        # 2. dpkg -i filename
+        # 3. verify that package has been installed
+
         @body.service.id = id
-        db.set id, @body, ->
-            console.log 'test saved'
+        db.set id, @body, =>
+            console.log "#{@body.pkgurl} downloaded and installed successfully as service ID: #{id}"
             @send @body
+
 
     # helper routine for retrieving service data from dirty db
     loadService = ->
@@ -56,6 +61,8 @@
 
     @put '/services/:id', loadService, ->
         @body.service.id = @params.id
+        # can have intelligent merge here
+
         db.set @params.id, @body, ->
             console.log "updated service ID: #{@params.id}"
             @send @body
@@ -66,6 +73,11 @@
             console.log "removed service ID: #{@params.id}"
             @send ''
             # do some work
+
+    # @include 'firewall'
+
+    # @include 'openvpn'
+
 
 #
 #sample program
@@ -88,26 +100,51 @@
           $('#panel').append "<p>#{@data.nickname} said: #{@data.text}</p>"
 
         $ =>
-          @emit 'set nickname': {nickname: prompt 'Pick a nickname!'}
+#          @emit 'set nickname': {nickname: prompt 'Pick a nickname!'}
 
           $('#box').focus()
 
           $('button').click (e) =>
-            @emit said: {text: $('#box').val()}
-            $('#box').val('').focus()
+            data = { 'service': $('#services').serializeFormJSON() }
+            json = JSON.stringify(data)
+            $.ajax
+                type: "POST"
+                url: '/services'
+                data: json
+                contentType: "application/json; charset=utf-8"
+                success: ->
+                    console.log 'yay'
             e.preventDefault()
 
     @view index: ->
         doctype 5
         html ->
           head ->
-            title 'PicoChat!'
+            title 'CloudFlash Test Application!'
             script src: '/socket.io/socket.io.js'
             script src: '/zappa/jquery.js'
             script src: '/zappa/zappa.js'
+            script src: '/jquery-json.js'
             script src: '/index.js'
           body ->
             div id: 'panel'
-            form ->
-              input id: 'box'
-              button 'Send'
+            form '#services', ->
+                p ->
+                    span 'Service Name: '
+                    input '#name'
+                        type: 'text'
+                        name: 'name'
+                        placeholder: 'iptables'
+                p ->
+                    span 'Service Type: '
+                    input '#type',
+                        type: 'text'
+                        name: 'type'
+                        placeholder: 'firewall'
+                p ->
+                    span 'Package URL: '
+                    input '#pkgurl',
+                        type: 'text'
+                        name: 'pkgurl'
+                        placeholder: 'http://www.getmyfireall.here.com'
+                button 'Send'
