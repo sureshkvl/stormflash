@@ -1,4 +1,4 @@
-{@app} = require('zappajs') ->
+{@app} = require('zappajs') -> 
     @configure =>
       @use 'bodyParser', 'methodOverride', @app.router, 'static'
       @set 'basepath': '/v1.0'
@@ -55,7 +55,14 @@
             else
                 return @next new Error "Unable to download and install service package!"
             ).pipe(fs.createWriteStream(filename))
-
+    
+    @post '/openvpnpost': ->
+        return @next new Error "Invalid service openvpn posting!" unless @body.openvpnpost and @body.openvpnpost.openvpnpostdata
+        console.log "here in openvpnpost"
+        console.log @body.openvpnpost
+        id = uuid.v4()
+        #{ form: @body }
+    
     # helper routine for retrieving service data from dirty db
     loadService = ->
         console.log "loading service ID: #{@params.id}"
@@ -95,11 +102,19 @@
 
     @get '/': ->
         @render index: {title: 'cloudflash', layout: no}
-
+        
+	
     @on 'set nickname': ->
         @client.nickname = @data.nickname
 
     @on serviceadded: ->
+        @broadcast said: {nickname: @client.nickname, text: @data.text}
+        @emit said: {nickname: @client.nickname, text: @data.text}
+        
+    @get '/openvpn': ->
+        @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
+
+    @on serviceadded1: ->
         @broadcast said: {nickname: @client.nickname, text: @data.text}
         @emit said: {nickname: @client.nickname, text: @data.text}
 
@@ -124,6 +139,34 @@
                 contentType: "application/json; charset=utf-8"
                 success: (data) =>
                     @emit serviceadded: { text: $('#box').val() }
+
+
+            e.preventDefault()
+            
+      @client '/openvpn.js': ->
+        @connect()
+
+        @on serviceadded1: ->
+          $('#panel').append "<p>#{@data.openvpnpost.openvpnpostdata} said: #{@data.openvpnpost.id}</p>"
+
+        $ =>
+
+          $('#box').focus()
+
+          $('button').click (e) =>
+            alert 'openvpn'
+            data = { 'openvpnpost': $('#openvpnpost').serializeFormJSON() }
+            #data =  $('#openvpnpost').serializeFormJSON()
+            json = JSON.stringify(data)
+            alert 'data:' + data
+            alert 'json:' + json
+            $.ajax
+                type: "POST"
+                url: '/openvpnpost'
+                data: json
+                contentType: "application/json; charset=utf-8"
+                success: (data) =>
+                    @emit serviceadded1: { text: $('#box').val() }
 
 
             e.preventDefault()
@@ -160,3 +203,25 @@
                         name: 'pkgurl'
                         value: 'http://www.getmyfireall.here.com'
                 button 'Send'
+
+     @view openvpn: ->
+          doctype 5
+          html ->
+            head ->
+              title 'CloudFlash Test Application!'
+              script src: '/socket.io/socket.io.js'
+              script src: '/zappa/jquery.js'
+              script src: '/zappa/zappa.js'
+              script src: '/jquery-json.js'
+              script src: '/openvpn.js'
+            body ->
+              div id: 'panel'
+              form '#openvpnpost', ->
+                  p ->
+                      span 'Openvpn Input: '
+                      input '#openvpnpostdata'
+                          type: 'text'
+                          name: 'openvpnpostdata'
+                          value: ''
+                 
+                  button 'Send'              
