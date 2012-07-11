@@ -92,6 +92,7 @@
             # do some work
 
     # @include 'firewall'
+    # this is where all firewall code goes
 
     # @include 'openvpn'
 
