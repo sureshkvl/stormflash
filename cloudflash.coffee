@@ -29,6 +29,7 @@ traverseConfigObj = (obj, str) ->
     path = require 'path'
     exec = require('child_process').exec
 
+
     db.on 'load', ->
         console.log 'loaded cloudflash.db'
 
@@ -77,8 +78,19 @@ traverseConfigObj = (obj, str) ->
         console.log @body.services.openvpnpostdata
         id = uuid.v4()
         obj = JSON.parse(@body.services.openvpnpostdata)
-        retObj = traverseConfigObj(obj,str)
-	 #console.log 'redobj:'+retObj
+        
+	 #filename = __dirname + '/services/'+ varguid +'openvpn/server.conf'
+        filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
+        console.log 'filename:'+filename
+        if path.existsSync filename
+           retObj = traverseConfigObj(obj,str)
+           console.log 'found file' + retObj
+           fs.writeFileSync filename, retObj
+           @send @body
+        else
+           return @next new Error "Unable to find file!"
+
+        #console.log 'redobj:'+retObj
 	 #console.log 'obj:' + obj
   	 #console.log retObj
         #console.log 'post data:' + traverseConfigObj(obj,str) 
@@ -117,7 +129,68 @@ traverseConfigObj = (obj, str) ->
 
     # @include 'firewall'
 
+    @get '/services/:id/firewall/status': ->
+          console.log "Need to do this !!!"
+
+
+    @post '/services/:id/firewall/status': ->
+       var1 = @params.id
+       # check the params if the guid exist
+       service = db.get @params.id
+       if service
+            console.log service
+            console.log @body.selectvalue
+            resdata =''
+            # execut the command svcs firewall start/stop/restart/status
+            cmd = 'svcs iptables ' + @body.selectvalue
+            console.log cmd
+            exec 'pwd', (error, stdout, stderr) ->
+             if error
+              return @next new Error "Unable to run SVCS command!" if error
+             else
+              console.log stdout  
+            	resdata = stdout
+            # if the command is sucessfull capture the status and
+
+            # send as response
+       else
+            @next new Error "No such service ID: #{@params.id}"
+
+       #response1 ='{ \"services\" :{ \"openvpn\":\"'+var1 + '\" }}'
+       @send service
+
+
+
     # @include 'openvpn'
+    @get '/services/:id/openvpn/status': ->
+        console.log "Need to process !!!"
+ 	
+
+    @post '/services/:id/openvpn/status': ->
+       var1 = @params.id
+       # check the params if the guid exist 
+       service = db.get @params.id
+       if service
+            console.log service
+            console.log @body.selectvalue
+            resdata =''
+            # execut the command svcs firewall start/stop/restart/status
+            cmd = 'svcs openvpn ' + @body.selectvalue
+            console.log cmd
+            #for temporary we are executing the pwd command to avoid error
+            exec 'pwd', (error, stdout, stderr) ->
+             if error
+              return @next new Error "Unable to run the SCVS command!" if error
+             else
+              console.log stdout  
+            	resdata = stdout
+            # if the command is sucessfull capture the status and
+
+            # send as response
+       else
+            @next new Error "No such service ID: #{@params.id}"
+
+       @send service
 
 
 #
@@ -126,8 +199,7 @@ traverseConfigObj = (obj, str) ->
 
     @get '/': ->
         @render index: {title: 'cloudflash', layout: no}
-        
-	
+
     @on 'set nickname': ->
         @client.nickname = @data.nickname
 
@@ -136,6 +208,9 @@ traverseConfigObj = (obj, str) ->
         @emit said: {nickname: @client.nickname, text: @data.text}
         
     @get '/services/:id/openvpn': ->
+        var1 = @params.id
+        console.log 'guid:'+var1
+        #@body.service.id = var1 
         @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
 
     @on serviceadded1: ->
@@ -176,7 +251,7 @@ traverseConfigObj = (obj, str) ->
         @connect()
 
         @on serviceadded1: ->
-          $('#panel').append "<p>#{@data.services.openvpnpostdata} said: #{@data.services.id}</p>"
+          $('#panel').append "<p>#{@data.services.openvpnpostdata} said: #{@data.service.id}</p>"
 
         $ =>
 
@@ -185,13 +260,13 @@ traverseConfigObj = (obj, str) ->
           $('button').click (e) =>
             alert 'openvpn'
             data = { 'services': $('#services').serializeFormJSON() }
-            #data =  $('#services').serializeFormJSON()
+            #data =  $('#openvpnpostdata').val()				
             json = JSON.stringify(data)
             alert 'data:' + data
             alert 'json:' + json
             $.ajax
                 type: "POST"
-                url: '/services/:id/openvpn'
+                url: '/services/b815bcfc-7fd2-4574-9cec-2bde565972c3/openvpn'
                 data: json
                 contentType: "application/json; charset=utf-8"
                 success: (data) =>
@@ -252,6 +327,11 @@ traverseConfigObj = (obj, str) ->
                           type: 'text'
                           name: 'openvpnpostdata'
                           value: ''
+                   p ->
+                      input '#serviceid'
+                         type: 'hidden'
+                         name: 'serviceid'
+                         value: "+{@params.id}+"
                  
                   button 'Send'    
 
