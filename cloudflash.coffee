@@ -1,3 +1,15 @@
+str = ' '
+obj = ''
+traverseConfigObj = (obj, str) ->
+  resData = ""
+  for i of obj
+    #console.log 'here i:' + i
+    if typeof (obj[i]) is "object"
+      resData = resData + traverseConfigObj(obj[i], str)
+    else
+      resData = resData + i + str + obj[i] + "\n"
+  resData
+
 {@app} = require('zappajs') -> 
     @configure =>
       @use 'bodyParser', 'methodOverride', @app.router, 'static'
@@ -55,15 +67,26 @@
             else
                 return @next new Error "Unable to download and install service package!"
             ).pipe(fs.createWriteStream(filename))
-    
+
+     
+
     @post '/services/:id/openvpn': ->
-        console.log @body.openvpn
-        return @next new Error "Invalid service openvpn posting!" unless @body.openvpn and @body.openvpn.config
-        console.log "here in openvpnpost"
-        console.log @body.openvpnpost
+        return @next new Error "Invalid service openvpn posting!" unless @body.services and @body.services.openvpnpostdata
+        varguid = @params.id
+        console.log "here in openvpnpost" + varguid
+        console.log @body.services.openvpnpostdata
         id = uuid.v4()
-        #{ form: @body }
-    
+        obj = JSON.parse(@body.services.openvpnpostdata)
+        retObj = traverseConfigObj(obj,str)
+	 #console.log 'redobj:'+retObj
+	 #console.log 'obj:' + obj
+  	 #console.log retObj
+        #console.log 'post data:' + traverseConfigObj(obj,str) 
+        #webreq(@body.services.openvpnpostdata, (error, response, body) =>
+  	 #      console.log body  if not error and response.statusCode is 200
+	 #    @send @body
+    	 #    )
+
     # helper routine for retrieving service data from dirty db
     loadService = ->
         console.log "loading service ID: #{@params.id}"
@@ -94,11 +117,9 @@
             # do some work
 
     # @include 'firewall'
-    # this is where all firewall code goes
 
     # @include 'openvpn'
 
-    #  this is where all openvpn code goes
 
 #
 #sample program
@@ -115,7 +136,7 @@
         @broadcast said: {nickname: @client.nickname, text: @data.text}
         @emit said: {nickname: @client.nickname, text: @data.text}
         
-    @get '/openvpn': ->
+    @get '/services/:id/openvpn': ->
         @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
 
     @get '/delete': ->
@@ -178,12 +199,17 @@
                 success: (data) =>
                     @emit servicedeleted: { text: $('#box').val() }
             e.preventDefault()
-            
+
+      #now the data for testing is regualar JSON string
+      #this is to got as encoded string
+      #work in progress..      
+      #after recieving the encoded base64 do the decode appropriate
+
       @client '/openvpn.js': ->
         @connect()
 
         @on serviceadded1: ->
-          $('#panel').append "<p>#{@data.service.name} said: #{@data.service.id}</p>"
+          $('#panel').append "<p>#{@data.services.openvpnpostdata} said: #{@data.services.id}</p>"
 
         $ =>
 
@@ -191,8 +217,8 @@
 
           $('button').click (e) =>
             alert 'openvpn'
-            data = { 'openvpn': $('#openvpn').serializeFormJSON() }
-            #data =  $('#openvpnpost').serializeFormJSON()
+            data = { 'services': $('#services').serializeFormJSON() }
+            #data =  $('#services').serializeFormJSON()
             json = JSON.stringify(data)
             alert 'data:' + data
             alert 'json:' + json
@@ -273,7 +299,7 @@
               script src: '/openvpn.js'
             body ->
               div id: 'panel'
-              form '#openvpn', ->
+              form '#services', ->
                   p ->
                       span 'Service Name: '
                       input '#name'
@@ -296,6 +322,9 @@
                       span 'Openvpn Config: '
                       input '#configdata'
                           type: 'text'
-                          name: 'config'
-                          value: 'openvpn configuration'
-                button 'Send'              
+                          name: 'openvpnpostdata'
+                          value: ''
+                 
+                  button 'Send'    
+
+     
