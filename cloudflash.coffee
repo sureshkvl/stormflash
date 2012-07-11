@@ -45,7 +45,7 @@
             console.log "checking for service package at #{filename}"
             if path.existsSync filename
                 console.log 'found service package, issuing dpkg -i'
-                exec "dpkg -i #{filename}", (error, stdout, stderr) =>
+                exec "dpkg -c #{filename}", (error, stdout, stderr) =>
                     return @next new Error "Unable to install service package!" if error
 
                     @body.service.id = id
@@ -56,8 +56,9 @@
                 return @next new Error "Unable to download and install service package!"
             ).pipe(fs.createWriteStream(filename))
     
-    @post '/openvpnpost': ->
-        return @next new Error "Invalid service openvpn posting!" unless @body.openvpnpost and @body.openvpnpost.openvpnpostdata
+    @post '/services/:id/openvpn': ->
+        console.log @body.openvpn
+        return @next new Error "Invalid service openvpn posting!" unless @body.openvpn and @body.openvpn.config
         console.log "here in openvpnpost"
         console.log @body.openvpnpost
         id = uuid.v4()
@@ -86,9 +87,10 @@
             # do some work
 
     @del '/services/:id', loadService, ->
-        db.rm @params.id, ->
-            console.log "removed service ID: #{@params.id}"
-            @send ''
+        @body.service.id = @params.id 
+        db.rm @params.id, =>
+            console.log "removed service ID: #{@body.service.id}"
+            @send @body
             # do some work
 
     # @include 'firewall'
@@ -116,6 +118,14 @@
     @get '/openvpn': ->
         @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
 
+    @get '/delete': ->
+        @render delete: {title: 'cloudflash', layout: no}
+
+    @on servicedeleted: ->
+        @broadcast said: {nickname: @client.nickname, text: @data.text}
+        @emit said: {nickname: @client.nickname, text: @data.text}
+
+
     @on serviceadded1: ->
         @broadcast said: {nickname: @client.nickname, text: @data.text}
         @emit said: {nickname: @client.nickname, text: @data.text}
@@ -142,14 +152,38 @@
                 success: (data) =>
                     @emit serviceadded: { text: $('#box').val() }
 
+            e.preventDefault()
 
+
+      @client '/delete.js': ->
+        @connect()
+
+        @on servicedeleted: ->
+          $('#panel').append "<p>#{@data.service.id}</p>"
+
+        $ =>
+
+          $('#box').focus()
+
+          $('button').live "click", (e) =>
+            data = { 'service': $('#services').serializeFormJSON() }
+            json = JSON.stringify(data)
+            id = "/services/" + $("#id").val()
+            $.ajax
+                type: "DELETE"
+#               url: "/services/#id"
+                url: id
+                data: json
+                contentType: "application/json; charset=utf-8"
+                success: (data) =>
+                    @emit servicedeleted: { text: $('#box').val() }
             e.preventDefault()
             
       @client '/openvpn.js': ->
         @connect()
 
         @on serviceadded1: ->
-          $('#panel').append "<p>#{@data.openvpnpost.openvpnpostdata} said: #{@data.openvpnpost.id}</p>"
+          $('#panel').append "<p>#{@data.service.name} said: #{@data.service.id}</p>"
 
         $ =>
 
@@ -157,14 +191,14 @@
 
           $('button').click (e) =>
             alert 'openvpn'
-            data = { 'openvpnpost': $('#openvpnpost').serializeFormJSON() }
+            data = { 'openvpn': $('#openvpn').serializeFormJSON() }
             #data =  $('#openvpnpost').serializeFormJSON()
             json = JSON.stringify(data)
             alert 'data:' + data
             alert 'json:' + json
             $.ajax
                 type: "POST"
-                url: '/openvpnpost'
+                url: '/services/:id/openvpn'
                 data: json
                 contentType: "application/json; charset=utf-8"
                 success: (data) =>
@@ -206,6 +240,27 @@
                         value: 'http://www.getmyfireall.here.com'
                 button 'Send'
 
+    @view delete: ->
+        doctype 5
+        html ->
+          head ->
+            title 'CloudFlash Test Application!'
+            script src: '/socket.io/socket.io.js'
+            script src: '/zappa/jquery.js'
+            script src: '/zappa/zappa.js'
+            script src: '/jquery-json.js'
+            script src: '/delete.js'
+          body ->
+            div id: 'panel'
+            form '#services', ->
+                p ->
+                    span 'Service ID: '
+                    input '#id'
+                        type: 'text'
+                        name: 'id'
+                        value: 'service id'
+                button 'Send'
+          	
      @view openvpn: ->
           doctype 5
           html ->
@@ -218,12 +273,29 @@
               script src: '/openvpn.js'
             body ->
               div id: 'panel'
-              form '#openvpnpost', ->
+              form '#openvpn', ->
                   p ->
-                      span 'Openvpn Input: '
-                      input '#openvpnpostdata'
+                      span 'Service Name: '
+                      input '#name'
                           type: 'text'
-                          name: 'openvpnpostdata'
-                          value: ''
-                 
-                  button 'Send'              
+                          name: 'name'
+                          value: 'openvpn'
+                p ->
+                    span 'Service Type: '
+                    input '#type',
+                        type: 'text'
+                        name: 'type'
+                        value: 'vpn'
+                p ->
+                      span 'Service id: '
+                      input '#id'
+                          type: 'text'
+                          name: 'guid'
+                          value: 'openvpn guid'
+                p ->
+                      span 'Openvpn Config: '
+                      input '#configdata'
+                          type: 'text'
+                          name: 'config'
+                          value: 'openvpn configuration'
+                button 'Send'              
