@@ -14,6 +14,8 @@
 
     webreq = require 'request'
     fs = require 'fs'
+    path = require 'path'
+    exec = require('child_process').exec
 
     db.on 'load', ->
         console.log 'loaded cloudflash.db'
@@ -26,25 +28,33 @@
         @send res
 
     @post '/services': ->
-        return @next new Error "Invalid service posting!" unless @body.service?
+        return @next new Error "Invalid service posting!" unless @body.service and @body.service.pkgurl
 
-        @body.pkgurl ?= 'http://www.google.com/images/srpr/logo3w.png'
+#        @body.service.pkgurl = 'http://www.google.com/images/srpr/logo3w.png'
 
         # let's download this file from the web
         id = uuid.v4()
         filename = "/tmp/#{id}.pkg"
-        webreq(@body.pkgurl).pipe(fs.createWriteStream(filename)) if @body.pkgurl?
+        webreq(@body.service.pkgurl, (error, response, body) =>
+            # 1. verify that file has been downloaded
+            # 2. dpkg -i filename
+            # 3. verify that package has been installed
+            # 4. return success message back
+            return @next new Error "Unable to download service package!" if error
 
-        # invoke dpkg -i on filename, get the response code and if we downloaded ok, then...
-        # 1. verify that file has been downloaded
-        # 2. dpkg -i filename
-        # 3. verify that package has been installed
+            console.log "checking for service package at #{filename}"
+            if path.existsSync filename
+                console.log 'found service package, issuing dpkg -i'
+                exec "dpkg -i #{filename}", (error, stdout, stderr) =>
+                    return @next new Error "Unable to install service package!" if error
 
-        @body.service.id = id
-        db.set id, @body, =>
-            console.log "#{@body.pkgurl} downloaded and installed successfully as service ID: #{id}"
-            @send @body
-
+                    @body.service.id = id
+                    db.set id, @body, =>
+                    console.log "#{@body.service.pkgurl} downloaded and installed successfully as service ID: #{id}"
+                    @send @body
+            else
+                return @next new Error "Unable to download and install service package!"
+            ).pipe(fs.createWriteStream(filename))
 
     # helper routine for retrieving service data from dirty db
     loadService = ->
@@ -89,15 +99,15 @@
     @on 'set nickname': ->
         @client.nickname = @data.nickname
 
-    @on said: ->
+    @on serviceadded: ->
         @broadcast said: {nickname: @client.nickname, text: @data.text}
         @emit said: {nickname: @client.nickname, text: @data.text}
 
     @client '/index.js': ->
         @connect()
 
-        @on said: ->
-          $('#panel').append "<p>#{@data.nickname} said: #{@data.text}</p>"
+        @on serviceadded: ->
+          $('#panel').append "<p>#{@data.service.name} said: #{@data.service.id}</p>"
 
         $ =>
 #          @emit 'set nickname': {nickname: prompt 'Pick a nickname!'}
@@ -112,8 +122,10 @@
                 url: '/services'
                 data: json
                 contentType: "application/json; charset=utf-8"
-                success: ->
-                    console.log 'yay'
+                success: (data) =>
+                    @emit serviceadded: { text: $('#box').val() }
+
+
             e.preventDefault()
 
     @view index: ->
@@ -134,17 +146,17 @@
                     input '#name'
                         type: 'text'
                         name: 'name'
-                        placeholder: 'iptables'
+                        value: 'iptables'
                 p ->
                     span 'Service Type: '
                     input '#type',
                         type: 'text'
                         name: 'type'
-                        placeholder: 'firewall'
+                        value: 'firewall'
                 p ->
                     span 'Package URL: '
                     input '#pkgurl',
                         type: 'text'
                         name: 'pkgurl'
-                        placeholder: 'http://www.getmyfireall.here.com'
+                        value: 'http://www.getmyfireall.here.com'
                 button 'Send'
