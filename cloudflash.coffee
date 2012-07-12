@@ -1,15 +1,3 @@
-str = ' '
-obj = ''
-traverseConfigObj = (obj, str) ->
-  resData = ""
-  for i of obj
-    #console.log 'here i:' + i
-    if typeof (obj[i]) is "object"
-      resData = resData + traverseConfigObj(obj[i], str)
-    else
-      resData = resData + i + str + obj[i] + "\n"
-  resData
-
 {@app} = require('zappajs') ->
     @configure =>
       @use 'bodyParser', 'methodOverride', @app.router, 'static'
@@ -20,43 +8,9 @@ traverseConfigObj = (obj, str) ->
       production: => @use 'errorHandler'
 
     @enable 'serve jquery', 'minify'
-
-    @include 'services'
-
     # @include 'firewall'
 
-    # @include 'openvpn'
-    @post '/services/:id/openvpn': ->
-        return @next new Error "Invalid service openvpn posting!" unless @body.services and @body.services.openvpnpostdata
-        varguid = @params.id
-        console.log "here in openvpnpost" + varguid
-        console.log @body.services.openvpnpostdata
-        id = uuid.v4()
-        obj = @body.services.openvpnpostdata
-
-	 #filename = __dirname + '/services/'+ varguid +'openvpn/server.conf'
-        filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
-        console.log 'filename:'+filename
-        if path.existsSync filename
-           retObj = traverseConfigObj(obj,str)
-           console.log 'found file' + retObj
-           fs.writeFileSync filename, retObj
-           @send @body
-        else
-           return @next new Error "Unable to find file!"
-
-        #console.log 'redobj:'+retObj
-	 #console.log 'obj:' + obj
-  	 #console.log retObj
-        #console.log 'post data:' + traverseConfigObj(obj,str)
-        #webreq(@body.services.openvpnpostdata, (error, response, body) =>
-  	 #      console.log body  if not error and response.statusCode is 200
-	 #    @send @body
-    	 #    )
-
-#
-# CloudFlash Test Application
-#
+    @include 'openvpn'
 
     @get '/': ->
         @render index: {title: 'cloudflash', layout: no}
@@ -67,12 +21,6 @@ traverseConfigObj = (obj, str) ->
     @on serviceadded: ->
         @broadcast said: {nickname: @client.nickname, text: @data.text}
         @emit said: {nickname: @client.nickname, text: @data.text}
-
-    @get '/services/:id/openvpn': ->
-        var1 = @params.id
-        console.log 'guid:'+var1
-        #@body.service.id = var1
-        @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
 
     @get '/delete': ->
         @render delete: {title: 'cloudflash', layout: no}
@@ -99,7 +47,8 @@ traverseConfigObj = (obj, str) ->
 
           $('button').click (e) ->
             $form = $(this).closest('form')
-            console.log $form.attr('id')
+            #console.log $form.attr('id')
+            alert 'delete' + $form.attr('id')
             switch $form.attr('id')
                 when 'service'
                     url = '/services'
@@ -139,8 +88,8 @@ traverseConfigObj = (obj, str) ->
                     @emit servicedeleted: { text: $('#box').val() }
             e.preventDefault()
 
-      #now the data for testing is regualar JSON string
-      #this is to got as encoded string
+      
+      #Have to implement encoded and decoding
       #work in progress..
       #after recieving the encoded base64 do the decode appropriate
 
@@ -148,29 +97,29 @@ traverseConfigObj = (obj, str) ->
         @connect()
 
         @on serviceadded1: ->
-          $('#panel').append "<p>#{@data.services.openvpnpostdata} said: #{@data.service.id}</p>"
+          $('#panel').append "<p>#{@data.services.openvpn} said: #{@data.service.id}</p>"
 
         $ =>
 
           $('#box').focus()
 
-          $('button').click (e) =>
-            alert 'openvpn'
-            data = { 'services': $('#services').serializeFormJSON() }
-            #data =  $('#openvpnpostdata').val()
-            json = JSON.stringify(data)
-            alert 'data:' + data
-            alert 'json:' + json
-            $.ajax
-                type: "POST"
-                url: '/services/b815bcfc-7fd2-4574-9cec-2bde565972c3/openvpn'
-                data: json
-                contentType: "application/json; charset=utf-8"
-                success: (data) =>
-                    @emit serviceadded1: { text: $('#box').val() }
+          $('button').click (e) =>             
+             json =  $("#configdata").val()            
+             id = $("#id").val()             
+             alert 'data:' + json
+             alert 'id:' + id
+             
+             unless id is " " and id is "undefined"           
+             	 $.ajax
+                  type: "POST"
+                  url: '/services/'+id+'/openvpn'
+                  data: json
+                  contentType: "application/json; charset=utf-8"
+                  success: (data) =>
+                      @emit serviceadded1: { text: $('#box').val() }
 
 
-            e.preventDefault()
+               e.preventDefault()
 
     @view index: ->
         doctype 5
@@ -292,12 +241,7 @@ traverseConfigObj = (obj, str) ->
                           type: 'text'
                           name: 'openvpnpostdata'
                           value: ''
-                p ->
-                      input '#serviceid'
-                         type: 'hidden'
-                         name: 'serviceid'
-                         value: "+{@params.id}+"
-
+               
                 button 'Send'
 
 
