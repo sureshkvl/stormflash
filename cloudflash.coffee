@@ -47,8 +47,7 @@
 
           $('button').click (e) ->
             $form = $(this).closest('form')
-            #console.log $form.attr('id')
-            alert 'delete' + $form.attr('id')
+            #console.log $form.attr('id')            
             switch $form.attr('id')
                 when 'service'
                     url = '/services'
@@ -105,9 +104,7 @@
 
           $('button').click (e) =>             
              json =  $("#configdata").val()            
-             id = $("#id").val()             
-             alert 'data:' + json
-             alert 'id:' + id
+             id = $("#id").val()      
              
              unless id is " " and id is "undefined"           
              	 $.ajax

@@ -26,7 +26,7 @@
             proto: {"type": "string", "required": true}       
 
     
-    validateService = ->
+    validateOpenvpn = ->
         console.log 'performing schema validation on incoming service JSON'
         result = validate @body.services.openvpn, schema
         return @next new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
@@ -38,7 +38,7 @@
         #@body.service.id = var1
         @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
 
-    @post '/services/:id/openvpn', validateService, ->
+    @post '/services/:id/openvpn', validateOpenvpn, ->
         return @next new Error "Invalid service openvpn posting!" unless @body.services and @body.services.openvpn
         varguid = @params.id
         console.log "here in openvpnpost" + varguid
