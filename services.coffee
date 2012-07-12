@@ -120,6 +120,7 @@
         # 3. remove the service entry from DB
         service = @body.service
         console.log "verifying that the package has been installed as #{service.name}"
+        delFilePath = __dirname+'/services/'+service.id
         exec "dpkg -l #{service.name}", (error, stdout, stderr) =>
             return @next new Error "Unable to verify service package installation!" if error
 
@@ -128,6 +129,8 @@
                 return @next new Error "Unable to remove service package: #{service.name}!" if error
                 db.rm service.id, =>
                     console.log "removed service ID: #{service.id}"
+                    exec "rm -rf #{delFilePath}", (error, stdout, stderr) =>
+                         return @next new Error "Unable to remove services directory : #{service.name}!" if error
                     @send '{ deleted: ok }'
 
     @post '/services/:id/action', loadServiceaction, ->
