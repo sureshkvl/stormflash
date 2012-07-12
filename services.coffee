@@ -48,11 +48,20 @@
         if entry
             @body.service ?= entry.service
             console.log 'performing schema validation on incoming/retrieved JSON'
+            
             result = validate @body.service, schema
             return @next new Error "Invalid service posting!: #{result.errors}" unless result.valid
             @next()
         else
             @next new Error "No such service ID: #{@params.id}"
+
+    loadServiceaction = ->
+        console.log "loading service ID: #{@params.id} for action"
+        entry = db.get @params.id
+        if !entry
+            @next new Error "No such service ID: #{@params.id}"
+        @next()
+        
 
     @post '/services', validateService, ->
         # POST VALIDATION
@@ -121,25 +130,55 @@
                     console.log "removed service ID: #{service.id}"
                     @send '{ deleted: ok }'
 
-    @post '/services/:id/action', loadService, ->
-        service = @body.service
-        console.log "looking to issue 'svcs #{service.name} #{@body.command}'"
+    @post '/services/:id/action', loadServiceaction, ->
+        service = db.get @params.id
+        message = {'services':[]}
+        message.services.id   = @params.id
+        message.services.name = service.service.name               
+        #message.services.type = service.service.type
+                    
+        console.log service.service
+        console.log "looking to issue 'svcs #{service.service.name} #{@body.command}'"
         switch @body.command
-            when "start","stop","reload"
-                exec "svcs #{service.name} #{@body.command}", (error, stdout, stderr) =>
-                    return @next new Error "Unable to perform requested action!" if error
-                    message =
-                        result: "success"
+            when "start","stop","restart"
+                #exec "svcs #{service.service.name} #{@body.command}", (error, stdout, stderr) =>
+                exec "pwd", (error, stdout, stderr) => 
+                    return @next new Error "Unable to perform requested action!" if error             
+                    
+                    message.services.status = "success"                       
+                    result: "success"
                     console.log message
                     @send message
 
             when "status"
-                exec "svcs #{service.name} #{@body.command}", (error, stdout, stderr) =>
-#                exec "ls -lr", (error, stdout, stderr) =>
+                # for debugging the below command is uncommented. Kindly enable this
+                #exec "svcs #{service.service.name} #{@body.command}", (error, stdout, stderr) =>
+                 exec "pwd", (error, stdout, stderr) =>
                     return @next new Error "Unable to perform requested action!" if error
-                    message =
+
+                    # the strObj we capture the stdout and process the return values to foramt a gud JSON string
+                    #strObj = stdout
+                    
+                    strObj = "#{service.service.name} is enabled and running pid as 847"
+                    console.log strObj
+                    if strObj
+                      if strObj.indexOf("disabled") > 0                      
+                        message.services.enabled = 'false'
+                        message.services.status ='Not Running'
+                      else
+                        message.services.enabled = 'true'
+                        if strObj.indexOf("not") > 0                        
+                          message.services.status ='Not Running'
+                        else
+                          IndexLen = parseInt(strObj.indexOf("as"))
+                          unless IndexLen is -1
+                            indexArr = strObj.split(" ")
+                            message.services.pid =parseInt(indexArr[indexArr.length - 1]) if indexArr.length > 0
+
+                        message.services.status = 'running'
                         result: "#{stdout}"
                     console.log message
                     @send message
 
             else return @next new Error "Invalid action, must define 'command'!"
+

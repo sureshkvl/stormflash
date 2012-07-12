@@ -8,7 +8,9 @@
       production: => @use 'errorHandler'
 
     @enable 'serve jquery', 'minify'
-    # @include 'firewall'
+
+    @include 'services'
+    @include 'firewall'
 
     @include 'openvpn'
 
@@ -29,10 +31,14 @@
         @broadcast said: {nickname: @client.nickname, text: @data.text}
         @emit said: {nickname: @client.nickname, text: @data.text}
 
-
-    @on serviceadded1: ->
+    @on openvpnadded: ->
         @broadcast said: {nickname: @client.nickname, text: @data.text}
         @emit said: {nickname: @client.nickname, text: @data.text}
+
+    @on firewalladded: ->
+        @broadcast said: {nickname: @client.nickname, text: @data.text}
+        @emit said: {nickname: @client.nickname, text: @data.text}
+
 
     @client '/index.js': ->
         @connect()
@@ -95,7 +101,7 @@
       @client '/openvpn.js': ->
         @connect()
 
-        @on serviceadded1: ->
+        @on openvpnadded: ->
           $('#panel').append "<p>#{@data.services.openvpn} said: #{@data.service.id}</p>"
 
         $ =>
@@ -103,8 +109,8 @@
           $('#box').focus()
 
           $('button').click (e) =>             
-             json =  $("#configdata").val()            
-             id = $("#id").val()      
+             json =  $("#configdata").val()             
+             id = $("#id").val()
              
              unless id is " " and id is "undefined"           
              	 $.ajax
@@ -113,10 +119,36 @@
                   data: json
                   contentType: "application/json; charset=utf-8"
                   success: (data) =>
-                      @emit serviceadded1: { text: $('#box').val() }
+                      @emit openvpnadded: { text: $('#box').val() }
 
 
                e.preventDefault()
+
+       @client '/firewall.js': ->
+        @connect()
+
+        @on firewalladded: ->
+          $('#panel').append "<p>#{@data.services.firewall} said: #{@data.service.id}</p>"
+
+        $ =>
+
+          $('#box').focus()
+
+          $('button').click (e) =>             
+             json =  $("#configdata").val()             
+             id = $("#id").val()
+             
+             unless id is " " and id is "undefined"           
+             	 $.ajax
+                  type: "POST"
+                  url: '/services/'+id+'/firewall'
+                  data: json
+                  contentType: "application/json; charset=utf-8"
+                  success: (data) =>
+                      @emit firewalladded: { text: $('#box').val() }
+
+
+               e.preventDefault() 
 
     @view index: ->
         doctype 5
@@ -241,4 +273,43 @@
                
                 button 'Send'
 
+      @view firewall: ->
+          doctype 5
+          html ->
+            head ->
+              title 'CloudFlash Test Application!'
+              script src: '/socket.io/socket.io.js'
+              script src: '/zappa/jquery.js'
+              script src: '/zappa/zappa.js'
+              script src: '/jquery-json.js'
+              script src: '/firewall.js'
+            body ->
+              div id: 'panel'
+              form '#services', ->
+                p ->
+                      span 'Service Name: '
+                      input '#name'
+                          type: 'text'
+                          name: 'name'
+                          value: 'firewall'
+                p ->
+                    span 'Service Type: '
+                    input '#type',
+                        type: 'text'
+                        name: 'type'
+                        value: 'iptables'
+                p ->
+                      span 'Service id: '
+                      input '#id'
+                          type: 'text'
+                          name: 'guid'
+                          value: 'firewall guid'
+                p ->
+                      span 'Firewall Config: '
+                      input '#configdata'
+                          type: 'text'
+                          name: 'firewallpostdata'
+                          value: ''
+               
+                button 'Send'
 
