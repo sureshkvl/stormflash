@@ -10,7 +10,7 @@ traverseConfigObj = (obj, str) ->
       resData = resData + i + str + obj[i] + "\n"
   resData
 
-{@app} = require('zappajs') -> 
+{@app} = require('zappajs') ->
     @configure =>
       @use 'bodyParser', 'methodOverride', @app.router, 'static'
       @set 'basepath': '/v1.0'
@@ -21,64 +21,19 @@ traverseConfigObj = (obj, str) ->
 
     @enable 'serve jquery', 'minify'
 
-    uuid = require('node-uuid')
-    db   = require('dirty') '/tmp/cloudflash.db'
+    @include 'services'
 
-    webreq = require 'request'
-    fs = require 'fs'
-    path = require 'path'
-    exec = require('child_process').exec
+    # @include 'firewall'
 
-
-    db.on 'load', ->
-        console.log 'loaded cloudflash.db'
-
-    @get '/services': ->
-        res = { 'services': [] }
-        db.forEach (key,val) ->
-            console.log 'found ' + key
-            res.services.push val
-        @send res
-
-    @post '/services': ->
-        return @next new Error "Invalid service posting!" unless @body.service and @body.service.pkgurl
-
-#        @body.service.pkgurl = 'http://www.google.com/images/srpr/logo3w.png'
-
-        # let's download this file from the web
-        id = uuid.v4()
-        filename = "/tmp/#{id}.pkg"
-        webreq(@body.service.pkgurl, (error, response, body) =>
-            # 1. verify that file has been downloaded
-            # 2. dpkg -i filename
-            # 3. verify that package has been installed
-            # 4. return success message back
-            return @next new Error "Unable to download service package!" if error
-
-            console.log "checking for service package at #{filename}"
-            if path.existsSync filename
-                console.log 'found service package, issuing dpkg -i'
-                exec "dpkg -c #{filename}", (error, stdout, stderr) =>
-                    return @next new Error "Unable to install service package!" if error
-
-                    @body.service.id = id
-                    db.set id, @body, =>
-                    console.log "#{@body.service.pkgurl} downloaded and installed successfully as service ID: #{id}"
-                    @send @body
-            else
-                return @next new Error "Unable to download and install service package!"
-            ).pipe(fs.createWriteStream(filename))
-
-     
-
+    # @include 'openvpn'
     @post '/services/:id/openvpn': ->
         return @next new Error "Invalid service openvpn posting!" unless @body.services and @body.services.openvpnpostdata
         varguid = @params.id
         console.log "here in openvpnpost" + varguid
         console.log @body.services.openvpnpostdata
         id = uuid.v4()
-        obj = JSON.parse(@body.services.openvpnpostdata)
-        
+        obj = @body.services.openvpnpostdata
+
 	 #filename = __dirname + '/services/'+ varguid +'openvpn/server.conf'
         filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
         console.log 'filename:'+filename
@@ -93,109 +48,14 @@ traverseConfigObj = (obj, str) ->
         #console.log 'redobj:'+retObj
 	 #console.log 'obj:' + obj
   	 #console.log retObj
-        #console.log 'post data:' + traverseConfigObj(obj,str) 
+        #console.log 'post data:' + traverseConfigObj(obj,str)
         #webreq(@body.services.openvpnpostdata, (error, response, body) =>
   	 #      console.log body  if not error and response.statusCode is 200
 	 #    @send @body
     	 #    )
 
-    # helper routine for retrieving service data from dirty db
-    loadService = ->
-        console.log "loading service ID: #{@params.id}"
-        service = db.get @params.id
-        if service
-            @body.service ?= service
-            @next()
-        else
-            @next new Error "No such service ID: #{@params.id}"
-
-    @get '/services/:id', loadService, ->
-        @send @body
-
-    @put '/services/:id', loadService, ->
-        @body.service.id = @params.id
-        # can have intelligent merge here
-
-        db.set @params.id, @body, ->
-            console.log "updated service ID: #{@params.id}"
-            @send @body
-            # do some work
-
-    @del '/services/:id', loadService, ->
-        @body.service.id = @params.id 
-        db.rm @params.id, =>
-            console.log "removed service ID: #{@body.service.id}"
-            @send @body
-            # do some work
-
-    # @include 'firewall'
-
-    @get '/services/:id/firewall/status': ->
-          console.log "Need to do this !!!"
-
-
-    @post '/services/:id/firewall/status': ->
-       var1 = @params.id
-       # check the params if the guid exist
-       service = db.get @params.id
-       if service
-            console.log service
-            console.log @body.selectvalue
-            resdata =''
-            # execut the command svcs firewall start/stop/restart/status
-            cmd = 'svcs iptables ' + @body.selectvalue
-            console.log cmd
-            exec 'pwd', (error, stdout, stderr) ->
-             if error
-              return @next new Error "Unable to run SVCS command!" if error
-             else
-              console.log stdout  
-            	resdata = stdout
-            # if the command is sucessfull capture the status and
-
-            # send as response
-       else
-            @next new Error "No such service ID: #{@params.id}"
-
-       #response1 ='{ \"services\" :{ \"openvpn\":\"'+var1 + '\" }}'
-       @send service
-
-
-
-    # @include 'openvpn'
-    @get '/services/:id/openvpn/status': ->
-        console.log "Need to process !!!"
- 	
-
-    @post '/services/:id/openvpn/status': ->
-       var1 = @params.id
-       # check the params if the guid exist 
-       service = db.get @params.id
-       if service
-            console.log service
-            console.log @body.selectvalue
-            resdata =''
-            # execut the command svcs firewall start/stop/restart/status
-            cmd = 'svcs openvpn ' + @body.selectvalue
-            console.log cmd
-            #for temporary we are executing the pwd command to avoid error
-            exec 'pwd', (error, stdout, stderr) ->
-             if error
-              return @next new Error "Unable to run the SCVS command!" if error
-             else
-              console.log stdout  
-            	resdata = stdout
-            # if the command is sucessfull capture the status and
-
-            # send as response
-       else
-            @next new Error "No such service ID: #{@params.id}"
-
-       @send service
-
-
 #
-#sample program
+# CloudFlash Test Application
 #
 
     @get '/': ->
@@ -207,11 +67,11 @@ traverseConfigObj = (obj, str) ->
     @on serviceadded: ->
         @broadcast said: {nickname: @client.nickname, text: @data.text}
         @emit said: {nickname: @client.nickname, text: @data.text}
-        
+
     @get '/services/:id/openvpn': ->
         var1 = @params.id
         console.log 'guid:'+var1
-        #@body.service.id = var1 
+        #@body.service.id = var1
         @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
 
     @get '/delete': ->
@@ -237,16 +97,26 @@ traverseConfigObj = (obj, str) ->
 
           $('#box').focus()
 
-          $('button').click (e) =>
-            data = { 'service': $('#services').serializeFormJSON() }
+          $('button').click (e) ->
+            $form = $(this).closest('form')
+            console.log $form.attr('id')
+            switch $form.attr('id')
+                when 'service'
+                    url = '/services'
+                    data = { 'service': $form.serializeFormJSON() }
+                when 'action'
+                    url = '/services/'+ $form.find('input[name="id"]').val() + '/action'
+                    data = { 'command': $form.find('option:selected').val() }
+
             json = JSON.stringify(data)
+#            alert 'about to issue POST to: '+url+' with: '+json
+
             $.ajax
                 type: "POST"
-                url: '/services'
+                url: url
                 data: json
                 contentType: "application/json; charset=utf-8"
                 success: (data) =>
-                    @emit serviceadded: { text: $('#box').val() }
 
             e.preventDefault()
 
@@ -261,23 +131,17 @@ traverseConfigObj = (obj, str) ->
 
           $('#box').focus()
 
-          $('button').live "click", (e) =>
-            data = { 'service': $('#services').serializeFormJSON() }
-            json = JSON.stringify(data)
-            id = "/services/" + $("#id").val()
+          $('button').click (e) =>
             $.ajax
                 type: "DELETE"
-#               url: "/services/#id"
-                url: id
-                data: json
-                contentType: "application/json; charset=utf-8"
+                url: "/services/" + $("#id").val()
                 success: (data) =>
                     @emit servicedeleted: { text: $('#box').val() }
             e.preventDefault()
 
       #now the data for testing is regualar JSON string
       #this is to got as encoded string
-      #work in progress..      
+      #work in progress..
       #after recieving the encoded base64 do the decode appropriate
 
       @client '/openvpn.js': ->
@@ -293,7 +157,7 @@ traverseConfigObj = (obj, str) ->
           $('button').click (e) =>
             alert 'openvpn'
             data = { 'services': $('#services').serializeFormJSON() }
-            #data =  $('#openvpnpostdata').val()				
+            #data =  $('#openvpnpostdata').val()
             json = JSON.stringify(data)
             alert 'data:' + data
             alert 'json:' + json
@@ -320,26 +184,55 @@ traverseConfigObj = (obj, str) ->
             script src: '/index.js'
           body ->
             div id: 'panel'
-            form '#services', ->
-                p ->
-                    span 'Service Name: '
-                    input '#name'
-                        type: 'text'
-                        name: 'name'
-                        value: 'iptables'
-                p ->
-                    span 'Service Type: '
-                    input '#type',
-                        type: 'text'
-                        name: 'type'
-                        value: 'firewall'
-                p ->
-                    span 'Package URL: '
-                    input '#pkgurl',
-                        type: 'text'
-                        name: 'pkgurl'
-                        value: 'http://www.getmyfireall.here.com'
-                button 'Send'
+            div ->
+                p 'Create a new Service'
+                form '#service', ->
+                    input
+                        type: 'hidden'
+                        name: 'version'
+                        value: '1.0'
+                    p ->
+                        span 'Service Name: '
+                        input '#name'
+                            type: 'text'
+                            name: 'name'
+                            value: 'at'
+                    p ->
+                        span 'Service Type: '
+                        input '#family',
+                            type: 'text'
+                            name: 'family'
+                            value: 'remote-access'
+                    p ->
+                        span 'Package URL: '
+                        input '#pkgurl',
+                            type: 'text'
+                            name: 'pkgurl'
+                            value: 'http://10.1.10.145/vpnrac-0.0.1.deb'
+                    p ->
+                        span 'API PATH: '
+                        input '#apipath',
+                            type: 'text'
+                            name: 'api'
+                            value: '/vpnrac'
+                    button 'Send'
+            div ->
+                p 'Send an action to Service'
+                form '#action', ->
+                    p ->
+                        span 'Service ID: '
+                        input
+                            type: 'text'
+                            name: 'id'
+                            value: ''
+                    p ->
+                        span 'Action: '
+                        select name: 'action', ->
+                            option value: 'start', 'Start'
+                            option value: 'stop', 'Stop'
+                            option value: 'restart', 'Restart'
+                            option value: 'status', 'Status'
+                    button 'Send'
 
     @view delete: ->
         doctype 5
@@ -361,7 +254,7 @@ traverseConfigObj = (obj, str) ->
                         name: 'id'
                         value: 'service id'
                 button 'Send'
-          	
+
      @view openvpn: ->
           doctype 5
           html ->
@@ -375,7 +268,7 @@ traverseConfigObj = (obj, str) ->
             body ->
               div id: 'panel'
               form '#services', ->
-                  p ->
+                p ->
                       span 'Service Name: '
                       input '#name'
                           type: 'text'
@@ -399,12 +292,12 @@ traverseConfigObj = (obj, str) ->
                           type: 'text'
                           name: 'openvpnpostdata'
                           value: ''
-                   p ->
+                p ->
                       input '#serviceid'
                          type: 'hidden'
                          name: 'serviceid'
                          value: "+{@params.id}+"
-                 
-                  button 'Send'    
 
-     
+                button 'Send'
+
+
