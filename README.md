@@ -158,6 +158,7 @@ CloudFlash is a web framework for cloud based automation of openvpn, firmware, m
 	This API will delete the firewall service using GUID.
 
 7. Action API (@post /service/GUID/action)
+------------------------------------------
 	This API will be used to perform the action like start, stop, restart and status on the 
 	installed services by GUID.
 	eg : 
