@@ -12,7 +12,7 @@
 
     #db.on 'load', ->
     #    console.log 'loaded cloudflash.db'
-    #    db.forEach (key,val) ->
+    #   db.forEach (key,val) ->
     #        console.log 'found ' + key
 
     # testing openvpn validation with test schema
@@ -52,10 +52,7 @@
             txqueuelen: {"type":"string", "required":false}
             'replay-window': {"type":"string", "required":false}
             verb: {"type":"number", "required":false}
-            mock: {"type":"string", "required":false}
-	    
-
-	    
+            mock: {"type":"string", "required":false}	    
 	    	        
     validateOpenvpn = ->
         console.log 'performing schema validation on incoming service JSON'
@@ -63,16 +60,25 @@
         return @next new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
         @next() 
 
-    @get '/services/:id/openvpn': ->
+    loadOpenvpn = ->
+        console.log "loading service ID: #{@params.id}"
+        service = db.get @params.id
+        if service
+            #@body.service ?= service
+            @next()
+        else
+            @next new Error "No such service ID: #{@params.id}"
+
+    @get '/services/:id/openvpn', loadOpenvpn, ->
         var1 = @params.id
         console.log 'guid:'+var1
         #@body.service.id = var1
         @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
 
-    @post '/services/:id/openvpn', validateOpenvpn, ->
+    @post '/services/:id/openvpn', loadOpenvpn, validateOpenvpn, ->
         return @next new Error "Invalid service openvpn posting!" unless @body.services and @body.services.openvpn
         varguid = @params.id
-        console.log "here in openvpnpost" + varguid
+        console.log "here in openvpn post" + varguid
         console.log @body.services.openvpn
 	
 	# if the data arrrives as encoded base64 utf8 then we need 

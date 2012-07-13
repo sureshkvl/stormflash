@@ -13,6 +13,7 @@
     @include 'firewall'
 
     @include 'openvpn'
+    @include 'openvpnlog'
 
     @get '/': ->
         @render index: {title: 'cloudflash', layout: no}
@@ -110,8 +111,7 @@
 
           $('button').click (e) =>             
              json =  $("#configdata").val()             
-             id = $("#id").val()
-             
+             id = $("#id").val()             
              unless id is " " and id is "undefined"           
              	 $.ajax
                   type: "POST"
