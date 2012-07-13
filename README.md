@@ -3,6 +3,62 @@ cloudflash
 
 CloudFlash is a web framework for cloud based automation of openvpn, firmware, modules, and services.
 
+CloudFlash supports JSON data serialization format. The format for both the request and the response 
+should be specified by using the Content-Type header, the Accept header.
+
+URI structure:
+
+For now there is no API version specified in either URI or JSON data. But, in future we plan to use 
+API version in the URI. 
+
+   For example /services/V1.0/service family/service type
+   
+
+Authentication:
+
+Current implementation of cloudflash in VCG does not require that each request will include the credntials of 
+the user submiting the request.
+Plan is to have OAuth scheme of authentication.
+
+List of APIs
+
+  1. Services:
+     List Services
+         
+            Verb	URI	        Description
+             GET	/services	Lists summary of services configured in VCG identified by service ID.
+
+     Note: The operation does not require a message body.
+     Success: Returns JSON data with list of services installed on VCG. Each service is identified by service ID 
+     The service ID is generated is a UUID. 
+     Service Family is the generic service type while name is the actual service name. 
+     pkgurl: The package download link provided to VCG
+     api: Supported APIs for this service.
+     
+     Note: Currently no validation of the package contents done.
+     TODO: Caller to provide md5sum of the package along with pkgurl.
+     
+     Example Request and Response:
+     
+     GET /services HTTP/1.1
+     
+       Host: localhost:3000
+       Connection: keep-alive
+       Cache-Control: max-age=0
+       User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.47 Safari/536.11
+       Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+       Accept-Encoding: gzip,deflate,sdch
+       Accept-Language: en-US,en;q=0.8
+       Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3
+       
+     Response 
+     
+     {"services":[null,null,null,null,
+       {"service":
+         {"version":"1.0","name":"at","family":"remote-access","pkgurl":"http://10.1.10.145/vpnrac-0.0.1.deb","api":"/vpnrac","id":"40860f06-7dcf-41ab-a414-98957b092b7b","status":"installed"}
+       }]
+     }
+
 1. Get Services API (@services /)
 ---------------------------------
 	This API will collect the installed services like openvpn, firewall, etc on the device from
