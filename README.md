@@ -3,7 +3,7 @@ cloudflash
 
 CloudFlash is a web framework for cloud based automation of openvpn, firmware, modules, and services.
 
-CloudFlash supports JSON data serialization format. The format for both the request and the response 
+CloudFlash supports JSON data serialization format. The format for both the request and the response
 should be specified by using the Content-Type header, the Accept header.
 
 
@@ -28,17 +28,17 @@ should be specified by using the Content-Type header, the Accept header.
 
 *URI structure*
 
-For now there is no API version specified in either URI or JSON data. But, in future we plan to use 
-API version in the URI. 
+For now there is no API version specified in either URI or JSON data. But, in future we plan to use
+API version in the URI.
 
-For example 
+For example
 
       /services/V1.0/service family/service type
-   
+
 
 *Authentication*
 
-Current implementation of cloudflash in VCG does not require that each request will include the credntials of 
+Current implementation of cloudflash in VCG does not require that each request will include the credntials of
 the user submiting the request.
 Plan is to have OAuth scheme of authentication.
 
@@ -47,37 +47,37 @@ Plan is to have OAuth scheme of authentication.
 
 *Services*
 ----------
-     
+
  List Services
 --------------
-         
+
             Verb	URI	        Description
              GET	/services	Lists summary of services configured in VCG identified by service ID.
 
-     
+
 Note: The request does not require a message body.
-Success: Returns JSON data with list of services installed on VCG. Each service is identified by service ID 
+Success: Returns JSON data with list of services installed on VCG. Each service is identified by service ID
 
-The service ID is generated is a UUID. 
+The service ID is generated is a UUID.
 
-Service Family is the generic service type while name is the actual service name. 
+Service Family is the generic service type while name is the actual service name.
 
 pkgurl: The package download link provided to VCG
 
 api: Supported APIs for this service.
-     
+
 *Note: Currently no validation of the package contents done*
 
 *TODO: Caller to provide md5sum of the package along with pkgurl*
-     
+
 
 **Example Request and Response**
 
 *Request*
 
-```   
+```
        GET /services HTTP/1.1
-     
+
        Host: localhost:3000
        Connection: keep-alive
        Cache-Control: max-age=0
@@ -87,20 +87,22 @@ api: Supported APIs for this service.
        Accept-Language: en-US,en;q=0.8
        Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3
 ```
-       
+
 *Response*
-     
+
 ```
 {
-    "service": [
+    "services": [
         {
-            "version": "1.0",
-            "name": "at",
-            "family": "remote-access",
-            "pkgurl": "http://my-url.com/vpnrac-0.0.1.deb",
-            "api": "/vpnrac",
             "id": "40860f06-7dcf-41ab-a414-98957b092b7b",
             "status": "installed"
+            "api": "/vpnrac",
+			"description": {
+				 "name": "at",
+            	 "family": "remote-access",
+			     "version": "1.0",
+            	 "pkgurl": "http://my-url.com/vpnrac-0.0.1.deb"
+			}
         }
     ]
 }
@@ -109,7 +111,7 @@ api: Supported APIs for this service.
 Create Service
 ---------------
 
-         
+
             Verb	URI	        Description
              POST	/services	Create a new service in VCG.
 
@@ -127,7 +129,7 @@ On success it returns JSON data with the UUID for the service created.
 
 **Example Request and Response**
 
-Reqeust
+### Request Headers
 
 ```
 POST /services HTTP/1.1
@@ -143,24 +145,31 @@ Referer: http://localhost:3000/
 Accept-Encoding: gzip,deflate,sdch
 Accept-Language: en-US,en;q=0.8
 Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3
-Request Payload
-{"service":{"version":"1.0","name":"vpnrac","family":"vpn","pkgurl":"http://10.1.10.145/vpnrac-0.0.1.deb","api":"/services/openvpn"}}
 ```
 
-Response
-```
-{
-    "service": {
-        "version": "1.0",
-        "name": "vpnrac",
-        "family": "vpn",
-        "pkgurl": "http://10.1.10.145/vpnrac-0.0.1.deb",
-        "api": "/services/openvpn",
-        "id": "d40d38bd-aab0-4430-ac61-4b8ee91dc668",
-        "status": "installed"
+### Request JSON
+
+    {
+    	"name": "at",
+    	"family": "remote-access",
+    	"version": "1.0",
+    	"pkgurl": "http://my-url.com/vpnrac-0.0.1.deb"
     }
-}
-```
+
+
+### Response JSON
+
+        {
+            "id": "40860f06-7dcf-41ab-a414-98957b092b7b",
+            "status": "installed"
+            "api": "/vpnrac",
+			"description": {
+				 "name": "at",
+            	 "family": "remote-access",
+			     "version": "1.0",
+            	 "pkgurl": "http://my-url.com/vpnrac-0.0.1.deb"
+			}
+        }
 
 *Delete a service*
 ------------------
@@ -169,10 +178,10 @@ Response
              DELETE	/services/service-id	  Delete a service in VCG specified by service-ID
 
 
-On Success returns 200OK with JSON data 
+On Success returns 200OK with JSON data
 
 *TODO: Return appropriate error code and description in case of failure.*
-	
+
 Request
 ```
 DELETE /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
@@ -197,26 +206,26 @@ X-Powered-By:Express
 *Response*
 
 ```
-{ deleted: ok }
+{ deleted: "ok" }
 ```
 
 
 3. Post openVPN Config API (@post /service/GUID/openvpn)
 --------------------------------------------------------
-	
+
 4. Delete openVPN Service API (@del)
 ------------------------------------
 	This API will delete the specific service using GUID.
 
 5. Post Firewall Config API (@post /service/GUID/firewall)
 ----------------------------------------------------------
-	
+
 6. Delete Firewall Service API (@del)
 -------------------------------------
 	This API will delete the firewall service using GUID.
 
 7. Action API (@post /service/GUID/action)
 ------------------------------------------
-	This API will be used to perform the action like start, stop, restart and status on the 
+	This API will be used to perform the action like start, stop, restart and status on the
 	installed services by GUID.
-	
+

@@ -45,7 +45,7 @@
         @connect()
 
         @on serviceadded: ->
-          $('#panel').append "<p>#{@data.service.name} said: #{@data.service.id}</p>"
+          $('#panel').append "<p>#{@data} and #{@text}</p>"
 
         $ =>
 #          @emit 'set nickname': {nickname: prompt 'Pick a nickname!'}
@@ -54,44 +54,32 @@
 
           $('button').click (e) ->
             $form = $(this).closest('form')
+            sid = $form.find('input[name="id"]').val()
             #console.log $form.attr('id')
             switch $form.attr('id')
-                when 'service'
+                when 'create'
+                    type = "POST"
                     url = '/services'
-                    data = { 'service': $form.serializeFormJSON() }
+                    data = $form.serializeFormJSON()
                 when 'action'
-                    url = '/services/'+ $form.find('input[name="id"]').val() + '/action'
+                    type = "POST"
+                    url = "/services/#{sid}/action"
                     data = { 'command': $form.find('option:selected').val() }
+                when 'delete'
+                    type = "DELETE"
+                    url = "/services/#{sid}"
 
-            json = JSON.stringify(data)
+            json = JSON.stringify(data) if data
 #            alert 'about to issue POST to: '+url+' with: '+json
 
             $.ajax
-                type: "POST"
+                type: type
                 url: url
                 data: json
                 contentType: "application/json; charset=utf-8"
                 success: (data) =>
+                    @emit serviceevent: { text: data }
 
-            e.preventDefault()
-
-
-      @client '/delete.js': ->
-        @connect()
-
-        @on servicedeleted: ->
-          $('#panel').append "<p>#{@data.service.id}</p>"
-
-        $ =>
-
-          $('#box').focus()
-
-          $('button').click (e) =>
-            $.ajax
-                type: "DELETE"
-                url: "/services/" + $("#id").val()
-                success: (data) =>
-                    @emit servicedeleted: { text: $('#box').val() }
             e.preventDefault()
 
 
@@ -164,7 +152,7 @@
             div id: 'panel'
             div ->
                 p 'Create a new Service'
-                form '#service', ->
+                form '#create', ->
                     input
                         type: 'hidden'
                         name: 'version'
@@ -187,12 +175,6 @@
                             type: 'text'
                             name: 'pkgurl'
                             value: 'http://10.1.10.145/vpnrac-0.0.1.deb'
-                    p ->
-                        span 'API PATH: '
-                        input '#apipath',
-                            type: 'text'
-                            name: 'api'
-                            value: '/vpnrac'
                     button 'Send'
             div ->
                 p 'Send an action to Service'
@@ -211,27 +193,16 @@
                             option value: 'restart', 'Restart'
                             option value: 'status', 'Status'
                     button 'Send'
-
-    @view delete: ->
-        doctype 5
-        html ->
-          head ->
-            title 'CloudFlash Test Application!'
-            script src: '/socket.io/socket.io.js'
-            script src: '/zappa/jquery.js'
-            script src: '/zappa/zappa.js'
-            script src: '/jquery-json.js'
-            script src: '/delete.js'
-          body ->
-            div id: 'panel'
-            form '#services', ->
-                p ->
-                    span 'Service ID: '
-                    input '#id'
-                        type: 'text'
-                        name: 'id'
-                        value: 'service id'
-                button 'Send'
+            div ->
+                p 'Delete a Service'
+                form '#delete', ->
+                    p ->
+                        span 'Service ID: '
+                        input '#id'
+                            type: 'text'
+                            name: 'id'
+                            value: 'service id'
+                    button 'Send'
 
      @view openvpn: ->
           doctype 5
