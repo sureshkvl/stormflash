@@ -35,6 +35,9 @@
             res.services.push val.service
         @send res
 
+    # POST/PUT VALIDATION
+    # 1. need to make sure the incoming JSON is well formed
+    # 2. destructure the inbound object with proper schema
     validateService = ->
         console.log 'performing schema validation on incoming service JSON'
         result = validate @body.service, schema
@@ -64,42 +67,52 @@
 
 
     @post '/services', validateService, ->
-        # POST VALIDATION
-        # 1. need to make sure the incoming JSON is well formed
-        # 2. destructure the inbound object with proper schema
         service = @body.service
-        service.id = uuid.v4()
+        service.id ?= uuid.v4()
 
-        # let's download this file from the web
-        filename = "/tmp/#{service.id}.pkg"
-        webreq(service.pkgurl, (error, response, body) =>
-            # 1. verify that file has been downloaded
-            # 2. dpkg -i filename
-            # 3. verify that package has been installed
-            # 4. XXX - figure out the API endpoint dynamically
-            # 5. return success message back
-            return @next new Error "Unable to download service package!" if error
+        # 1. check if the ID already exists in DB, if so, we reject
+        # 2. check if package already installed, if so, we we skip download...
+        return @next new Error "Duplicate service ID detected!" if db.get service.id
 
-            console.log "checking for service package at #{filename}"
-            if path.existsSync filename
-                console.log 'found service package, issuing dpkg -i'
-                exec "dpkg -i -F depends #{filename}", (error, stdout, stderr) =>
-                    return @next new Error "Unable to install service package!" if error
-
-                    console.log "verifying that the package has been installed as #{service.name}"
-                    exec "dpkg -l #{service.name}", (error, stdout, stderr) =>
-                        return @next new Error "Unable to verify service package installation!" if error
-
-                        # XXX - TODO figure out the API endpoint for this new package...
-
-                        service.status = "installed"
-                        @body.service = service
-                        db.set service.id, @body, =>
-                        console.log "#{service.pkgurl} downloaded and installed successfully as service ID: #{service.id}"
-                        @send @body
+        console.log "checking if the package has already been installed as #{service.name}"
+        exec "dpkg -l #{service.name}", (error, stdout, stderr) =>
+            unless error
+                service.status = "installed"
+                @body.service = service
+                db.set service.id, @body, =>
+                    console.log "'#{service.name}' already installed successfully, initialized as new service ID: #{service.id}"
+                    @send @body
             else
-                return @next new Error "Unable to download and install service package!"
-            ).pipe(fs.createWriteStream(filename))
+                # let's download this file from the web
+                filename = "/tmp/#{service.id}.pkg"
+                webreq(service.pkgurl, (error, response, body) =>
+                    # 1. verify that file has been downloaded
+                    # 2. dpkg -i filename
+                    # 3. verify that package has been installed
+                    # 4. XXX - figure out the API endpoint dynamically
+                    # 5. return success message back
+                    return @next new Error "Unable to download service package!" if error
+
+                    console.log "checking for service package at #{filename}"
+                    if path.existsSync filename
+                        console.log 'found service package, issuing dpkg -i'
+                        exec "dpkg -i -F depends #{filename}", (error, stdout, stderr) =>
+                            return @next new Error "Unable to install service package!" if error
+
+                            console.log "verifying that the package has been installed as #{service.name}"
+                            exec "dpkg -l #{service.name}", (error, stdout, stderr) =>
+                                return @next new Error "Unable to verify service package installation!" if error
+
+                                # XXX - TODO figure out the API endpoint for this new package...
+
+                                service.status = "installed"
+                                @body.service = service
+                                db.set service.id, @body, =>
+                                    console.log "#{service.pkgurl} downloaded and installed successfully as service ID: #{service.id}"
+                                    @send @body
+                    else
+                        return @next new Error "Unable to download and install service package!"
+                    ).pipe(fs.createWriteStream(filename))
 
     @get '/services/:id', loadService, ->
         @send @body
