@@ -159,17 +159,17 @@ Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3
 
 ### Response JSON
 
-        {
-            "id": "40860f06-7dcf-41ab-a414-98957b092b7b",
-            "status": "installed"
-            "api": "/vpnrac",
-			"description": {
-				 "name": "at",
-            	 "family": "remote-access",
-			     "version": "1.0",
-            	 "pkgurl": "http://my-url.com/vpnrac-0.0.1.deb"
-			}
+    {
+        "id": "40860f06-7dcf-41ab-a414-98957b092b7b",
+        "status": "installed"
+        "api": "/vpnrac",
+        "description": {
+            "name": "at",
+            "family": "remote-access",
+            "version": "1.0",
+            "pkgurl": "http://my-url.com/vpnrac-0.0.1.deb"
         }
+    }
 
 *Delete a service*
 ------------------
