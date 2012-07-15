@@ -54,7 +54,7 @@
 
           $('button').click (e) ->
             $form = $(this).closest('form')
-            #console.log $form.attr('id')            
+            #console.log $form.attr('id')
             switch $form.attr('id')
                 when 'service'
                     url = '/services'
@@ -94,7 +94,7 @@
                     @emit servicedeleted: { text: $('#box').val() }
             e.preventDefault()
 
-      
+
       #Have to implement encoded and decoding
       #work in progress..
       #after recieving the encoded base64 do the decode appropriate
@@ -109,10 +109,10 @@
 
           $('#box').focus()
 
-          $('button').click (e) =>             
-             json =  $("#configdata").val()             
-             id = $("#id").val()             
-             unless id is " " and id is "undefined"           
+          $('button').click (e) =>
+             json =  $("#configdata").val()
+             id = $("#id").val()
+             unless id is " " and id is "undefined"
              	 $.ajax
                   type: "POST"
                   url: '/services/'+id+'/openvpn'
@@ -134,11 +134,11 @@
 
           $('#box').focus()
 
-          $('button').click (e) =>             
-             json =  $("#configdata").val()             
+          $('button').click (e) =>
+             json =  $("#configdata").val()
              id = $("#id").val()
-             
-             unless id is " " and id is "undefined"           
+
+             unless id is " " and id is "undefined"
              	 $.ajax
                   type: "POST"
                   url: '/services/'+id+'/firewall'
@@ -148,7 +148,7 @@
                       @emit firewalladded: { text: $('#box').val() }
 
 
-               e.preventDefault() 
+               e.preventDefault()
 
     @view index: ->
         doctype 5
@@ -270,7 +270,7 @@
                           type: 'text'
                           name: 'openvpnpostdata'
                           value: ''
-               
+
                 button 'Send'
 
       @view firewall: ->
@@ -310,6 +310,6 @@
                           type: 'text'
                           name: 'firewallpostdata'
                           value: ''
-               
+
                 button 'Send'
 

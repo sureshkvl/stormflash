@@ -25,14 +25,14 @@
             family: {"type": "string", "required": true}
             version:{"type": "string", "required": true}
             pkgurl: {"type": "string", "required": true}
-            api:    {"type": "string", "required": true}
+            api:    {"type": "string"}
             status: {"type": "string"}
 
     @get '/services': ->
         res = { 'services': [] }
         db.forEach (key,val) ->
             console.log 'found ' + key
-            res.services.push val
+            res.services.push val.service
         @send res
 
     validateService = ->
@@ -48,7 +48,7 @@
         if entry
             @body.service ?= entry.service
             console.log 'performing schema validation on incoming/retrieved JSON'
-            
+
             result = validate @body.service, schema
             return @next new Error "Invalid service posting!: #{result.errors}" unless result.valid
             @next()
@@ -61,7 +61,7 @@
         if !entry
             @next new Error "No such service ID: #{@params.id}"
         @next()
-        
+
 
     @post '/services', validateService, ->
         # POST VALIDATION
@@ -76,7 +76,8 @@
             # 1. verify that file has been downloaded
             # 2. dpkg -i filename
             # 3. verify that package has been installed
-            # 4. return success message back
+            # 4. XXX - figure out the API endpoint dynamically
+            # 5. return success message back
             return @next new Error "Unable to download service package!" if error
 
             console.log "checking for service package at #{filename}"
@@ -88,6 +89,9 @@
                     console.log "verifying that the package has been installed as #{service.name}"
                     exec "dpkg -l #{service.name}", (error, stdout, stderr) =>
                         return @next new Error "Unable to verify service package installation!" if error
+
+                        # XXX - TODO figure out the API endpoint for this new package...
+
                         service.status = "installed"
                         @body.service = service
                         db.set service.id, @body, =>
@@ -137,18 +141,18 @@
         service = db.get @params.id
         message = {'services':[]}
         message.services.id   = @params.id
-        message.services.name = service.service.name               
+        message.services.name = service.service.name
         #message.services.type = service.service.type
-                    
+
         console.log service.service
         console.log "looking to issue 'svcs #{service.service.name} #{@body.command}'"
         switch @body.command
             when "start","stop","restart"
                 #exec "svcs #{service.service.name} #{@body.command}", (error, stdout, stderr) =>
-                exec "pwd", (error, stdout, stderr) => 
-                    return @next new Error "Unable to perform requested action!" if error             
-                    
-                    message.services.status = "success"                       
+                exec "pwd", (error, stdout, stderr) =>
+                    return @next new Error "Unable to perform requested action!" if error
+
+                    message.services.status = "success"
                     result: "success"
                     console.log message
                     @send message
@@ -161,16 +165,16 @@
 
                     # the strObj we capture the stdout and process the return values to foramt a gud JSON string
                     #strObj = stdout
-                    
+
                     strObj = "#{service.service.name} is enabled and running pid as 847"
                     console.log strObj
                     if strObj
-                      if strObj.indexOf("disabled") > 0                      
+                      if strObj.indexOf("disabled") > 0
                         message.services.enabled = 'false'
                         message.services.status ='Not Running'
                       else
                         message.services.enabled = 'true'
-                        if strObj.indexOf("not") > 0                        
+                        if strObj.indexOf("not") > 0
                           message.services.status ='Not Running'
                         else
                           IndexLen = parseInt(strObj.indexOf("as"))
