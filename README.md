@@ -226,8 +226,8 @@ X-Powered-By:Express
 Modify openVPN Configuration
 ----------------------------
 
-            Verb	URI	        			Description
-             POST	/services/service-id/openvpn		 Update the openvpn server.conf file in VCG.
+            Verb	URI	        		Description
+             POST	/services/service-id/openvpn	 Update the openvpn server.conf file in VCG.
 
 
 The request must have the following parameters in JSON data
@@ -303,10 +303,6 @@ X-Requested-With	XMLHttpRequest
            
 
 
-Delete openVPN Service API (@del)
----------------------------------
-	This API will delete the specific service using GUID.
-
 
 Modify the firewall Config
 --------------------------
@@ -379,12 +375,50 @@ X-Powered-By	Express
          }
         
 
-Delete Firewall Service API (@del)
-----------------------------------
-	This API will delete the firewall service using GUID.
-
 Action Command API
 ------------------
-	This API will be used to perform the action like start, stop, restart and status on the
-	installed services and identified by service-id
+This API is used to perform the action like start, stop, restart and status on the dinstalled services and identified by service-id
+
+            Verb	URI	        		Description
+             POST	/services/service-id/action	Execute action command .
+
+
+**Example Request and Response**
+
+### Request Headers
+
+```
+POST /services/a12796b8-c786-4351-ba7d-4b95cd8e0797/action HTTP/1.1
+Host: 10.2.56.153:3000
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:13.0) Gecko/20100101 Firefox/13.0.1
+Accept: */*
+Accept-Language: en-us,en;q=0.5
+Accept-Encoding: gzip, deflate
+Connection: keep-alive
+Content-Type: application/json; charset=utf-8
+X-Requested-With: XMLHttpRequest
+Referer: http://10.2.56.153:3000/
+Content-Length: 18
+Pragma: no-cache
+Cache-Control: no-cache
+```
+
+### Request JSON
+
+		{"command":"stop"}
+
+
+### Response JSON
+
+		{
+                   "services":{
+				"id":"a12796b8-c786-4351ba7d-4b95cd8e0797",
+				"name":"openvpn",
+				"enabled":"true",
+				"pid":9392,
+				"status":"running",
+				"action":"success"
+                              }
+		}
+
 
