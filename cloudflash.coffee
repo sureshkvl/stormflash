@@ -10,8 +10,9 @@
     @enable 'serve jquery', 'minify'
 
     @include 'services'
-    @include 'firewall'
+    @include 'personality'
 
+    @include 'firewall'
     @include 'openvpn'
     @include 'openvpnlog'
 
@@ -68,6 +69,10 @@
                 when 'delete'
                     type = "DELETE"
                     url = "/services/#{sid}"
+                when 'personality'
+                    type = "POST"
+                    url = "/personality"
+                    data = { 'personality': [ $form.serializeFormJSON() ] }
 
             json = JSON.stringify(data) if data
 #            alert 'about to issue POST to: '+url+' with: '+json
@@ -202,6 +207,27 @@
                             type: 'text'
                             name: 'id'
                             value: 'service id'
+                    button 'Send'
+            div ->
+                p 'Post a Personality'
+                form '#personality', ->
+                    p ->
+                        span 'Path: '
+                        input '#path'
+                            type: 'text'
+                            name: 'path'
+                            value: ''
+                    p ->
+                        span 'Contents: '
+                        textarea '#contents'
+                            name: 'contents'
+                            value: ''
+                    p ->
+                        span 'Postxfer: '
+                        input '#postxfer'
+                            type: 'text'
+                            name: 'postxfer'
+                            value: ''
                     button 'Send'
 
      @view openvpn: ->
