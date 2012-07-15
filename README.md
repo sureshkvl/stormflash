@@ -213,6 +213,84 @@ X-Powered-By:Express
 3. Post openVPN Config API (@post /service/GUID/openvpn)
 --------------------------------------------------------
 
+
+            Verb	URI	        				Description
+             POST	/services/service-id/openvpn		 	  Update the openvpn server.conf file in VCG.
+
+
+The request must have the following parameters in JSON data
+
+      1. service Name
+      2. service Type
+      3. Service id
+      4. Openvpn config
+      
+On success it returns JSON data with the service-id, service Name, config success.
+
+*TODO: Define JSON format for error codes and description.*
+
+**Example Request and Response**
+
+### Request Headers
+
+```
+Connection	keep-alive
+Content-Length	221
+Content-Type	application/json; charset=utf-8
+X-Powered-By	Express
+Request Headers
+Accept	*/*
+Accept-Encoding	gzip, deflate
+Accept-Language	en-us,en;q=0.5
+Cache-Control	no-cache
+Connection	keep-alive
+Content-Length	156
+Content-Type	application/json; charset=utf-8
+Host	10.2.56.153:3000
+Pragma	no-cache
+Referer	http://10.2.56.153:3000/
+User-Agent	Mozilla/5.0 (Windows NT 5.1; rv:12.0) Gecko/20100101 Firefox/12.0
+X-Requested-With	XMLHttpRequest
+```
+
+### Request JSON
+
+     	{
+     	  "services":{ 
+     	               "openvpn": {
+     	                            "port":7500, 
+     	                            "dev": "tap test",
+     	                            "proto": "udp", 
+     	                            "script-security": "3 system", 
+     	                            "multihome":"", 
+     	                            "management": "127.0.0.1 2020",
+     	                            "cipher": "AES-256-CBC", 
+     	                            "tls-cipher": "AES256-SHA", 
+     	                            "auth": "SHA1", 
+     	                            "ca": "/etc/ca-bundle.pem",
+     	                            "dh": "/etc/dh1024.pem",
+     	                            "cert": "/etc/identity/snap.cert",
+     	                            "key": "/etc/identity/snap.key", 
+     	                            "topology": "subnet", 
+     	                            "server": "10.2.55.10 255.255.255.0"
+     	                            }
+     	                }
+     	    }
+
+### Response JSON
+
+        
+        {
+           "services":{
+                        "id":"a12796b8-c786-4351-ba7d-4b95cd8e0797",
+                        "name":"openvpn",
+                        "config":"success"
+                       }
+         }
+        
+           
+
+
 4. Delete openVPN Service API (@del)
 ------------------------------------
 	This API will delete the specific service using GUID.
