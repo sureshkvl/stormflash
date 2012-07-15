@@ -61,7 +61,9 @@
         if entry
             desc = @body
             @body = entry
-            @body.description = desc if ?desc
+            
+            #@body.description = desc if ?desc
+            @body.description = desc if desc
             console.log 'performing schema validation on incoming/retrieved JSON'
 
             result = validate @body, schema
