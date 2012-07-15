@@ -61,7 +61,9 @@
         if entry
             desc = @body
             @body = entry
-            @body.description = desc if ?desc
+            
+            #@body.description = desc if ?desc
+            @body.description = desc if desc
             console.log 'performing schema validation on incoming/retrieved JSON'
 
             result = validate @body, schema
@@ -71,7 +73,7 @@
         else
             @next new Error "No such service ID: #{@params.id}"
 
-    loadServiceWithAction = ->
+    loadServiceaction = ->
         console.log "loading service ID: #{@params.id} for action"
         entry = db.get @params.id
         if !entry
@@ -162,24 +164,23 @@
                          return @next new Error "Unable to remove services directory : #{desc.name}!" if error
                     @send { deleted: "ok" }
 
-    @post '/services/:id/action', loadService, ->
+    @post '/services/:id/action', loadServiceaction, ->
         return @next new Error "Invalid service posting!" unless @body.command
-
-        service = @body
-#        message = {'services':{}}
-
-        console.log service
-        console.log "looking to issue 'svcs #{service.name} #{@body.command}'"
+        service = db.get @params.id
+        message = {'services':{}}
+        message.services.id   = @params.id
+        message.services.name = service.service.name               
+        #message.services.type = service.service.type
+                    
+        console.log service.service
+        console.log "looking to issue 'svcs #{service.service.name} #{@body.command}'"
         switch @body.command
             when "start","stop","restart"
-                #exec "svcs #{service.service.name} #{@body.command}", (error, stdout, stderr) =>
-                exec "pwd", (error, stdout, stderr) =>
-                    return @next new Error "Unable to perform requested action '#{@body.command}' on '#{service.name}!" if error
-
-                    message.services.status = "success"
-                    @body.result = "success"
-                    console.log @body
-                    @send @body
+                exec "svcs #{service.service.name} #{@body.command}", (error, stdout, stderr) =>
+                #exec "pwd", (error, stdout, stderr) => 
+                    return @next new Error "Unable to perform requested action!" if error                              
+                    message.services.action = "success"                                    
+                    @send message
 
             when "status"
                 # for debugging the below command is uncommented. Kindly enable this
@@ -189,19 +190,19 @@
 
                     # the strObj we capture the stdout and process the return values to foramt a gud JSON string
                     strObj = stdout
-
+                    
                     #strObj = "#{service.service.name} is enabled and running pid as 847"
                     console.log strObj
                     if strObj
-                      if strObj.indexOf("disabled") > 0
+                      if strObj.indexOf("disabled") > 0                      
                         message.services.enabled = 'false'
                         message.services.status ='Not Running'
-                        message.services.action = "failed"
+                        message.services.action = "success"
                       else
                         message.services.enabled = 'true'
-                        if strObj.indexOf("not") > 0
+                        if strObj.indexOf("not") > 0                        
                           message.services.status ='Not Running'
-                          message.services.action = "failed"
+                          message.services.action = "success"
                         else
                           IndexLen = parseInt(strObj.indexOf("as"))
                           unless IndexLen is -1
