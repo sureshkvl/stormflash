@@ -10,11 +10,6 @@
     # validation is used by other modules
     validate = require('json-schema').validate
 
-    #db.on 'load', ->
-    #    console.log 'loaded cloudflash.db'
-    #   db.forEach (key,val) ->
-    #        console.log 'found ' + key
-
     # testing openvpn validation with test schema
     schema =
         name: "openvpn"
@@ -69,41 +64,34 @@
         else
             @next new Error "No such service ID: #{@params.id}"
 
-    @get '/services/:id/openvpn', loadOpenvpn, ->
-        var1 = @params.id
-        console.log 'guid:'+var1
-        #@body.service.id = var1
+    @get '/services/:id/openvpn', loadOpenvpn, ->        
         @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
 
     @post '/services/:id/openvpn', loadOpenvpn, validateOpenvpn, ->
         return @next new Error "Invalid service openvpn posting!" unless @body.services and @body.services.openvpn
+        resp = {'services':{}}
         varguid = @params.id
-        console.log "here in openvpn post" + varguid
-        console.log @body.services.openvpn
-	
-	# if the data arrrives as encoded base64 utf8 then we need 
-	# to decode it. just uncomment the following lines and 
-	# pass decode data to obj instead of @body.services.openvpn
-	
-        #encodeData = @body.services.openvpn
-        #dcodData = new Buffer(encodeData,"base64").toString("utf8")
-        #console.log 'result:' + dcodData
-        
-        id = uuid.v4()
+        resp.services.id = varguid
+        resp.services.name = "openvpn"               
         obj = @body.services.openvpn	 
-        filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
-        console.log 'filename:'+filename
+        filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'        
         if path.existsSync filename           
            resData = ''
-           for i of obj
-    	      #console.log 'here i:' + i
+           for i of obj    	      
              resData = resData + i + ' ' + obj[i] + "\n"  unless typeof (obj[i]) is "object"
            resData
-
-           console.log 'found file' + resData
-           fs.writeFileSync filename, resData
-           @send @body
+           
+           if resData
+             try                    
+               fs.writeFileSync filename, resData
+               resp.services.config = "success"
+             catch err
+               resp.services.config = "failed"
+           else
+             resp.services.config = "failed"
+           
+           @send resp
         else
-           return @next new Error "Unable to find file!"
+           return @next new Error "Unable to find file #{filename}!"
 
 

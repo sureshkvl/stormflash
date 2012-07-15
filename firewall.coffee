@@ -10,29 +10,6 @@
     # validation is used by other modules
     validate = require('json-schema').validate
 
-    #db.on 'load', ->
-    #    console.log 'loaded cloudflash.db'
-    #    db.forEach (key,val) ->
-    #        console.log 'found ' + key
-
-    # testing firewall validation with test schema
-    #final validations to be and full schema to be added
-    schemafirewall =
-        name: "firewall"
-        type: "object"
-        additionalProperties: false
-        properties:
-            LOGFILE:  {"type": "string"}
-            LOGFORMAT:   {"type": "string", "required": true}
-            LOGTAGONLY: {"type": "string", "required": true}       
-
-    
-    validateFirewall = ->
-        console.log 'performing schema validation on incoming service JSON'
-        result = validate @body.services.firewall, schemafirewall 
-        return @next new Error "Invalid service firewall posting!: #{result.errors}" unless result.valid
-        @next() 
-
     loadFirewall = ->
         console.log "loading service ID: #{@params.id}"
         service = db.get @params.id
@@ -40,35 +17,30 @@
             #@body.service ?= service
             @next()
         else
-            @next new Error "No such service ID: #{@params.id}"
+            @next error = new Error "No such service ID: #{@params.id}"        
 
-    @get '/services/:id/firewall', loadFirewall, ->
-        var1 = @params.id
-        console.log 'guid:'+var1
-        #@body.service.id = var1
+    @get '/services/:id/firewall', loadFirewall, ->     
         @render firewall: {title: 'cloudflash firewall post', layout: no}
 
-    @post '/services/:id/firewall', loadFirewall, validateFirewall, ->
-        return @next new Error "Invalid service firewall posting!" unless @body.services and @body.services.firewall
+    @post '/services/:id/firewall', loadFirewall, ->
+        return @next error = new Error "Invalid service firewall posting!" unless @body.services and @body.services.firewall and @body.services.firewall.command
+        resp = {'services':{}}
         varguid = @params.id
-        console.log "here in firewall post" + varguid
-        console.log @body.services.firewall
-        #encodeData = @body.services.firewall
-        #dcodData = new Buffer(encodeData,"base64").toString("utf8")
-        #console.log 'result:' + dcodData
-        id = uuid.v4()
+        resp.services.id = varguid
+        resp.services.name = "iptable"                
         obj = @body.services.firewall	 
-        filename = __dirname+'/services/'+varguid+'/firewall/shorewall.conf'
-        console.log 'filename:'+filename
-        if path.existsSync filename           
-           resData = ''
-           for i of obj    	      
-             resData = resData + i + '=' + obj[i] + "\n"  unless typeof (obj[i]) is "object"
-           resData
-           console.log 'found file' + resData
-           fs.writeFileSync filename, resData
-           @send @body
+        filename = __dirname+'/services/'+varguid+'/firewall/firewall.sh'                
+        if path.existsSync filename
+           encodeData = obj.command
+           dcodData = new Buffer(encodeData,"base64").toString("utf8")
+           #console.log 'result:' + dcodData
+           try                    
+             fs.writeFileSync filename, dcodData
+             resp.services.command = "success"
+           catch err
+             resp.services.command = "failed"
+           @send resp
         else
-           return @next new Error "Unable to find file!"
+           return @next error = new Error "Unable to find file #{filename}!"
 
 

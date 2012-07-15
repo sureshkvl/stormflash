@@ -83,7 +83,7 @@
             console.log "checking for service package at #{filename}"
             if path.existsSync filename
                 console.log 'found service package, issuing dpkg -i'
-                exec "dpkg -c #{filename}", (error, stdout, stderr) =>
+                exec "dpkg -i -F depends #{filename}", (error, stdout, stderr) =>
                     return @next new Error "Unable to install service package!" if error
 
                     console.log "verifying that the package has been installed as #{service.name}"
@@ -138,8 +138,9 @@
                     @send '{ deleted: ok }'
 
     @post '/services/:id/action', loadServiceaction, ->
+        return @next new Error "Invalid service posting!" unless @body.command
         service = db.get @params.id
-        message = {'services':[]}
+        message = {'services':{}}
         message.services.id   = @params.id
         message.services.name = service.service.name
         #message.services.type = service.service.type
@@ -159,23 +160,25 @@
 
             when "status"
                 # for debugging the below command is uncommented. Kindly enable this
-                #exec "svcs #{service.service.name} #{@body.command}", (error, stdout, stderr) =>
-                 exec "pwd", (error, stdout, stderr) =>
+                exec "svcs #{service.service.name} #{@body.command}", (error, stdout, stderr) =>
+                 #exec "pwd", (error, stdout, stderr) =>
                     return @next new Error "Unable to perform requested action!" if error
 
                     # the strObj we capture the stdout and process the return values to foramt a gud JSON string
-                    #strObj = stdout
+                    strObj = stdout
 
-                    strObj = "#{service.service.name} is enabled and running pid as 847"
+                    #strObj = "#{service.service.name} is enabled and running pid as 847"
                     console.log strObj
                     if strObj
                       if strObj.indexOf("disabled") > 0
                         message.services.enabled = 'false'
                         message.services.status ='Not Running'
+                        message.services.action = "failed"
                       else
                         message.services.enabled = 'true'
                         if strObj.indexOf("not") > 0
                           message.services.status ='Not Running'
+                          message.services.action = "failed"
                         else
                           IndexLen = parseInt(strObj.indexOf("as"))
                           unless IndexLen is -1
@@ -183,9 +186,9 @@
                             message.services.pid =parseInt(indexArr[indexArr.length - 1]) if indexArr.length > 0
 
                         message.services.status = 'running'
+                        message.services.action = "success"
                         result: "#{stdout}"
                     console.log message
                     @send message
 
             else return @next new Error "Invalid action, must define 'command'!"
-
