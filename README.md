@@ -23,6 +23,16 @@ should be specified by using the Content-Type header, the Accept header.
   <tr>
     <td>DELETE</td><td>/services/service-id</td><td>Delete an installed service in VCG by service ID</td>
   </tr>
+  <tr>
+    <td>POST</td><td>/services/service-id/openvpn</td><td>Modify existing OpenVPN configuration</td>
+  </tr>
+  <tr>
+    <td>POST</td><td>/services/service-id/firewall</td><td>Modify existing Firewall configuration</td>
+  </tr>
+  <tr>
+    <td>POST</td><td>/services/service-id/action</td><td>Execute command on the VCG</td>
+  </tr>
+  
 </table>
 
 
@@ -171,8 +181,8 @@ Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3
 			}
         }
 
-*Delete a service*
-------------------
+Delete a service
+----------------
 
             Verb	URI	                 Description
              DELETE	/services/service-id	  Delete a service in VCG specified by service-ID
@@ -182,7 +192,10 @@ On Success returns 200OK with JSON data
 
 *TODO: Return appropriate error code and description in case of failure.*
 
-Request
+**Example Request and Response**
+
+### Request Headers
+
 ```
 DELETE /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
 Host: localhost:3000
@@ -203,19 +216,18 @@ Date:Fri, 13 Jul 2012 22:58:34 GMT
 X-Powered-By:Express
 ```
 
-*Response*
+### Response JSON
 
 ```
 { deleted: "ok" }
 ```
 
 
-3. Post openVPN Config API (@post /service/GUID/openvpn)
---------------------------------------------------------
+Modify openVPN Configuration
+----------------------------
 
-
-            Verb	URI	        				Description
-             POST	/services/service-id/openvpn		 	  Update the openvpn server.conf file in VCG.
+            Verb	URI	        			Description
+             POST	/services/service-id/openvpn		 Update the openvpn server.conf file in VCG.
 
 
 The request must have the following parameters in JSON data
@@ -291,19 +303,88 @@ X-Requested-With	XMLHttpRequest
            
 
 
-4. Delete openVPN Service API (@del)
-------------------------------------
+Delete openVPN Service API (@del)
+---------------------------------
 	This API will delete the specific service using GUID.
 
-5. Post Firewall Config API (@post /service/GUID/firewall)
-----------------------------------------------------------
 
-6. Delete Firewall Service API (@del)
--------------------------------------
+Modify the firewall Config
+--------------------------
+
+
+            Verb	URI	        			Description
+             POST	/services/service-id/firewall		 Update the firewall firewall.sh file in VCG.
+
+
+The request must have the following parameters in JSON data
+
+      1. service Name
+      2. service Type
+      3. Service id
+      4. firewall base64 encrypted value
+      
+On success it returns JSON data with the service-id, service Name, command success.
+
+*TODO: Define JSON format for error codes and description.*
+
+**Example Request and Response**
+
+### Request Headers
+
+```
+Response Headersview source
+Connection	keep-alive
+Content-Length	95
+Content-Type	application/json; charset=utf-8
+X-Powered-By	Express
+Request Headersview source
+Accept	*/*
+Accept-Encoding	gzip, deflate
+Accept-Language	en-us,en;q=0.5
+Cache-Control	no-cache
+Connection	keep-alive
+Content-Length	1107
+Content-Type	application/json; charset=utf-8
+Host	10.2.56.153:3000
+Pragma	no-cache
+Referer	http://10.2.56.153:3000/services/415794ee-c6f7-4545-a5a6-3253448de10e/firewall
+User-Agent	Mozilla/5.0 (Windows NT 5.1; rv:12.0) Gecko/20100101 Firefox/12.0
+X-Requested-With	XMLHttpRequest
+Response Headers From Cache
+Connection	keep-alive
+Content-Length	95
+Content-Type	application/json; charset=utf-8
+X-Powered-By	Express
+```
+
+### Request JSON
+
+     	{ "services" : {
+			 "firewall" : { 
+					"command": 								"IyEvYmluL3NoDQppcHRhYmxlcyAoKSB7IHRlc3QgIiQyIiAhPSAic2hvcmV3YWxsIiAmJiBzYWZlX2NhbGwgaXB0YWJsZXMgJEA7IH0NCg0Kc2FmZV9jYWxsICgpIHsNCgliaW49JCh3aGljaCAkMSkNCglzaGlmdA0KCSRiaW4gJEANCglpZiBbICQ/		ICE9IDAgXTsgdGhlbiANCgkgICAgaXB0YWJsZXMtcmVzdG9yZSA8IC9jb25maWcvaXB0YWJsZXMuc2F2ZQ0KCSAgICBleGl0IDENCglmaQ0KfQ0KIyBxdCAoKSB7ICIkQCIgPi9kZXYvbnVsbCAyPiYxIH0NCg0KaWYgWyAteCAvYmluL2J1c3lib3ggXTsgdGhlbg0KCSMgWFhYIC0gaGFjayAtIGJ1ZyB3aXRoIGlwdGFibGVzLXNhdmUgaW4gcnVudCBpbWFnZQ0KCWNwIC9ldGMvbmV0d29yay9pcHRhYmxlcy5kZWZhdWx0IC9jb25maWcvaXB0YWJsZXMuc2F2ZQ0KZWxzZQ0KCWlwdGFibGVzLXNhdmUgPiAvY29uZmlnL2lwdGFibGVzLnNhdmUNCmZpDQoNClsgLWYgL2NvbmZpZy9pcHRhYmxlcy9mdW5jdGlvbnMgXSAmJiAuIC9jb25maWcvaXB0YWJsZXMvZnVuY3Rpb25zDQoNCmlwdGFibGVzIC1MIHNob3Jld2FsbCAtbg0KaXB0YWJsZXMgLUYgc2hvcmV3YWxsDQppcHRhYmxlcyAtWCBzaG9yZXdhbGwNCmlwdGFibGVzIC10IG5hdCAtRg0KaXB0YWJsZXMgLXQgbmF0IC1YDQppcHRhYmxlcyAtdCBuYXQgLVAgUFJFUk9VVElORyBBQ0NFUFQNCmlwdGFibGVzIC10IG5hdCAtUCBQT1NUUk9VVElORyBBQ0NFUFQNCmlwdGFibGVzIC10IG5hdCAtUCBPVVRQVVQgQUNDRVBUDQppcHRhYmxlcyAtdCBtYW5nbGUgLUYNCmlwdGFibGVzIC10IG1hbmdsZSAtWA0K" 
+					}
+			}
+	}
+
+
+### Response JSON
+
+        
+        {
+           "services":{
+                        "id":"415794ee-c6f7-4545-a5a6-3253448de10e",
+                        "name":"iptable",
+                        "command":"success"
+                       }
+         }
+        
+
+Delete Firewall Service API (@del)
+----------------------------------
 	This API will delete the firewall service using GUID.
 
-7. Action API (@post /service/GUID/action)
-------------------------------------------
+Action Command API
+------------------
 	This API will be used to perform the action like start, stop, restart and status on the
-	installed services by GUID.
+	installed services and identified by service-id
 
