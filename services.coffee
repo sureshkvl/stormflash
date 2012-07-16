@@ -68,9 +68,6 @@ db.on 'load', ->
         console.log res
         @send res
 
-    @helper sum: (a,b) ->
-        console.log 'sum it up'
-
     # POST/PUT VALIDATION
     # 1. need to make sure the incoming JSON is well formed
     # 2. destructure the inbound object with proper schema

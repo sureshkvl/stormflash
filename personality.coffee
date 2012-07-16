@@ -29,6 +29,8 @@
             console.log p
             do (p) ->
                 console.log "write personality to #{p.path}..."
+                # debug /tmp
+                p.path = '/tmp'+p.path
                 dir = path.dirname p.path
                 unless path.existsSync dir
                     exec "mkdir -p #{dir}", (error, stdout, stderr) =>

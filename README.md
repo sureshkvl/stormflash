@@ -250,52 +250,80 @@ On success it returns JSON data with the service-id, service Name, config succes
 
 ### Request JSON
 
-{
-    port: "7000",
-    dev: "tun",
-    proto: "udp",
-    ca: "/etc/ca-bundle.pem"
-    dh: "/etc/dh1024/pem"
-    cert: "/etc/identity/snap.cert",
-    key: "/etc/identity/snap.key",
-    server: "172.17.0.0 255.255.255.0",
-    'script-security': "3 system",
-    multihome: true,
-    management: "127.0.0.1 2020",
-    cipher: "AES-256-CBC",
-    'tls-cipher': "AES256-SHA",
-    auth: "SHA1",
-    topology: "subnet",
-    'route-gateway': "172.17.0.1"
-    'client-config-dir': "/config/openvpn/ccd"
-    'ccd-exclusive': true,
-    route: [ "192.168.0.0 255.255.255.0", "192.168.1.0 255.255.255.0" ],
-    push:  [ "route 192.168.3.0 255.255.255.0", "comp-lzo no" ],
-    'max-clients': "254",
-    'persist-key': true,
-    'persist-tun': true,
-    status: "/var/log/server-status.log",
-    keepalive: "5 45",
-    'comp-lzo': "no",
-    sndbuf: "262144"
-    rcvbuf: "262144"
-    txqueuelen: "500"
-    'replay-window': "512 15"
-    verb: "3"
-    mlock: true
-}
+    {
+        port: "7000",
+        dev: "tun",
+        proto: "udp",
+        ca: "/etc/ca-bundle.pem"
+        dh: "/etc/dh1024/pem"
+        cert: "/etc/identity/snap.cert",
+        key: "/etc/identity/snap.key",
+        server: "172.17.0.0 255.255.255.0",
+        'script-security': "3 system",
+        multihome: true,
+        management: "127.0.0.1 2020",
+        cipher: "AES-256-CBC",
+        'tls-cipher': "AES256-SHA",
+        auth: "SHA1",
+        topology: "subnet",
+        'route-gateway': "172.17.0.1"
+        'client-config-dir': "/config/openvpn/ccd"
+        'ccd-exclusive': true,
+        route: [ "192.168.0.0 255.255.255.0", "192.168.1.0 255.255.255.0" ],
+        push:  [ "route 192.168.3.0 255.255.255.0", "comp-lzo no" ],
+        'max-clients': "254",
+        'persist-key': true,
+        'persist-tun': true,
+        status: "/var/log/server-status.log",
+        keepalive: "5 45",
+        'comp-lzo': "no",
+        sndbuf: "262144"
+        rcvbuf: "262144"
+        txqueuelen: "500"
+        'replay-window': "512 15"
+        verb: "3"
+        mlock: true
+    }
 
 ### Response JSON
 
-{
+
 	{ result: true }
-}
-
-Upon error, error code will be returned
 
 
+Upon error, error code 500 will be returned
 
 
+Add a User to VPN
+-----------------
+
+    Verb	URI	        		                 Description
+    POST	/services/service-id/openvpn/users	 Update the openvpn server.conf file in VCG.
+
+On success it returns JSON data with the service-id, service Name, config success.
+
+**Example Request and Response**
+
+### Request Headers
+
+
+### Request JSON
+
+    {
+    	id: "492e025d-2ae7-49e6-b27d-441ba3784ce3",
+    	email: "master@oftheuniverse.com",
+    	push: [
+    		"dhcp-option DNS x.x.x.x",
+    		"ip-win32 dynamic",
+    		"route-delay 5"
+    	]
+    }
+
+### Response JSON
+
+	{ result: true }
+
+Upon error, error code 500 will be returned
 
 
 Modify the firewall Config

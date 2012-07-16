@@ -1,3 +1,38 @@
+# validation is used by other modules
+validate = require('json-schema').validate
+
+@db = db = require('dirty') '/tmp/openvpnusers.db'
+
+db.on 'load', ->
+    console.log 'loaded openvpnusers.db'
+    db.forEach (key,val) ->
+        console.log 'found ' + key
+
+@lookup = lookup = (id) ->
+    console.log "looking up user ID: #{id}"
+    entry = db.get id
+    if entry
+
+        if schema?
+            console.log 'performing schema validation on retrieved user entry'
+            result = validate entry, userschema
+            console.log result
+            return new Error "Invalid user retrieved: #{result.errors}" unless result.valid
+
+        return entry
+    else
+        return new Error "No such user ID: #{id}"
+
+@userschema = userschema =
+        name: "openvpn"
+        type: "object"
+        additionalProperties: false
+        properties:
+            id:    { type: "string", required: true }
+            email: { type: "string", required: true }
+            push:
+                items: { type: "string" }
+
 @include = ->
 
     webreq = require 'request'
@@ -98,5 +133,7 @@
         else
            return @next new Error "Unable to find file #{filename}!"
 
+
     @post '/services/:id/openvpn/users', loadService, ->
+
 
