@@ -69,6 +69,7 @@ db.on 'load', ->
             'route-gateway':     {"type":"string", "required":false}
             'client-config-dir': {"type":"string", "required":false}
             'ccd-exclusive':     {"type":"boolean", "required":false}
+            'client-to-client':  {"type":"boolean", "required":false}
             route:
                 items: { type: "string" }
             push:
@@ -149,7 +150,7 @@ db.on 'load', ->
         @next()
 
     @post '/services/:id/openvpn/users', loadService, validateUser, ->
-        service @request.service
+        service = @request.service
         config = ''
         for key, val of @body
             switch (typeof val)

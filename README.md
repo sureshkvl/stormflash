@@ -269,6 +269,7 @@ On success it returns JSON data with the service-id, service Name, config succes
         'route-gateway': "172.17.0.1"
         'client-config-dir': "/config/openvpn/ccd"
         'ccd-exclusive': true,
+        'ccd-to-client': true,
         route: [ "192.168.0.0 255.255.255.0", "192.168.1.0 255.255.255.0" ],
         push:  [ "route 192.168.3.0 255.255.255.0", "comp-lzo no" ],
         'max-clients': "254",
