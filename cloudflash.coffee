@@ -13,8 +13,8 @@
     @include 'personality'
 
     @include 'openvpn'
-    @include 'openvpnlog'
-    @include 'firewall'
+#    @include 'openvpnlog'
+#    @include 'firewall'
 
     @get '/': ->
         @render index: {title: 'cloudflash', layout: no}

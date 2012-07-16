@@ -28,9 +28,10 @@ db.on 'load', ->
     type: "object"
     additionalProperties: false
     properties:
-        class:  {"type": "string"}
-        id:     {"type": "string"}
-        api:    {"type": "string"}
+        class:    { type: "string" }
+        id:       { type: "string" }
+        api:      { type: "string" }
+        serverId: { type: "string" }
         description:
             type: "object"
             required: true
@@ -72,6 +73,9 @@ db.on 'load', ->
     # 1. need to make sure the incoming JSON is well formed
     # 2. destructure the inbound object with proper schema
     validateServiceDesc = ->
+
+        console.log @body
+
         console.log 'performing schema validation on incoming service JSON'
         result = validate @body, schema.properties.description
         console.log result

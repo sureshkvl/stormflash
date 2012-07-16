@@ -78,13 +78,13 @@ db.on 'load', ->
             'persist-tun':       {"type":"boolean", "required":false}
             status:              {"type":"string", "required":false}
             keepalive:           {"type":"string", "required":false}
-            'comp-lzo':          {"type":"boolean", "required":false}
+            'comp-lzo':          {"type":"string", "required":false}
             sndbuf:              {"type":"number", "required":false}
             rcvbuf:              {"type":"number", "required":false}
             txqueuelen:          {"type":"number", "required":false}
             'replay-window':     {"type":"string", "required":false}
             verb:                {"type":"number", "required":false}
-            mock:                {"type":"boolean", "required":false}
+            mlock:               {"type":"boolean", "required":false}
 
     validateOpenvpn = ->
         console.log 'performing schema validation on incoming service JSON'
@@ -108,32 +108,65 @@ db.on 'load', ->
         @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
 
     @post '/services/:id/openvpn', loadService, validateOpenvpn, ->
-        resp = {'services':{}}
-        varguid = @params.id
-        resp.services.id = varguid
-        resp.services.name = "openvpn"
-        obj = @body.services.openvpn
-        filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
-        if path.existsSync filename
-           resData = ''
-           for i of obj
-             resData = resData + i + ' ' + obj[i] + "\n"  unless typeof (obj[i]) is "object"
-           resData
 
-           if resData
-             try
-               fs.writeFileSync filename, resData
-               resp.services.config = "success"
-             catch err
-               resp.services.config = "failed"
-           else
-             resp.services.config = "failed"
+        obj = @body
+        #filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
+        filename = '/config/openvpn/server.conf'
+        filename = '/tmp/server.conf'
 
-           @send resp
-        else
-           return @next new Error "Unable to find file #{filename}!"
+        config = ''
+        for key, val of obj
+            switch (typeof val)
+                when "object"
+                    if val instanceof Array
+                        for i in val
+                            config += "#{key} #{i}\n" if key is "route"
+                            config += "#{key} \"#{i}\"\n" if key is "push"
+                when "number", "string"
+                    config += key + ' ' + val + "\n"
+                when "boolean"
+                    config += key + "\n"
+
+        try
+            fs.writeFileSync filename, config
+            @send { result: true }
+        catch err
+            @next new Error "Unable to write configuration into #{filename}!"
 
 
-    @post '/services/:id/openvpn/users', loadService, ->
+    validateUser = ->
+        console.log 'performing schema validation on incoming user validation JSON'
+        result = validate @body, userschema
+        console.log result
+        return @next new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
+        @next()
 
+    @post '/services/:id/openvpn/users', loadService, validateUser, ->
+        config = ''
+        for key, val of @body
+            switch (typeof val)
+                when "object"
+                    if val instanceof Array
+                        for i in val
+                            config += "#{key} #{i}\n" if key is "iroute"
+                            config += "#{key} \"#{i}\"\n" if key is "push"
+
+        filename = "/config/openvpn/ccd/#{@body.email}"
+        filename = "/tmp/ccd/#{@body.email}"
+        try
+            console.log "write user config to #{filename}..."
+            dir = path.dirname filename
+            unless path.existsSync dir
+                exec "mkdir -p #{dir}", (error, stdout, stderr) =>
+                    unless error
+                        fs.writeFileSync filename, config
+            else
+                fs.writeFileSync filename, config
+
+            db.set @params.id, @body, =>
+                console.log "#{@body.email} added to OpenVPN service configuration"
+                console.log @body
+                @send { result: true }
+        catch err
+            @next new Error "Unable to write configuration into #{filename}!"
 

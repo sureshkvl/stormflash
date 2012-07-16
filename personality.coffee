@@ -35,13 +35,18 @@
                 unless path.existsSync dir
                     exec "mkdir -p #{dir}", (error, stdout, stderr) =>
                         unless error
-                            fs.writeFile p.path, new Buffer(p.contents || '',"base64")
+                            fs.writeFile p.path, new Buffer(p.contents || '',"base64"), ->
+                                # this feature currently disabled DO NOT re-enable!
+                                if p.postxfer?
+                                    exec "#{p.postxfer}", (error, stdout, stderr) ->
+                                        console.log "issuing '#{p.postxfer}'... stderr: #{stderr}" if error
+                                        console.log "issuing '#{p.postxfer}'... stdout: #{stdout}" unless error
                 else
-                    fs.writeFile p.path, new Buffer(p.contents || '',"base64")
-                    # this feature currently disabled DO NOT re-enable!
-                    if p.postxfer?
-                        exec p.postxfer, (error, stdout, stderr) ->
-                            console.log "issuing '#{p.postxfer}'... stderr: #{stderr}" if error
-                            console.log "issuing '#{p.postxfer}'... stdout: #{stdout}" unless error
+                    fs.writeFile p.path, new Buffer(p.contents || '',"base64"), ->
+                        # this feature currently disabled DO NOT re-enable!
+                        if p.postxfer?
+                            exec "#{p.postxfer}", (error, stdout, stderr) ->
+                                console.log "issuing '#{p.postxfer}'... stderr: #{stderr}" if error
+                                console.log "issuing '#{p.postxfer}'... stdout: #{stdout}" unless error
 
         @send { result: 'success' }

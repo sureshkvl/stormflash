@@ -255,7 +255,7 @@ On success it returns JSON data with the service-id, service Name, config succes
         dev: "tun",
         proto: "udp",
         ca: "/etc/ca-bundle.pem"
-        dh: "/etc/dh1024/pem"
+        dh: "/etc/dh1024.pem"
         cert: "/etc/identity/snap.cert",
         key: "/etc/identity/snap.key",
         server: "172.17.0.0 255.255.255.0",
