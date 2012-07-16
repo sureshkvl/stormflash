@@ -145,8 +145,8 @@ db.on 'load', ->
         service = @request.service
 
         # for debugging the below command is uncommented. Kindly enable this
-        #exec "svcs #{service.name} status", (error, stdout, stderr) =>
-        exec "pwd", (error, stdout, stderr) =>
+        #exec "pwd", (error, stdout, stderr) =>
+        exec "svcs #{service.description.name} status", (error, stdout, stderr) =>
             if error or not stdout?
                 service.status = null
             else
@@ -198,7 +198,7 @@ db.on 'load', ->
         service = @request.service
         desc = service.description
         console.log "verifying that the package has been installed as #{desc.name}"
-        delFilePath = __dirname+'/services/'+service.id
+        #delFilePath = __dirname+'/services/'+service.id
         exec "dpkg -l #{desc.name}", (error, stdout, stderr) =>
             return @next new Error "Unable to verify service package installation!" if error
 
@@ -207,8 +207,8 @@ db.on 'load', ->
                 return @next new Error "Unable to remove service package '#{desc.name}': #{stderr}" if error
                 db.rm service.id, =>
                     console.log "removed service ID: #{service.id}"
-                    exec "rm -rf #{delFilePath}", (error, stdout, stderr) =>
-                         return @next new Error "Unable to remove services directory : #{desc.name}!" if error
+                    # exec "rm -rf #{delFilePath}", (error, stdout, stderr) =>
+                    #      return @next new Error "Unable to remove services directory : #{desc.name}!" if error
                     @send { deleted: true }
 
     @post '/services/:id/action', loadService, ->

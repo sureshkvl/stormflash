@@ -109,13 +109,8 @@ db.on 'load', ->
 
     @post '/services/:id/openvpn', loadService, validateOpenvpn, ->
 
-        obj = @body
-        #filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
-        filename = '/config/openvpn/server.conf'
-        filename = '/tmp/server.conf'
-
         config = ''
-        for key, val of obj
+        for key, val of @body
             switch (typeof val)
                 when "object"
                     if val instanceof Array
@@ -127,8 +122,18 @@ db.on 'load', ->
                 when "boolean"
                     config += key + "\n"
 
+        #filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
+        filename = '/config/openvpn/server.conf'
         try
-            fs.writeFileSync filename, config
+            console.log "write openvpn config to #{filename}..."
+            dir = path.dirname filename
+            unless path.existsSync dir
+                exec "mkdir -p #{dir}", (error, stdout, stderr) =>
+                    unless error
+                        fs.writeFileSync filename, config
+            else
+                fs.writeFileSync filename, config
+
             @send { result: true }
         catch err
             @next new Error "Unable to write configuration into #{filename}!"
@@ -151,8 +156,8 @@ db.on 'load', ->
                             config += "#{key} #{i}\n" if key is "iroute"
                             config += "#{key} \"#{i}\"\n" if key is "push"
 
+        #filename = "/tmp/ccd/#{@body.email}"
         filename = "/config/openvpn/ccd/#{@body.email}"
-        filename = "/tmp/ccd/#{@body.email}"
         try
             console.log "write user config to #{filename}..."
             dir = path.dirname filename
