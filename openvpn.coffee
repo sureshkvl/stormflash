@@ -87,7 +87,7 @@ db.on 'load', ->
             mlock:               {"type":"boolean", "required":false}
 
     validateOpenvpn = ->
-        console.log 'performing schema validation on incoming service JSON'
+        console.log 'performing schema validation on incoming OpenVPN JSON'
         result = validate @body, schema
         console.log result
         return @next new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
@@ -108,7 +108,7 @@ db.on 'load', ->
         @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
 
     @post '/services/:id/openvpn', loadService, validateOpenvpn, ->
-        service @request.service
+        service = @request.service
         config = ''
         for key, val of @body
             switch (typeof val)

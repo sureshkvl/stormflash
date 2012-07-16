@@ -100,7 +100,7 @@ db.on 'load', ->
         # 2. check if package already installed, if so, we we skip download...
         return @next new Error "Duplicate service ID detected!" if db.get service.id
 
-        console.log "checking if the package has already been installed as #{desc.name}"
+        console.log "checking if the package has already been installed..."
         exec "dpkg -l #{desc.name}", (error, stdout, stderr) =>
             unless error
                 service.api = "/to/be/defined/in/future"
@@ -159,7 +159,7 @@ db.on 'load', ->
 
                 console.log stdout
 
-                if stdout.match /diabled/
+                if stdout.match /disabled/
                     status.initialized = true
                 else if stdout.match /enabled/
                     status.enabled = true

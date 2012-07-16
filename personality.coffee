@@ -19,18 +19,18 @@
     @post '/personality': ->
         console.log 'performing schema validation on incoming service JSON'
 
-        console.log @body
+        #console.log @body
 
         result = validate @body, schema
         console.log result
         return @next new Error "Invalid personality posting!: #{result.errors}" unless result.valid
 
         for p in @body.personality
-            console.log p
+            #console.log p
             do (p) ->
-                console.log "write personality to #{p.path}..."
+                console.log "writing personality to #{p.path}..."
                 # debug /tmp
-                p.path = '/tmp'+p.path
+                # p.path = '/tmp'+p.path
                 dir = path.dirname p.path
                 unless path.existsSync dir
                     exec "mkdir -p #{dir}", (error, stdout, stderr) =>
