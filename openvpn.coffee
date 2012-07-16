@@ -134,7 +134,7 @@ db.on 'load', ->
             else
                 fs.writeFileSync filename, config
 
-            exec "svcs #{service.description.name} on"
+            exec "touch /config/#{service.description.name}/on"
 
             @send { result: true }
         catch err
