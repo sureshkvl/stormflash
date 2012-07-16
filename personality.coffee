@@ -3,6 +3,7 @@
     fs = require 'fs'
     validate = require('json-schema').validate
     exec = require('child_process').exec
+    path = require 'path'
 
     schema =
         name: "personality"
@@ -28,8 +29,13 @@
             console.log p
             do (p) ->
                 console.log "write personality to #{p.path}..."
-                fs.writeFile p.path, new Buffer(p.contents || '',"base64"), ->
-                    return
+                dir = path.dirname p.path
+                unless path.existsSync dir
+                    exec "mkdir -p #{dir}", (error, stdout, stderr) =>
+                        unless error
+                            fs.writeFile p.path, new Buffer(p.contents || '',"base64")
+                else
+                    fs.writeFile p.path, new Buffer(p.contents || '',"base64")
                     # this feature currently disabled DO NOT re-enable!
                     if p.postxfer?
                         exec p.postxfer, (error, stdout, stderr) ->

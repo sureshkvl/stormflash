@@ -1,48 +1,64 @@
+# validation is used by other modules
+validate = require('json-schema').validate
+
+@db = db = require('dirty') '/tmp/cloudflash.db'
+
+db.on 'load', ->
+    console.log 'loaded cloudflash.db'
+    db.forEach (key,val) ->
+        console.log 'found ' + key
+
+@lookup = lookup = (id) ->
+    console.log "looking up service ID: #{id}"
+    entry = db.get id
+    if entry
+
+        if schema?
+            console.log 'performing schema validation on retrieved service entry'
+            result = validate entry, schema
+            console.log result
+            return new Error "Invalid service retrieved: #{result.errors}" unless result.valid
+
+        return entry
+    else
+        return new Error "No such service ID: #{id}"
+
+@schema = schema =
+    name: "service"
+    type: "object"
+    additionalProperties: false
+    properties:
+        class:  {"type": "string"}
+        id:     {"type": "string"}
+        api:    {"type": "string"}
+        description:
+            type: "object"
+            required: true
+            additionalProperties: false
+            properties:
+                id:     {"type": "string"}
+                name:   {"type": "string", "required": true}
+                family: {"type": "string", "required": true}
+                version:{"type": "string", "required": true}
+                pkgurl: {"type": "string", "required": true}
+        status:
+            type: "object"
+            required: false
+            additionalProperties: false
+            properties:
+                installed:   { type: "boolean" }
+                initialized: { type: "boolean" }
+                enabled:     { type: "boolean" }
+                running:     { type: "boolean" }
+                result:      { type: "string"  }
+
 @include = ->
     uuid = require('node-uuid')
-    db   = require('dirty') '/tmp/cloudflash.db'
 
     webreq = require 'request'
     fs = require 'fs'
-    path = require 'path'
     exec = require('child_process').exec
 
-    # validation is used by other modules
-    validate = require('json-schema').validate
-
-    db.on 'load', ->
-        console.log 'loaded cloudflash.db'
-        db.forEach (key,val) ->
-            console.log 'found ' + key
-
-    schema =
-        name: "service"
-        type: "object"
-        additionalProperties: false
-        properties:
-            class:  {"type": "string"}
-            id:     {"type": "string"}
-            api:    {"type": "string"}
-            description:
-                type: "object"
-                required: true
-                additionalProperties: false
-                properties:
-                    id:     {"type": "string"}
-                    name:   {"type": "string", "required": true}
-                    family: {"type": "string", "required": true}
-                    version:{"type": "string", "required": true}
-                    pkgurl: {"type": "string", "required": true}
-            status:
-                type: "object"
-                required: false
-                additionalProperties: false
-                properties:
-                    installed:   { type: "boolean" }
-                    initialized: { type: "boolean" }
-                    enabled:     { type: "boolean" }
-                    running:     { type: "boolean" }
-                    result:      { type: "string"  }
 
     @get '/services': ->
         res = { 'services': [] }
@@ -51,6 +67,9 @@
             res.services.push val
         console.log res
         @send res
+
+    @helper sum: (a,b) ->
+        console.log 'sum it up'
 
     # POST/PUT VALIDATION
     # 1. need to make sure the incoming JSON is well formed
@@ -64,18 +83,12 @@
 
     # helper routine for retrieving service data from dirty db
     loadService = ->
-        console.log "loading service ID: #{@params.id}"
-        entry = db.get @params.id
-        if entry
-            console.log 'performing schema validation on retrieved service JSON'
-            result = validate entry, schema
-            console.log result
-            return @next new Error "Invalid service retrieved: #{result.errors}" unless result.valid
-            @request.service = entry
-
+        result = lookup @params.id
+        unless result instanceof Error
+            @request.service = result
             @next()
         else
-            @next new Error "No such service ID: #{@params.id}"
+            return @next result
 
     @post '/services', validateServiceDesc, ->
         service = { }
@@ -108,7 +121,7 @@
                     return @next new Error "Unable to download service package!" if error
 
                     console.log "checking for service package at #{filename}"
-                    if path.existsSync filename
+                    if fs.existsSync filename
                         console.log 'found service package, issuing dpkg -i'
                         exec "dpkg -i -F depends #{filename}", (error, stdout, stderr) =>
                             return @next new Error "Unable to install service package!" if error
@@ -212,5 +225,3 @@
                     @send { result: true }
 
             else return @next new Error "Invalid action, must specify 'command' (on|off,start|stop,restart,sync)!"
-
-

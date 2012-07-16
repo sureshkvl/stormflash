@@ -12,9 +12,9 @@
     @include 'services'
     @include 'personality'
 
-    @include 'firewall'
     @include 'openvpn'
     @include 'openvpnlog'
+    @include 'firewall'
 
     @get '/': ->
         @render index: {title: 'cloudflash', layout: no}

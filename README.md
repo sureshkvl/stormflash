@@ -21,6 +21,9 @@ should be specified by using the Content-Type header, the Accept header.
     <td>POST</td><td>/services</td><td>Create a new service in VCG</td>
   </tr>
   <tr>
+    <td>GET</td><td>/services/service-id</td><td>Describes an installed service in VCG by service ID</td>
+  </tr>
+  <tr>
     <td>DELETE</td><td>/services/service-id</td><td>Delete an installed service in VCG by service ID</td>
   </tr>
   <tr>
@@ -52,11 +55,8 @@ Current implementation of cloudflash in VCG does not require that each request w
 the user submiting the request.
 Plan is to have OAuth scheme of authentication.
 
-*API Description*
-================
-
-*Services*
-----------
+*Services API*
+==============
 
  List Services
 --------------
@@ -85,7 +85,7 @@ api: Supported APIs for this service.
 
 *Request*
 
-       GET /services HTTP/1.1
+    GET /services HTTP/1.1
 
 *Response*
 
@@ -204,7 +204,7 @@ On Success returns 200 with JSON data
 
 ### Response JSON
 
-    { deleted: "ok" }
+    { deleted: true }
 
 
 Action Command API
@@ -223,25 +223,21 @@ This API is used to perform the action like start, stop, restart and sync on the
 
 ### Request JSON
 
-    { "command":"stop" }
+    { command: "stop" }
 
 ### Response JSON
 
-    { "result": true }
-
-Modify openVPN Configuration
-----------------------------
-
-            Verb	URI	        		Description
-             POST	/services/service-id/openvpn	 Update the openvpn server.conf file in VCG.
+    { result: true }
 
 
-The request must have the following parameters in JSON data
+*OpenVPN API*
+=============
 
-      1. service Name
-      2. service Type
-      3. Service id
-      4. Openvpn config
+Post openVPN Configuration
+--------------------------
+
+    Verb	URI	        		Description
+    POST	/services/service-id/openvpn	 Update the openvpn server.conf file in VCG.
 
 On success it returns JSON data with the service-id, service Name, config success.
 
@@ -251,60 +247,52 @@ On success it returns JSON data with the service-id, service Name, config succes
 
 ### Request Headers
 
-```
-Connection	keep-alive
-Content-Length	221
-Content-Type	application/json; charset=utf-8
-X-Powered-By	Express
-Request Headers
-Accept	*/*
-Accept-Encoding	gzip, deflate
-Accept-Language	en-us,en;q=0.5
-Cache-Control	no-cache
-Connection	keep-alive
-Content-Length	156
-Content-Type	application/json; charset=utf-8
-Host	10.2.56.153:3000
-Pragma	no-cache
-Referer	http://10.2.56.153:3000/
-User-Agent	Mozilla/5.0 (Windows NT 5.1; rv:12.0) Gecko/20100101 Firefox/12.0
-X-Requested-With	XMLHttpRequest
-```
 
 ### Request JSON
 
-     	{
-     	  "services":{
-     	               "openvpn": {
-     	                            "port":7500,
-     	                            "dev": "tap test",
-     	                            "proto": "udp",
-     	                            "script-security": "3 system",
-     	                            "multihome":"",
-     	                            "management": "127.0.0.1 2020",
-     	                            "cipher": "AES-256-CBC",
-     	                            "tls-cipher": "AES256-SHA",
-     	                            "auth": "SHA1",
-     	                            "ca": "/etc/ca-bundle.pem",
-     	                            "dh": "/etc/dh1024.pem",
-     	                            "cert": "/etc/identity/snap.cert",
-     	                            "key": "/etc/identity/snap.key",
-     	                            "topology": "subnet",
-     	                            "server": "10.2.55.10 255.255.255.0"
-     	                            }
-     	                }
-     	    }
+{
+    port: "7000",
+    dev: "tun",
+    proto: "udp",
+    ca: "/etc/ca-bundle.pem"
+    dh: "/etc/dh1024/pem"
+    cert: "/etc/identity/snap.cert",
+    key: "/etc/identity/snap.key",
+    server: "172.17.0.0 255.255.255.0",
+    'script-security': "3 system",
+    multihome: true,
+    management: "127.0.0.1 2020",
+    cipher: "AES-256-CBC",
+    'tls-cipher': "AES256-SHA",
+    auth: "SHA1",
+    topology: "subnet",
+    'route-gateway': "172.17.0.1"
+    'client-config-dir': "/config/openvpn/ccd"
+    'ccd-exclusive': true,
+    route: [ "192.168.0.0 255.255.255.0", "192.168.1.0 255.255.255.0" ],
+    push:  [ "route 192.168.3.0 255.255.255.0", "comp-lzo no" ],
+    'max-clients': "254",
+    'persist-key': true,
+    'persist-tun': true,
+    status: "/var/log/server-status.log",
+    keepalive: "5 45",
+    'comp-lzo': "no",
+    sndbuf: "262144"
+    rcvbuf: "262144"
+    txqueuelen: "500"
+    'replay-window': "512 15"
+    verb: "3"
+    mlock: true
+}
 
 ### Response JSON
 
+{
+	{ result: true }
+}
 
-        {
-           "services":{
-                        "id":"a12796b8-c786-4351-ba7d-4b95cd8e0797",
-                        "name":"openvpn",
-                        "config":"success"
-                       }
-         }
+Upon error, error code will be returned
+
 
 
 
