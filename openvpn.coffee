@@ -108,7 +108,7 @@ db.on 'load', ->
         @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
 
     @post '/services/:id/openvpn', loadService, validateOpenvpn, ->
-
+        service @request.service
         config = ''
         for key, val of @body
             switch (typeof val)
@@ -134,6 +134,8 @@ db.on 'load', ->
             else
                 fs.writeFileSync filename, config
 
+            exec "svcs #{service.description.name} on"
+
             @send { result: true }
         catch err
             @next new Error "Unable to write configuration into #{filename}!"
@@ -147,6 +149,7 @@ db.on 'load', ->
         @next()
 
     @post '/services/:id/openvpn/users', loadService, validateUser, ->
+        service @request.service
         config = ''
         for key, val of @body
             switch (typeof val)
@@ -168,9 +171,12 @@ db.on 'load', ->
             else
                 fs.writeFileSync filename, config
 
+            exec "svcs #{service.description.name} sync"
+
             db.set @params.id, @body, =>
                 console.log "#{@body.email} added to OpenVPN service configuration"
                 console.log @body
+
                 @send { result: true }
         catch err
             @next new Error "Unable to write configuration into #{filename}!"
