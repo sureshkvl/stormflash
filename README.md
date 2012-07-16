@@ -32,7 +32,7 @@ should be specified by using the Content-Type header, the Accept header.
   <tr>
     <td>POST</td><td>/services/service-id/action</td><td>Execute command on the VCG</td>
   </tr>
-  
+
 </table>
 
 
@@ -61,8 +61,8 @@ Plan is to have OAuth scheme of authentication.
  List Services
 --------------
 
-            Verb	URI	        Description
-             GET	/services	Lists summary of services configured in VCG identified by service ID.
+    Verb	URI	        Description
+    GET	/services	Lists summary of services configured in VCG identified by service ID.
 
 
 Note: The request does not require a message body.
@@ -85,18 +85,7 @@ api: Supported APIs for this service.
 
 *Request*
 
-```
        GET /services HTTP/1.1
-
-       Host: localhost:3000
-       Connection: keep-alive
-       Cache-Control: max-age=0
-       User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.47 Safari/536.11
-       Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
-       Accept-Encoding: gzip,deflate,sdch
-       Accept-Language: en-US,en;q=0.8
-       Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3
-```
 
 *Response*
 
@@ -122,40 +111,20 @@ Create Service
 ---------------
 
 
-            Verb	URI	        Description
-             POST	/services	Create a new service in VCG.
+    Verb	URI	        Description
+    POST	/services	Create a new service in VCG.
 
 
-The request must have the following parameters in JSON data
+The request **must** have the following parameters in JSON data
 
       1. service version
       2. service Name
       3. Service Family
       4. Package URL
-      5. API path
+
 On success it returns JSON data with the UUID for the service created.
 
-*TODO: Define JSON format for error codes and description.*
-
 **Example Request and Response**
-
-### Request Headers
-
-```
-POST /services HTTP/1.1
-Host: localhost:3000
-Connection: keep-alive
-Content-Length: 133
-Origin: http://localhost:3000
-X-Requested-With: XMLHttpRequest
-User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.47 Safari/536.11
-Content-Type: application/json; charset=UTF-8
-Accept: */*
-Referer: http://localhost:3000/
-Accept-Encoding: gzip,deflate,sdch
-Accept-Language: en-US,en;q=0.8
-Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3
-```
 
 ### Request JSON
 
@@ -170,25 +139,60 @@ Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3
 ### Response JSON
 
     {
-        "id": "40860f06-7dcf-41ab-a414-98957b092b7b",
-        "status": "installed"
-        "api": "/vpnrac",
+        "id": "61df014d-90cd-4f6f-8928-0a3aadff4658",
         "description": {
+            "version": "1.0",
             "name": "at",
             "family": "remote-access",
+            "pkgurl": "http://10.1.10.145/vpnrac-0.0.1.deb",
+            "id": "48c8d63e-1a3e-4f99-bf2b-a8c5c57afe8d"
+        },
+        "api": "/to/be/defined/in/future",
+        "status": {
+            "installed": true
+        }
+    }
+
+Describe Service
+----------------
+
+    Verb	URI	                 Description
+    GET	    /services/service-id	  Show a service in VCG specified by service-ID
+
+**Example Request and Response**
+
+### Request Headers
+
+    GET /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
+
+### Response JSON
+
+    {
+        "id": "492e025d-2ae7-49e6-b27d-441ba3784ce3",
+        "description": {
             "version": "1.0",
-            "pkgurl": "http://my-url.com/vpnrac-0.0.1.deb"
+            "name": "at",
+            "family": "remote-access",
+            "pkgurl": "http://10.1.10.145/vpnrac-0.0.1.deb",
+            "id": "7aeeb1a6-88ae-401b-95b6-c5d059b77db0"
+        },
+        "status": {
+            "installed": true,
+            "initialized": false,
+            "enabled": false,
+            "running": false,
+            "result": "/home/plee/hack.node/cloudflash\n"
         }
     }
 
 Delete a service
 ----------------
 
-            Verb	URI	                 Description
-             DELETE	/services/service-id	  Delete a service in VCG specified by service-ID
+    Verb	URI	                 Description
+    DELETE	/services/service-id	  Delete a service in VCG specified by service-ID
 
 
-On Success returns 200OK with JSON data
+On Success returns 200 with JSON data
 
 *TODO: Return appropriate error code and description in case of failure.*
 
@@ -196,32 +200,34 @@ On Success returns 200OK with JSON data
 
 ### Request Headers
 
-```
-DELETE /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
-Host: localhost:3000
-Connection: keep-alive
-Origin: http://localhost:3000
-X-Requested-With: XMLHttpRequest
-User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.11 (KHTML, like Gecko) Chrome/20.0.1132.47 Safari/536.11
-Accept: */*
-Referer: http://localhost:3000/delete
-Accept-Encoding: gzip,deflate,sdch
-Accept-Language: en-US,en;q=0.8
-Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3
-Response Headersview source
-Connection:keep-alive
-Content-Length:15
-Content-Type:text/html; charset=utf-8
-Date:Fri, 13 Jul 2012 22:58:34 GMT
-X-Powered-By:Express
-```
+    DELETE /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
 
 ### Response JSON
 
-```
-{ deleted: "ok" }
-```
+    { deleted: "ok" }
 
+
+Action Command API
+------------------
+This API is used to perform the action like start, stop, restart and sync on the installed services as identified by service-id
+
+
+    Verb	URI	                 Description
+    POST	/services/service-id/action	  Execute an action command
+
+**Example Request and Response**
+
+### Request Headers
+
+    POST /services/a12796b8-c786-4351-ba7d-4b95cd8e0797/action HTTP/1.1
+
+### Request JSON
+
+    { "command":"stop" }
+
+### Response JSON
+
+    { "result": true }
 
 Modify openVPN Configuration
 ----------------------------
@@ -236,7 +242,7 @@ The request must have the following parameters in JSON data
       2. service Type
       3. Service id
       4. Openvpn config
-      
+
 On success it returns JSON data with the service-id, service Name, config success.
 
 *TODO: Define JSON format for error codes and description.*
@@ -268,22 +274,22 @@ X-Requested-With	XMLHttpRequest
 ### Request JSON
 
      	{
-     	  "services":{ 
+     	  "services":{
      	               "openvpn": {
-     	                            "port":7500, 
+     	                            "port":7500,
      	                            "dev": "tap test",
-     	                            "proto": "udp", 
-     	                            "script-security": "3 system", 
-     	                            "multihome":"", 
+     	                            "proto": "udp",
+     	                            "script-security": "3 system",
+     	                            "multihome":"",
      	                            "management": "127.0.0.1 2020",
-     	                            "cipher": "AES-256-CBC", 
-     	                            "tls-cipher": "AES256-SHA", 
-     	                            "auth": "SHA1", 
+     	                            "cipher": "AES-256-CBC",
+     	                            "tls-cipher": "AES256-SHA",
+     	                            "auth": "SHA1",
      	                            "ca": "/etc/ca-bundle.pem",
      	                            "dh": "/etc/dh1024.pem",
      	                            "cert": "/etc/identity/snap.cert",
-     	                            "key": "/etc/identity/snap.key", 
-     	                            "topology": "subnet", 
+     	                            "key": "/etc/identity/snap.key",
+     	                            "topology": "subnet",
      	                            "server": "10.2.55.10 255.255.255.0"
      	                            }
      	                }
@@ -291,7 +297,7 @@ X-Requested-With	XMLHttpRequest
 
 ### Response JSON
 
-        
+
         {
            "services":{
                         "id":"a12796b8-c786-4351-ba7d-4b95cd8e0797",
@@ -299,8 +305,8 @@ X-Requested-With	XMLHttpRequest
                         "config":"success"
                        }
          }
-        
-           
+
+
 
 
 
@@ -318,7 +324,7 @@ The request must have the following parameters in JSON data
       2. service Type
       3. Service id
       4. firewall base64 encrypted value
-      
+
 On success it returns JSON data with the service-id, service Name, command success.
 
 *TODO: Define JSON format for error codes and description.*
@@ -356,9 +362,9 @@ X-Powered-By	Express
 ### Request JSON
 
             { "services":
-                        { "firewall" : 
-                                      { 
-					"command":"IyEvYmluL3NoDQppcHRhYmxlcyAoKSB7IHRlc3QgIiQyIiAhPSAic2hvcmV3YWxsIiAmJiBzYWZlX2NhbGwgaXB0YWJsZXMgJEA7IH0NCg0Kc2FmZV9jYWxsICgpIHsNCgliaW49JCh3aGljaCAkMSkNCglzaGlmdA0KCSRiaW4gJEANCglpZiBbICQ/		ICE9IDAgXTsgdGhlbiANCgkgICAgaXB0YWJsZXMtcmVzdG9yZSA8IC9jb25maWcvaXB0YWJsZXMuc2F2ZQ0KCSAgICBleGl0IDENCglmaQ0KfQ0KIyBxdCAoKSB7ICIkQCIgPi9kZXYvbnVsbCAyPiYxIH0NCg0KaWYgWyAteCAvYmluL2J1c3lib3ggXTsgdGhlbg0KCSMgWFhYIC0gaGFjayAtIGJ1ZyB3aXRoIGlwdGFibGVzLXNhdmUgaW4gcnVudCBpbWFnZQ0KCWNwIC9ldGMvbmV0d29yay9pcHRhYmxlcy5kZWZhdWx0IC9jb25maWcvaXB0YWJsZXMuc2F2ZQ0KZWxzZQ0KCWlwdGFibGVzLXNhdmUgPiAvY29uZmlnL2lwdGFibGVzLnNhdmUNCmZpDQoNClsgLWYgL2NvbmZpZy9pcHRhYmxlcy9mdW5jdGlvbnMgXSAmJiAuIC9jb25maWcvaXB0YWJsZXMvZnVuY3Rpb25zDQoNCmlwdGFibGVzIC1MIHNob3Jld2FsbCAtbg0KaXB0YWJsZXMgLUYgc2hvcmV3YWxsDQppcHRhYmxlcyAtWCBzaG9yZXdhbGwNCmlwdGFibGVzIC10IG5hdCAtRg0KaXB0YWJsZXMgLXQgbmF0IC1YDQppcHRhYmxlcyAtdCBuYXQgLVAgUFJFUk9VVElORyBBQ0NFUFQNCmlwdGFibGVzIC10IG5hdCAtUCBQT1NUUk9VVElORyBBQ0NFUFQNCmlwdGFibGVzIC10IG5hdCAtUCBPVVRQVVQgQUNDRVBUDQppcHRhYmxlcyAtdCBtYW5nbGUgLUYNCmlwdGFibGVzIC10IG1hbmdsZSAtWA0K" 
+                        { "firewall" :
+                                      {
+					"command":"IyEvYmluL3NoDQppcHRhYmxlcyAoKSB7IHRlc3QgIiQyIiAhPSAic2hvcmV3YWxsIiAmJiBzYWZlX2NhbGwgaXB0YWJsZXMgJEA7IH0NCg0Kc2FmZV9jYWxsICgpIHsNCgliaW49JCh3aGljaCAkMSkNCglzaGlmdA0KCSRiaW4gJEANCglpZiBbICQ/		ICE9IDAgXTsgdGhlbiANCgkgICAgaXB0YWJsZXMtcmVzdG9yZSA8IC9jb25maWcvaXB0YWJsZXMuc2F2ZQ0KCSAgICBleGl0IDENCglmaQ0KfQ0KIyBxdCAoKSB7ICIkQCIgPi9kZXYvbnVsbCAyPiYxIH0NCg0KaWYgWyAteCAvYmluL2J1c3lib3ggXTsgdGhlbg0KCSMgWFhYIC0gaGFjayAtIGJ1ZyB3aXRoIGlwdGFibGVzLXNhdmUgaW4gcnVudCBpbWFnZQ0KCWNwIC9ldGMvbmV0d29yay9pcHRhYmxlcy5kZWZhdWx0IC9jb25maWcvaXB0YWJsZXMuc2F2ZQ0KZWxzZQ0KCWlwdGFibGVzLXNhdmUgPiAvY29uZmlnL2lwdGFibGVzLnNhdmUNCmZpDQoNClsgLWYgL2NvbmZpZy9pcHRhYmxlcy9mdW5jdGlvbnMgXSAmJiAuIC9jb25maWcvaXB0YWJsZXMvZnVuY3Rpb25zDQoNCmlwdGFibGVzIC1MIHNob3Jld2FsbCAtbg0KaXB0YWJsZXMgLUYgc2hvcmV3YWxsDQppcHRhYmxlcyAtWCBzaG9yZXdhbGwNCmlwdGFibGVzIC10IG5hdCAtRg0KaXB0YWJsZXMgLXQgbmF0IC1YDQppcHRhYmxlcyAtdCBuYXQgLVAgUFJFUk9VVElORyBBQ0NFUFQNCmlwdGFibGVzIC10IG5hdCAtUCBQT1NUUk9VVElORyBBQ0NFUFQNCmlwdGFibGVzIC10IG5hdCAtUCBPVVRQVVQgQUNDRVBUDQppcHRhYmxlcyAtdCBtYW5nbGUgLUYNCmlwdGFibGVzIC10IG1hbmdsZSAtWA0K"
                                       }
 			}
 	}
@@ -366,7 +372,7 @@ X-Powered-By	Express
 
 ### Response JSON
 
-        
+
         {
            "services":{
                         "id":"415794ee-c6f7-4545-a5a6-3253448de10e",
@@ -374,52 +380,5 @@ X-Powered-By	Express
                         "command":"success"
                        }
          }
-        
-
-Action Command API
-------------------
-This API is used to perform the action like start, stop, restart and status on the dinstalled services and identified by service-id
-
-            Verb	URI	        		Description
-             POST	/services/service-id/action	Execute action command .
-
-
-**Example Request and Response**
-
-### Request Headers
-
-```
-POST /services/a12796b8-c786-4351-ba7d-4b95cd8e0797/action HTTP/1.1
-Host: 10.2.56.153:3000
-User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:13.0) Gecko/20100101 Firefox/13.0.1
-Accept: */*
-Accept-Language: en-us,en;q=0.5
-Accept-Encoding: gzip, deflate
-Connection: keep-alive
-Content-Type: application/json; charset=utf-8
-X-Requested-With: XMLHttpRequest
-Referer: http://10.2.56.153:3000/
-Content-Length: 18
-Pragma: no-cache
-Cache-Control: no-cache
-```
-
-### Request JSON
-
-         {"command":"stop"}
-
-
-### Response JSON
-         {
-           "services":
-                     {
-                       "id":"a12796b8-c786-4351ba7d-4b95cd8e0797",
-                        "name":"openvpn",
-                        "enabled":"true",
-                        "pid":9392,
-                        "status":"running",
-                        "action":"success"
-              }
-        }
 
 

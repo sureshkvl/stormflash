@@ -23,7 +23,6 @@
             class:  {"type": "string"}
             id:     {"type": "string"}
             api:    {"type": "string"}
-            status: {"type": "string"}
             description:
                 type: "object"
                 required: true
@@ -34,14 +33,23 @@
                     family: {"type": "string", "required": true}
                     version:{"type": "string", "required": true}
                     pkgurl: {"type": "string", "required": true}
-
-    @service = { }
+            status:
+                type: "object"
+                required: false
+                additionalProperties: false
+                properties:
+                    installed:   { type: "boolean" }
+                    initialized: { type: "boolean" }
+                    enabled:     { type: "boolean" }
+                    running:     { type: "boolean" }
+                    result:      { type: "string"  }
 
     @get '/services': ->
         res = { 'services': [] }
         db.forEach (key,val) ->
             console.log 'found ' + key
             res.services.push val
+        console.log res
         @send res
 
     # POST/PUT VALIDATION
@@ -59,27 +67,15 @@
         console.log "loading service ID: #{@params.id}"
         entry = db.get @params.id
         if entry
-            desc = @body
-            @body = entry
-
-            @service = entry
-
-            @body.description = desc if desc?
-            console.log 'performing schema validation on incoming/retrieved JSON'
-
-            result = validate @body, schema
+            console.log 'performing schema validation on retrieved service JSON'
+            result = validate entry, schema
             console.log result
-            return @next new Error "Invalid service posting!: #{result.errors}" unless result.valid
+            return @next new Error "Invalid service retrieved: #{result.errors}" unless result.valid
+            @request.service = entry
+
             @next()
         else
             @next new Error "No such service ID: #{@params.id}"
-
-    loadServiceaction = ->
-        console.log "loading service ID: #{@params.id} for action"
-        entry = db.get @params.id
-        if !entry
-            @next new Error "No such service ID: #{@params.id}"
-        @next()
 
     @post '/services', validateServiceDesc, ->
         service = { }
@@ -94,9 +90,11 @@
         console.log "checking if the package has already been installed as #{desc.name}"
         exec "dpkg -l #{desc.name}", (error, stdout, stderr) =>
             unless error
-                service.status = "installed"
+                service.api = "/to/be/defined/in/future"
+                service.status = { installed: true }
                 db.set service.id, service, =>
                     console.log "'#{desc.name}' already installed successfully, initialized as new service ID: #{service.id}"
+                    console.log service
                     @send service
             else
                 # let's download this file from the web
@@ -120,17 +118,46 @@
                                 return @next new Error "Unable to verify service package installation!" if error
 
                                 # XXX - TODO figure out the API endpoint for this new package...
-
-                                service.status = "installed"
+                                service.api = "/to/be/defined/in/future"
+                                service.status = { installed: true }
                                 db.set service.id, service, =>
                                     console.log "#{desc.pkgurl} downloaded and installed successfully as service ID: #{service.id}"
+                                    console.log service
                                     @send service
                     else
                         return @next new Error "Unable to download and install service package!"
                     ).pipe(fs.createWriteStream(filename))
 
     @get '/services/:id', loadService, ->
-        @send @body
+        service = @request.service
+
+        # for debugging the below command is uncommented. Kindly enable this
+        #exec "svcs #{service.name} status", (error, stdout, stderr) =>
+        exec "pwd", (error, stdout, stderr) =>
+            if error or not stdout?
+                service.status = null
+            else
+                status =
+                    installed: service.status?.installed?
+                    initialized: false
+                    enabled: false
+                    running: false
+                    result: stdout
+
+                console.log stdout
+
+                if stdout.match /diabled/
+                    status.initialized = true
+                else if stdout.match /enabled/
+                    status.enabled = true
+                    unless stdout.match /not running/
+                        status.running = true
+
+                service.status = status
+
+            console.log service
+            @send service
+
 
     @put '/services/:id', validateServiceDesc, loadService, ->
         # XXX - can have intelligent merge here
@@ -139,17 +166,23 @@
         # 1. need to make sure the incoming JSON is well formed
         # 2. destructure the inbound object with proper schema
         # 3. perform 'extend' merge of inbound service data with existing data
+        service = @request.service
 
-        db.set @body.id, @body, ->
-            console.log "updated service ID: #{@params.id}"
-            @send @body
+        # desc = @body
+        # @body = entry
+        # @body.description ?= desc if desc?
+
+        db.set service.id, service, ->
+            console.log "updated service ID: #{service.id}"
+            console.log service
+            @send service
             # do some work
 
     @del '/services/:id', loadService, ->
         # 1. verify that the package is actually installed
         # 2. perform dpkg -r PACKAGENAME
         # 3. remove the service entry from DB
-        service = @body
+        service = @request.service
         desc = service.description
         console.log "verifying that the package has been installed as #{desc.name}"
         delFilePath = __dirname+'/services/'+service.id
@@ -163,57 +196,21 @@
                     console.log "removed service ID: #{service.id}"
                     exec "rm -rf #{delFilePath}", (error, stdout, stderr) =>
                          return @next new Error "Unable to remove services directory : #{desc.name}!" if error
-                    @send { deleted: "ok" }
+                    @send { deleted: true }
 
-    @post '/services/:id/action', loadServiceaction, ->
+    @post '/services/:id/action', loadService, ->
         return @next new Error "Invalid service posting!" unless @body.command
-        service = db.get @params.id
-        message = {'services':{}}
-        message.services.id   = @params.id
-        message.services.name = service.service.name
-        #message.services.type = service.service.type
+        service = @request.service
+        desc = service.description
 
-        console.log service.service
-        console.log "looking to issue 'svcs #{service.service.name} #{@body.command}'"
+        console.log "looking to issue 'svcs #{desc.name} #{@body.command}'"
         switch @body.command
-            when "start","stop","restart"
-                exec "svcs #{service.service.name} #{@body.command}", (error, stdout, stderr) =>
+            when "on", "start", "off", "stop","restart", "sync"
+                exec "svcs #{desc.name} #{@body.command}", (error, stdout, stderr) =>
                 #exec "pwd", (error, stdout, stderr) =>
                     return @next new Error "Unable to perform requested action!" if error
-                    message.services.action = "success"
-                    @send message
+                    @send { result: true }
 
-            when "status"
-                # for debugging the below command is uncommented. Kindly enable this
-                exec "svcs #{service.service.name} #{@body.command}", (error, stdout, stderr) =>
-                 #exec "pwd", (error, stdout, stderr) =>
-                    return @next new Error "Unable to perform requested action!" if error
+            else return @next new Error "Invalid action, must specify 'command' (on|off,start|stop,restart,sync)!"
 
-                    # the strObj we capture the stdout and process the return values to foramt a gud JSON string
-                    strObj = stdout
 
-                    #strObj = "#{service.service.name} is enabled and running pid as 847"
-                    console.log strObj
-                    if strObj
-                      if strObj.indexOf("disabled") > 0
-                        message.services.enabled = 'false'
-                        message.services.status ='Not Running'
-                        message.services.action = "success"
-                      else
-                        message.services.enabled = 'true'
-                        if strObj.indexOf("not") > 0
-                          message.services.status ='Not Running'
-                          message.services.action = "success"
-                        else
-                          IndexLen = parseInt(strObj.indexOf("as"))
-                          unless IndexLen is -1
-                            indexArr = strObj.split(" ")
-                            message.services.pid =parseInt(indexArr[indexArr.length - 1]) if indexArr.length > 0
-
-                        message.services.status = 'running'
-                        message.services.action = "success"
-                        result: "#{stdout}"
-                    console.log message
-                    @send message
-
-            else return @next new Error "Invalid action, must define 'command'!"

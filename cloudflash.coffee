@@ -1,4 +1,4 @@
-{@app} = require('zappajs') ->
+{@app} = require('zappajs') 5000, ->
     @configure =>
       @use 'bodyParser', 'methodOverride', @app.router, 'static'
       @set 'basepath': '/v1.0'
@@ -25,9 +25,6 @@
     @on serviceadded: ->
         @broadcast said: {nickname: @client.nickname, text: @data.text}
         @emit said: {nickname: @client.nickname, text: @data.text}
-
-    @get '/delete': ->
-        @render delete: {title: 'cloudflash', layout: no}
 
     @on servicedeleted: ->
         @broadcast said: {nickname: @client.nickname, text: @data.text}
@@ -196,7 +193,7 @@
                             option value: 'start', 'Start'
                             option value: 'stop', 'Stop'
                             option value: 'restart', 'Restart'
-                            option value: 'status', 'Status'
+                            option value: 'sync', 'Sync'
                     button 'Send'
             div ->
                 p 'Delete a Service'
@@ -222,12 +219,12 @@
                         textarea '#contents'
                             name: 'contents'
                             value: ''
-                    p ->
-                        span 'Postxfer: '
-                        input '#postxfer'
-                            type: 'text'
-                            name: 'postxfer'
-                            value: ''
+                    # p ->
+                    #     span 'Postxfer: '
+                    #     input '#postxfer'
+                    #         type: 'text'
+                    #         name: 'postxfer'
+                    #         value: ''
                     button 'Send'
 
      @view openvpn: ->
