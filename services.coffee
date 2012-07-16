@@ -31,7 +31,6 @@ db.on 'load', ->
         class:    { type: "string" }
         id:       { type: "string" }
         api:      { type: "string" }
-        serverId: { type: "string" }
         description:
             type: "object"
             required: true
