@@ -327,6 +327,53 @@ On success it returns JSON data with the service-id, service Name, config succes
 Upon error, error code 500 will be returned
 
 
+Describe OpenVPN
+----------------
+
+    Verb	URI	                 Description
+    GET	    /services/service-id/openvpn	  Show OpenVPN info in VCG specified by service-ID
+
+**Example Request and Response**
+
+### Request Headers
+
+    GET /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668/openvpn HTTP/1.1
+
+### Response JSON
+
+    {
+        "id": "d40d38bd-aab0-4430-ac61-4b8ee91dc668",
+        "users": [
+			{
+    			id: "492e025d-2ae7-49e6-b27d-441ba3784ce3",
+    			email: "master@oftheuniverse.com",
+    			push: [
+    				"dhcp-option DNS x.x.x.x",
+    				"ip-win32 dynamic",
+    				"route-delay 5"
+    			]
+			}
+        ],
+		"connections": [
+			{
+				cname: "e-mail or UUID",
+				remote: "1.2.3.4:1234",
+				ip: "172.17.0.4",
+				received: 12345,
+				sent: 54321,
+				since: "Tue Jul 17 12:17:18 2012"
+			}
+		]
+    }
+
+Please note that the top-level `id` returned above refers to the service-ID.
+
+Upon error, error code 500 will be returned
+
+
+*Firewall API (Currently N/A)*
+==============================
+
 Modify the firewall Config
 --------------------------
 
