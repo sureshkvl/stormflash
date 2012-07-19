@@ -1,19 +1,21 @@
 # validation is used by other modules
 validate = require('json-schema').validate
 
-@db = db = require('dirty') '/tmp/openvpnusers.db'
+@db = db =
+    main: require('dirty') '/tmp/openvpn.db'
+    user: require('dirty') '/tmp/openvpnusers.db'
 
-db.on 'load', ->
+db.user.on 'load', ->
     console.log 'loaded openvpnusers.db'
-    db.forEach (key,val) ->
+    db.user.forEach (key,val) ->
         console.log 'found ' + key
 
 @lookup = lookup = (id) ->
     console.log "looking up user ID: #{id}"
-    entry = db.get id
+    entry = db.user.get id
     if entry
 
-        if schema?
+        if userschema?
             console.log 'performing schema validation on retrieved user entry'
             result = validate entry, userschema
             console.log result
@@ -103,10 +105,14 @@ db.on 'load', ->
         else
             return @next result
 
-    @get '/services/:id/openvpn', loadService, ->
-        console.log @request.service
-
-        @render openvpn: {title: 'cloudflash opnvpnpost', layout: no}
+    # helper routine for retrieving service data from dirty db
+    loadOpenVPN = ->
+        result = db.main.get @params.id
+        unless result instanceof Error
+            @request.service = result
+            @next()
+        else
+            return @next result
 
     @post '/services/:id/openvpn', loadService, validateOpenvpn, ->
         service = @request.service
@@ -137,7 +143,11 @@ db.on 'load', ->
 
             exec "touch /config/#{service.description.name}/on"
 
-            @send { result: true }
+            db.main.set @params.id, @body, =>
+                console.log "#{@params.id} added to OpenVPN service configuration"
+                console.log @body
+                @send { result: true }
+
         catch err
             @next new Error "Unable to write configuration into #{filename}!"
 
@@ -174,7 +184,7 @@ db.on 'load', ->
 
             exec "svcs #{service.description.name} sync"
 
-            db.set @params.id, @body, =>
+            db.user.set @params.id, @body, =>
                 console.log "#{@body.email} added to OpenVPN service configuration"
                 console.log @body
 
@@ -182,3 +192,42 @@ db.on 'load', ->
         catch err
             @next new Error "Unable to write configuration into #{filename}!"
 
+    @get '/services/:id/openvpn', loadService, ->
+        res =
+            id: @request.service.id
+            users: []
+            connections: []
+
+        db.user.forEach (key,val) ->
+            console.log 'found ' + key
+            res.users.push val
+
+        statusfile = "/config/openvpn/server-status.log" # hard-coded for now...
+        console.log "processing #{statusfile} for live connections..."
+        for line in fs.readFileSync(statusfile, 'utf8').split "\n"
+            if /^OpenVPN/.test(line) or
+                /^Updated/.test(line) or
+                /^Common/.test(line) or
+                /^ROUTING/.test(line) or
+                /^Virtual/.test(line) or
+                /^GLOBAL/.test(line) or
+                /^Max bcast/.test(line)
+            else
+              vals = line.split ','
+              console.log line
+
+              switch vals.length
+                    when 5
+                        res.connections.push {
+                            cname: vals[0]
+                            remote: vals[1]
+                            received: vals[2]
+                            sent: vals[3]
+                            since: vals[4]
+                            }
+                    when 4
+                        for conn in res.connections
+                            if conn.cname is vals[1]
+                                conn.ip = vals[0]
+        console.log res
+        @send res
