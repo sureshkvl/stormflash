@@ -202,7 +202,7 @@ db.user.on 'load', ->
             console.log 'found ' + key
             res.users.push val
 
-        statusfile = "/config/openvpn/server-status.log" # hard-coded for now...
+        statusfile = "/var/log/server-status.log" # hard-coded for now...
         console.log "processing #{statusfile} for live connections..."
         for line in fs.readFileSync(statusfile, 'utf8').split "\n"
             if /^OpenVPN/.test(line) or
