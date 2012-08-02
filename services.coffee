@@ -101,7 +101,7 @@ db.on 'load', ->
         return @next new Error "Duplicate service ID detected!" if db.get service.id
 
         console.log "checking if the package has already been installed..."
-        exec "dpkg -l #{desc.name}", (error, stdout, stderr) =>
+        exec "dpkg -l #{desc.name} | grep #{desc.name}", (error, stdout, stderr) =>
             unless error
                 service.api = "/to/be/defined/in/future"
                 service.status = { installed: true }
