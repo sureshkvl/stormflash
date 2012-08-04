@@ -202,32 +202,85 @@ db.user.on 'load', ->
             console.log 'found ' + key
             res.users.push val
 
-        statusfile = "/var/log/server-status.log" # hard-coded for now...
-        console.log "processing #{statusfile} for live connections..."
-        for line in fs.readFileSync(statusfile, 'utf8').split "\n"
-            if /^OpenVPN/.test(line) or
-                /^Updated/.test(line) or
-                /^Common/.test(line) or
-                /^ROUTING/.test(line) or
-                /^Virtual/.test(line) or
-                /^GLOBAL/.test(line) or
-                /^Max bcast/.test(line)
-            else
-              vals = line.split ','
-              console.log line
+        # TODO: should retrieve the openvpn configuration and inspect "management" and "status" property
 
-              switch vals.length
+        Lazy = require 'lazy'
+        status = new Lazy
+        status
+            .lines
+            .map(String)
+            .filter (line) ->
+                not (
+                    /^OpenVPN/.test(line) or
+                    /^Updated/.test(line) or
+                    /^Common/.test(line) or
+                    /^ROUTING/.test(line) or
+                    /^Virtual/.test(line) or
+                    /^GLOBAL/.test(line) or
+                    /^UNDEF/.test(line) or
+                    /^END/.test(line) or
+                    /^Max bcast/.test(line))
+            .map (line) ->
+                #console.log "lazy: #{line}"
+                return line.trim().split ','
+            .forEach (fields) ->
+                switch fields.length
                     when 5
                         res.connections.push {
-                            cname: vals[0]
-                            remote: vals[1]
-                            received: vals[2]
-                            sent: vals[3]
-                            since: vals[4]
-                            }
+                            cname: fields[0]
+                            remote: fields[1]
+                            received: fields[2]
+                            sent: fields[3]
+                            since: fields[4]
+                        }
                     when 4
                         for conn in res.connections
-                            if conn.cname is vals[1]
-                                conn.ip = vals[0]
-        console.log res
-        @send res
+                            if conn.cname is fields[1]
+                                conn.ip = fields[0]
+            .join =>
+                console.log res
+                @send res
+
+        console.log "checking for live connections..."
+
+        # OPENVPN MGMT API v1
+        net = require 'net'
+        conn = net.connect 2020, '127.0.0.1', ->
+            console.log 'connection to openvpn mgmt successful!'
+            response = ''
+            @setEncoding 'ascii'
+            @on 'prompt', =>
+                @write "status\n"
+            @on 'response', =>
+                console.log "response: #{response}"
+                status.emit 'end'
+                @write "exit\n"
+                @end
+            @on 'data', (data) =>
+                console.log "read: "+data+"\n"
+                if /^>/.test(data)
+                    @emit 'prompt'
+                else
+                    response += data
+                    status.emit 'data',data
+                    if /^END$/gm.test(response)
+                        @emit 'response'
+
+        # When we CANNOT make a connection to OPENVPN MGMT port, we fallback to checking file
+        conn.on 'error', (error) ->
+            console.log error
+            statusfile = "/var/log/server-status.log" # hard-coded for now...
+
+            console.log "failling back to processing #{statusfile}..."
+            #statusfile = "openvpn-status.log" # hard-coded for now...
+            stream = fs.createReadStream statusfile, encoding: 'utf8'
+            stream.on 'open', ->
+                console.log "sending #{statusfile} to lazy status..."
+                stream.on 'data', (data) ->
+                    status.emit 'data',data
+                stream.on 'end', ->
+                    status.emit 'end'
+
+            stream.on 'error', (error) ->
+                console.log error
+                status.emit 'end'
