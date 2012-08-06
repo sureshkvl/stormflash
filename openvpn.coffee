@@ -265,6 +265,10 @@ db.user.on 'load', ->
                     status.emit 'data',data
                     if /^END$/gm.test(response)
                         @emit 'response'
+            @on 'end', =>
+                console.log 'connection to openvpn mgmt ended!'
+                status.emit 'end'
+                @end
 
         # When we CANNOT make a connection to OPENVPN MGMT port, we fallback to checking file
         conn.on 'error', (error) ->
