@@ -57,6 +57,7 @@ db.on 'load', ->
 
     webreq = require 'request'
     fs = require 'fs'
+    path = require 'path'
     exec = require('child_process').exec
 
 
@@ -121,7 +122,7 @@ db.on 'load', ->
                     return @next new Error "Unable to download service package!" if error
 
                     console.log "checking for service package at #{filename}"
-                    if fs.existsSync filename
+                    if path.existsSync filename
                         console.log 'found service package, issuing dpkg -i'
                         exec "dpkg -i -F depends #{filename}", (error, stdout, stderr) =>
                             return @next new Error "Unable to install service package!" if error
