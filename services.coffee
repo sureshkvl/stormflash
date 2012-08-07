@@ -119,7 +119,7 @@ db.on 'load', ->
                     # 3. verify that package has been installed
                     # 4. XXX - figure out the API endpoint dynamically
                     # 5. return success message back
-                    return @next new Error "Unable to download service package!" if error
+                    return @next new Error "Unable to download service package! Error was: #{error}" if error?
 
                     console.log "checking for service package at #{filename}"
                     if path.existsSync filename
