@@ -299,7 +299,7 @@ Add a User to VPN
 -----------------
 
     Verb	URI	        		                 Description
-    POST	/services/service-id/openvpn/users	 Update the openvpn server.conf file in VCG.
+    POST	/services/service-id/openvpn/users	 Add user into client-config-directory
 
 On success it returns JSON data with the service-id, service Name, config success.
 
@@ -326,6 +326,25 @@ On success it returns JSON data with the service-id, service Name, config succes
 
 Upon error, error code 500 will be returned
 
+
+Delete a User from VPN
+----------------------
+
+    Verb	URI	                 Description
+    DELETE	/services/service-id/openvpn/users/user-id	  Delete user from client-config-directory
+
+
+On Success returns 200 with JSON data
+
+**Example Request and Response**
+
+### Request Headers
+
+    DELETE /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668/openvpn/users/a5ce61b6-80ff-4cfa-aa49-9efe83c0c80b HTTP/1.1
+
+### Response JSON
+
+    { deleted: true }
 
 Describe OpenVPN
 ----------------

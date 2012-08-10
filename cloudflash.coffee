@@ -16,7 +16,7 @@
 #    @include 'openvpnlog'
 #    @include 'firewall'
 
-    @get '/': ->
+    @get '/test': ->
         @render index: {title: 'cloudflash', layout: no}
 
     @on 'set nickname': ->

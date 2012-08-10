@@ -184,13 +184,35 @@ db.user.on 'load', ->
 
             exec "svcs #{service.description.name} sync"
 
-            db.user.set @params.id, @body, =>
+            db.user.set @body.id, @body, =>
                 console.log "#{@body.email} added to OpenVPN service configuration"
                 console.log @body
 
                 @send { result: true }
         catch err
             @next new Error "Unable to write configuration into #{filename}!"
+
+    @del '/services/:id/openvpn/users/:user', loadService, ->
+        console.log @params
+        userid = @params.user
+        entry = db.user.get userid
+
+        try
+            throw new Error "user does not exist!" unless entry
+
+            filename = "/config/openvpn/ccd/#{entry.email}"
+            console.log "removing user config on #{filename}..."
+            path.exists filename, (exists) =>
+                throw new Error "user is already removed!" unless exists
+
+                fs.unlink filename, (err) =>
+                    throw err if err
+
+                    db.user.rm userid, =>
+                        console.log "removed VPN user ID: #{userid}"
+                        @send { deleted: true }
+        catch err
+            @next new Error "Unable to remove user ID: #{userid} due to #{err}"
 
     @get '/services/:id/openvpn', loadService, ->
         res =
