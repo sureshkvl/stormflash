@@ -146,7 +146,7 @@ db.user.on 'load', ->
             db.main.set @params.id, @body, =>
                 console.log "#{@params.id} added to OpenVPN service configuration"
                 console.log @body
-                @send { result: true }
+                return { result: true }
 
         catch err
             @next new Error "Unable to write configuration into #{filename}!"

@@ -9,10 +9,10 @@
 
     @enable 'serve jquery', 'minify'
 
-    @include 'services'
-    @include 'personality'
+    @include './lib/services'
+#    @include 'personality'
 
-    @include 'openvpn'
+#    @include 'openvpn'
 #    @include 'openvpnlog'
 #    @include 'firewall'
 
