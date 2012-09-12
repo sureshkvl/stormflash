@@ -22,7 +22,7 @@
 
         result = validate body, schema
         console.log result
-        return @next new Error "Invalid personality posting!: #{result.errors}" unless result.valid
+        return new Error "Invalid personality posting!: #{result.errors}" unless result.valid
 
         for p in body.personality
             #console.log p

@@ -8,7 +8,7 @@
 	},
 	"dependencies": {},
 	"devDependencies":{},
-	"main":"./openvpn"
+	"main":"./src/openvpn"
 }
 	
 	

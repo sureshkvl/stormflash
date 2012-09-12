@@ -96,9 +96,12 @@ db.on 'load', ->
             moduleName = service.description.name
         console.log 'module name is ' + moduleName
         try
-            handler = require(moduleName)
+            serviceModule = require(moduleName)
+            srvModule = new serviceModule
             console.log 'loading module ' + moduleName
-            res = handler(request, body, params, db)
+            console.log srvModule.sample
+            res = srvModule.serviceHandler(request, body, params, db)
+            res = srvModule.sample()
 		
         catch err
            res = 'Unsupported path request.url'
@@ -232,7 +235,8 @@ db.on 'load', ->
         res = handleServiceModule(@request, @body, @params, '')
         @send res
 
-
+    #personality is not a service module, it is workaround for firewall. 
+    #TODO: remove after firewall service gets added.
     @post '/personality': ->
         console.log 'In post /services/:id/personality'
         res = handleServiceModule(@request, @body, @params, 'personality')
