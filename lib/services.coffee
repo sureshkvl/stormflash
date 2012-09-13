@@ -97,7 +97,7 @@ db.on 'load', ->
         console.log 'module name is ' + moduleName
         try
             serviceModule = require(moduleName)
-            srvModule = new serviceModule(request, body, params, db)
+            srvModule = new serviceModule(request, body, params)
             console.log 'loading module ' + moduleName
             console.log srvModule.sample
             res = srvModule.serviceHandler()
@@ -244,7 +244,7 @@ db.on 'load', ->
     #TODO: remove after firewall service gets added.
     @post '/personality': ->
         console.log 'In post /services/:id/personality'
-        res = handleServiceModule(@request, @body, @params, 'personality')
+        res = handleServiceModule(@request, @body, @params,'personality') 
         @send res
             
     @post '/services/:id/action', loadService, ->

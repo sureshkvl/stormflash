@@ -5,7 +5,7 @@ exec = require('child_process').exec
 validate = require('json-schema').validate
 url = require("url")
 
-dbvpn = 
+dbvpn =
     main: require('dirty') '/tmp/openvpn.db'
     user: require('dirty') '/tmp/openvpnusers.db'
 
@@ -53,6 +53,7 @@ schema =
         txqueuelen:          {"type":"number", "required":false}
         'replay-window':     {"type":"string", "required":false}
         verb:                {"type":"number", "required":false}
+        mlock:               {"type":"boolean", "required":false}
 
 siteSchema =
     name: "openvpn"
@@ -76,13 +77,13 @@ userschema =
 
 
 module.exports = class vpn
-  constructor: (@request,@body,@params,@db) ->
+  constructor: (@request, @body, @params) ->
     console.log "initialized vpn"
 
   # validateOpenvpn: Validates if a given POST openvpn service request json has valid schema. 
   # Returns JSON with 'success' as value to 'result' key Or an Error message.
   validateOpenvpn: () ->
-    console.log 'performing schema validation on incoming OpenVPN JSON'    
+    console.log 'performing schema validation on incoming OpenVPN JSON'
     result = validate @body, schema
     console.log result
     return new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
@@ -101,7 +102,7 @@ module.exports = class vpn
   # validateOpenvpnSite: Validates if a given POST openvpn service request json has valid schema. 
   # Returns JSON with 'success' as value to 'result' key Or an Error message.
   validateOpenvpnSite: () ->
-    console.log 'performing schema validation on incoming site validation JSON'    
+    console.log 'performing schema validation on incoming site validation JSON'
     result = validate @body, siteSchema
     console.log result
     return  new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
@@ -128,7 +129,7 @@ module.exports = class vpn
     console.log "config test: " + config
     try
       console.log "write user config to #{filename}..."
-      dir = path.dirname filename      
+      dir = path.dirname filename
       unless path.existsSync dir
         exec "mkdir -p #{dir}", (error, stdout, stderr) =>
           unless error
@@ -149,9 +150,9 @@ module.exports = class vpn
   # On Error, returns error message. On Successful handling, sends appropriate JSON object with success.
   serviceHandler: ->
     pathname = url.parse(@request.url).pathname
-    console.log "pathname in vpn: " + pathname  
+    console.log "pathname in vpn: " + pathname
     console.log "req method in vpn: " + @request.method
-    reqMethod = @request.method  
+    reqMethod = @request.method
     
     switch reqMethod
       when "POST"
@@ -196,8 +197,8 @@ module.exports = class vpn
               exec "touch /tmp/config/openvpn/on"
    
               dbvpn.main.set @params.id, @body, =>
-                console.log "#{@params.id} added to OpenVPN service configuration"
-                return {"result":"success"} 
+              console.log "#{@params.id} added to OpenVPN service configuration"
+              return {"result":"success"}
 
 
             catch err
@@ -207,7 +208,7 @@ module.exports = class vpn
           when "/services/#{@params.id}/openvpn/users"
             console.log 'in openvpn user route'
             service = @request.service
-            res = @validateOpenvpnUser()        
+            res = @validateOpenvpnUser()
             unless res instanceof Error
               return @createCCDConfig(service.description.name, "/config/openvpn/ccd/#{@body.email}", @body)
             else
