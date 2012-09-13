@@ -15,6 +15,10 @@ schema =
     type: "object"
     additionalProperties: false
     properties:
+        'tls-client':        {"type":"boolean", "required":false}
+        'remote-random':     {"type":"boolean", "required":false}
+        nobind:              {"type":"boolean", "required":false}
+        'resolve-retry-infinite':     {"type":"boolean", "required":false}
         port:                {"type":"number", "required":true}
         dev:                 {"type":"string", "required":true}
         proto:               {"type":"string", "required":true}
