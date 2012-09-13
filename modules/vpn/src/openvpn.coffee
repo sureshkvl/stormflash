@@ -5,7 +5,7 @@ exec = require('child_process').exec
 validate = require('json-schema').validate
 url = require("url")
 
-db =
+dbvpn = 
     main: require('dirty') '/tmp/openvpn.db'
     user: require('dirty') '/tmp/openvpnusers.db'
 
@@ -54,7 +54,7 @@ schema =
         'replay-window':     {"type":"string", "required":false}
         verb:                {"type":"number", "required":false}
 
-siteSchema=
+siteSchema =
     name: "openvpn"
     type: "object"
     additionalProperties: false
@@ -62,6 +62,7 @@ siteSchema=
         id:    { type: "string", required: true }
         commonname: { type: "string", required: true }
         push:
+            items: { type: "string" }
 
 userschema =
     name: "openvpn"
@@ -80,8 +81,8 @@ module.exports = class vpn
 
   # validateOpenvpn: Validates if a given POST openvpn service request json has valid schema. 
   # Returns JSON with 'success' as value to 'result' key Or an Error message.
-  validateOpenvpn: ->
-    console.log 'performing schema validation on incoming OpenVPN JSON'
+  validateOpenvpn: () ->
+    console.log 'performing schema validation on incoming OpenVPN JSON'    
     result = validate @body, schema
     console.log result
     return new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
@@ -90,18 +91,18 @@ module.exports = class vpn
 
   # validateOpenvpnUser: Validates if a given POST openvpn service request json has valid schema. 
   # Returns JSON with 'success' as value to 'result' key Or an Error message.
-  validateOpenvpnUser: ->
+  validateOpenvpnUser: () ->
     console.log 'performing schema validation on incoming user validation JSON'
-    result = validate @body, userschema.properties
+    result = validate @body, userschema
     console.log result
     return  new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
     return {"result":"success"}
 
   # validateOpenvpnSite: Validates if a given POST openvpn service request json has valid schema. 
   # Returns JSON with 'success' as value to 'result' key Or an Error message.
-  validateOpenvpnSite: ->
-    console.log 'performing schema validation on incoming site validation JSON'
-    result = validate @body, siteSchema.properties
+  validateOpenvpnSite: () ->
+    console.log 'performing schema validation on incoming site validation JSON'    
+    result = validate @body, siteSchema
     console.log result
     return  new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
     return {"result":"success"}
@@ -124,21 +125,22 @@ module.exports = class vpn
               config += "#{key} #{i}\n" if key is "iroute"
               config += "#{key} \"#{i}\"\n" if key is "push"
 
+    console.log "config test: " + config
     try
       console.log "write user config to #{filename}..."
-      dir = path.dirname filename
+      dir = path.dirname filename      
       unless path.existsSync dir
         exec "mkdir -p #{dir}", (error, stdout, stderr) =>
-        unless error
-          fs.writeFileSync filename, config
-        else
-          fs.writeFileSync filename, config
+          unless error
+            fs.writeFileSync filename, config
+      else
+        fs.writeFileSync filename, config
 
-        exec "svcs #{servicename} sync"
+      #exec "svcs #{servicename} sync"
 
-        console.log "#{filename} added to OpenVPN service configuration"
-        console.log @body
-        return {"result":"success"}
+      console.log "#{filename} added to OpenVPN service configuration"
+      console.log @body
+      return {"result":"success"}
     catch err
       return new Error "Unable to write configuration into #{filename}!"
 
@@ -147,71 +149,178 @@ module.exports = class vpn
   # On Error, returns error message. On Successful handling, sends appropriate JSON object with success.
   serviceHandler: ->
     pathname = url.parse(@request.url).pathname
-    console.log "pathname in vpn: " + pathname
-
-    res = validateOpenvpn()
-    if res instanceof Error
-      return res
-    switch pathname
-      when "/services/#{@params.id}/openvpn"
-        console.log 'in openvpn route in src'
-        service = @request.service
-        config = ''
-        for key, val of @body
-            switch (typeof val)
-              when "object"
-                if val instanceof Array
-                  for i in val
-                    config += "#{key} #{i}\n" if key is "route"
-                    config += "#{key} \"#{i}\"\n" if key is "push"
-              when "number", "string"
-                config += key + ' ' + val + "\n"
-              when "boolean"
-                config += key + "\n"
-
-        console.log "config: " + config
-        #filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
-        filename = '/tmp/config/openvpn/server.conf'
-        try
-          console.log "write openvpn config to #{filename}..."
-          dir = path.dirname filename
-          unless path.existsSync dir
-            console.log 'no path exists'
-            exec "mkdir -p #{dir}", (error, stdout, stderr) =>
-              unless error
-                console.log 'created path and wrote config'
-                fs.writeFileSync filename, config
-          else
-            fs.writeFileSync filename, config
-            console.log 'wrote config file'
-
-          exec "touch /tmp/config/openvpn/on"
-          #db.main.set @params.id, @body, =>
-          console.log "#{@params.id} added to OpenVPN service configuration"
-          return {"result":"success"}
-
-        catch err
-          console.log "error in writing config"
-          return new Error "Unable to write configuration into #{filename}!"
+    console.log "pathname in vpn: " + pathname  
+    console.log "req method in vpn: " + @request.method
+    reqMethod = @request.method  
     
-      when "/services/#{@params.id}/openvpn/users"
-        console.log 'in openvpn user route'
-        service = @request.service
-        res = validateOpenvpnUser()
-        unless res instanceof Error
-          return @createCCDConfig(service.description.name, "/config/openvpn/ccd/#{@body.email}", @body)
-        else
-          return res
+    switch reqMethod
+      when "POST"
+        switch pathname
+          when "/services/#{@params.id}/openvpn"
+            console.log 'in openvpn route in src'
+            res = @validateOpenvpn()
+            console.log 'validate res:' + res
+            if res instanceof Error
+              return res
+
+            service = @request.service
+            config = ''
+            for key, val of @body
+                switch (typeof val)
+                  when "object"
+                    if val instanceof Array
+                      for i in val
+                        config += "#{key} #{i}\n" if key is "route"
+                        config += "#{key} \"#{i}\"\n" if key is "push"
+                  when "number", "string"
+                    config += key + ' ' + val + "\n"
+                  when "boolean"
+                    config += key + "\n"
+  
+            console.log "config: " + config
+            #filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
+            filename = '/tmp/config/openvpn/server.conf'
+            try
+              console.log "write openvpn config to #{filename}..."
+              dir = path.dirname filename
+              unless path.existsSync dir
+                console.log 'no path exists'
+                exec "mkdir -p #{dir}", (error, stdout, stderr) =>
+                  unless error
+                    console.log 'created path and wrote config'
+                    fs.writeFileSync filename, config
+              else
+                fs.writeFileSync filename, config
+                console.log 'wrote config file'
+
+              exec "touch /tmp/config/openvpn/on"
+   
+              dbvpn.main.set @params.id, @body, =>
+                console.log "#{@params.id} added to OpenVPN service configuration"
+                return {"result":"success"} 
 
 
-      when "/serivces/#{@params.id}/openvpn/sites"
-        console.log 'in openvpn site post'
-        service = @request.service
-        res = validateOpenvpnSite()
-        unless res instanceof Error
-          return @createCCDConfig(service.description.name, "/config/openvpn/ccd/#{@body.commonname}", @body)
-        else
-          return res
+            catch err
+              console.log "error in writing config"
+              return new Error "Unable to write configuration into #{filename}!"
+    
+          when "/services/#{@params.id}/openvpn/users"
+            console.log 'in openvpn user route'
+            service = @request.service
+            res = @validateOpenvpnUser()        
+            unless res instanceof Error
+              return @createCCDConfig(service.description.name, "/config/openvpn/ccd/#{@body.email}", @body)
+            else
+              return res
 
-      else return new Error "No method found"
+          when "/services/#{@params.id}/openvpn/sites"
+            console.log 'in openvpn site post'
+            service = @request.service
+            res = @validateOpenvpnSite()
+            unless res instanceof Error
+              return @createCCDConfig(service.description.name, "/config/openvpn/ccd/#{@body.commonname}", @body)
+            else
+              return res
+
+          else return new Error "No method found"
+
+      when "GET"
+        switch pathname
+          when "/services/#{@params.id}/openvpn"
+            console.log 'in openvpn route in src get' +@request.service.id
+            res =
+              id: @request.service.id
+              users: []
+              connections: []
+
+            dbvpn.user.forEach (key,val) ->
+              console.log 'found ' + key
+              res.users.push val
+
+            # TODO: should retrieve the openvpn configuration and inspect "management" and "status" property
+
+            Lazy = require 'lazy'
+            status = new Lazy
+            status
+                .lines
+                .map(String)
+                .filter (line) ->
+                    not (
+                        /^OpenVPN/.test(line) or
+                        /^Updated/.test(line) or
+                        /^Common/.test(line) or
+                        /^ROUTING/.test(line) or
+                        /^Virtual/.test(line) or
+                        /^GLOBAL/.test(line) or
+                        /^UNDEF/.test(line) or
+                        /^END/.test(line) or
+                        /^Max bcast/.test(line))
+                .map (line) ->
+                    console.log "lazy: #{line}"
+                    return line.trim().split ','
+                .forEach (fields) ->
+                    switch fields.length
+                        when 5
+                            res.connections.push {
+                                cname: fields[0]
+                                remote: fields[1]
+                                received: fields[2]
+                                sent: fields[3]
+                                since: fields[4]
+                            }
+                        when 4
+                            for conn in res.connections
+                                if conn.cname is fields[1]
+                                    conn.ip = fields[0]
+                .join =>
+                    console.log res
+                    return res
+
+            console.log "checking for live connections..."
+
+            # OPENVPN MGMT API v1
+            net = require 'net'
+            conn = net.connect 2020, '127.0.0.1', ->
+                console.log 'connection to openvpn mgmt successful!'
+                response = ''
+                @setEncoding 'ascii'
+                @on 'prompt', =>
+                    @write "status\n"
+                @on 'response', =>
+                    console.log "response: #{response}"
+                    status.emit 'end'
+                    @write "exit\n"
+                    @end
+                @on 'data', (data) =>
+                    console.log "read: "+data+"\n"
+                    if /^>/.test(data)
+                        @emit 'prompt'
+                    else
+                        response += data
+                        status.emit 'data',data
+                        if /^END$/gm.test(response)
+                            @emit 'response'
+                @on 'end', =>
+                    console.log 'connection to openvpn mgmt ended!'
+                    status.emit 'end'
+                    @end
+ 
+            # When we CANNOT make a connection to OPENVPN MGMT port, we fallback to checking file
+            conn.on 'error', (error) ->
+                console.log error
+                statusfile = "/var/log/server-status.log" # hard-coded for now...
+
+                console.log "failling back to processing #{statusfile}..."
+                #statusfile = "openvpn-status.log" # hard-coded for now...
+                stream = fs.createReadStream statusfile, encoding: 'utf8'
+                stream.on 'open', ->
+                    console.log "sending #{statusfile} to lazy status..."
+                    stream.on 'data', (data) ->
+                        status.emit 'data',data
+                    stream.on 'end', ->
+                        status.emit 'end'
+
+                stream.on 'error', (error) ->
+                    console.log error
+                    status.emit 'end'
 

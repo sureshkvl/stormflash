@@ -97,11 +97,11 @@ db.on 'load', ->
         console.log 'module name is ' + moduleName
         try
             serviceModule = require(moduleName)
-            srvModule = new serviceModule
+            srvModule = new serviceModule(request, body, params, db)
             console.log 'loading module ' + moduleName
             console.log srvModule.sample
-            res = srvModule.serviceHandler(request, body, params, db)
-            res = srvModule.sample()
+            res = srvModule.serviceHandler()
+            #res = srvModule.sample()
 		
         catch err
            res = 'Unsupported path request.url'
@@ -232,6 +232,11 @@ db.on 'load', ->
 
     @post '/services/:id/*', loadService, ->
         console.log "ravi in post /services/:id/*"
+        res = handleServiceModule(@request, @body, @params, '')
+        @send res
+
+    @get '/services/:id/*', loadService, ->
+        console.log "In get /services/:id/*"
         res = handleServiceModule(@request, @body, @params, '')
         @send res
 
