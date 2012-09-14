@@ -10,15 +10,38 @@ dbvpn =
     user: require('dirty') '/tmp/openvpnusers.db'
 
     # testing openvpn validation with test schema
-schema =
+clientschema =
     name: "openvpn"
     type: "object"
     additionalProperties: false
     properties:
-        'tls-client':        {"type":"boolean", "required":false}
-        'remote-random':     {"type":"boolean", "required":false}
-        nobind:              {"type":"boolean", "required":false}
-        'resolve-retry-infinite':     {"type":"boolean", "required":false}
+        pull:                {"type":"boolean", "required":true}
+        'tls-client':        {"type":"boolean", "required":true}
+        dev:                 {"type":"string", "required":true}
+        proto:               {"type":"string", "required":true}
+        ca:                  {"type":"string", "required":true}
+        dh:                  {"type":"string", "required":true}
+        cert:                {"type":"string", "required":true}
+        key:                 {"type":"string", "required":true}
+        remote:              {"type":"string", "required":true}
+        cipher:              {"type":"string", "required":false}
+        'tls-cipher':        {"type":"string", "required":false}
+        route:
+            items: { type: "string" }
+        push:
+            items: { type: "string" }
+        'persist-key':       {"type":"boolean", "required":false}
+        'persist-tun':       {"type":"boolean", "required":false}
+        status:              {"type":"string", "required":false}
+        'comp-lzo':          {"type":"string", "required":false}
+        verb:                {"type":"number", "required":false}
+        mlock:               {"type":"boolean", "required":false}
+
+serverschema =
+    name: "openvpn"
+    type: "object"
+    additionalProperties: false
+    properties:
         port:                {"type":"number", "required":true}
         dev:                 {"type":"string", "required":true}
         proto:               {"type":"string", "required":true}
@@ -55,7 +78,7 @@ schema =
         verb:                {"type":"number", "required":false}
         mlock:               {"type":"boolean", "required":false}
 
-siteSchema =
+siteschema =
     name: "openvpn"
     type: "object"
     additionalProperties: false
@@ -63,7 +86,7 @@ siteSchema =
         id:    { type: "string", required: true }
         commonname: { type: "string", required: true }
         push:
-            items: { type: "string" }
+          items: { type: "string" }
 
 userschema =
     name: "openvpn"
@@ -73,7 +96,7 @@ userschema =
         id:    { type: "string", required: true }
         email: { type: "string", required: true }
         push:
-           items: { type: "string" }
+          items: { type: "string" }
 
 
 module.exports = class vpn
@@ -82,30 +105,11 @@ module.exports = class vpn
 
   # validateOpenvpn: Validates if a given POST openvpn service request json has valid schema. 
   # Returns JSON with 'success' as value to 'result' key Or an Error message.
-  validateOpenvpn: () ->
+  validateschema: (schema) ->
     console.log 'performing schema validation on incoming OpenVPN JSON'
     result = validate @body, schema
     console.log result
     return new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
-    return {"result":"success"}
-
-
-  # validateOpenvpnUser: Validates if a given POST openvpn service request json has valid schema. 
-  # Returns JSON with 'success' as value to 'result' key Or an Error message.
-  validateOpenvpnUser: () ->
-    console.log 'performing schema validation on incoming user validation JSON'
-    result = validate @body, userschema
-    console.log result
-    return  new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
-    return {"result":"success"}
-
-  # validateOpenvpnSite: Validates if a given POST openvpn service request json has valid schema. 
-  # Returns JSON with 'success' as value to 'result' key Or an Error message.
-  validateOpenvpnSite: () ->
-    console.log 'performing schema validation on incoming site validation JSON'
-    result = validate @body, siteSchema
-    console.log result
-    return  new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
     return {"result":"success"}
 
 
@@ -137,18 +141,57 @@ module.exports = class vpn
       else
         fs.writeFileSync filename, config
 
-      #exec "svcs #{servicename} sync"
-
-      console.log "#{filename} added to OpenVPN service configuration"
-      console.log @body
+      exec "svcs #{servicename} sync"
+      dbvpn.user.set @body.id, @body, =>
+        console.log "#{filename} added to OpenVPN service configuration"
       return {"result":"success"}
+    catch err
+      return new Error "Unable to write configuration into #{filename}!"
+
+  createOpenvpnConfig: (filename) ->
+    console.log "in createopenvpnConfig"
+    config = ''
+    for key, val of @body
+      switch (typeof val)
+        when "object"
+          if val instanceof Array
+            for i in val
+              config += "#{key} #{i}\n" if key is "route"
+              config += "#{key} \"#{i}\"\n" if key is "push"
+        when "number", "string"
+          config += key + ' ' + val + "\n"
+        when "boolean"
+          config += key + "\n"
+
+    console.log "config: " + config
+    #filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
+    filename = "/config/openvpn/#{filename}"
+    try
+      console.log "write openvpn config to #{filename}..."
+      dir = path.dirname filename
+      unless path.existsSync dir
+        console.log 'no path exists'
+        exec "mkdir -p #{dir}", (error, stdout, stderr) =>
+          unless error
+            console.log 'created path'
+            fs.writeFileSync filename, config
+      else
+        fs.writeFileSync filename, config
+        console.log 'wrote config file'
+
+      exec "touch /config/openvpn/on"
+
+      dbvpn.main.set @params.id, @body, =>
+        console.log "#{@params.id} added to OpenVPN service configuration"
+      return {"result":"success"}
+
     catch err
       return new Error "Unable to write configuration into #{filename}!"
 
   # serviceHandler: Main function of this module which gets called by external applications to 
   # route openvpn API endpoints.
   # On Error, returns error message. On Successful handling, sends appropriate JSON object with success.
-  serviceHandler: ->
+  serviceHandler:  ->
     pathname = url.parse(@request.url).pathname
     console.log "pathname in vpn: " + pathname
     console.log "req method in vpn: " + @request.method
@@ -159,69 +202,35 @@ module.exports = class vpn
         switch pathname
           when "/services/#{@params.id}/openvpn"
             console.log 'in openvpn route in src'
-            res = @validateOpenvpn()
+            res = @validateschema(serverschema)
             console.log 'validate res:' + res
             if res instanceof Error
-              return res
+              return new Error "Invalid JSON object"
+            res = @createOpenvpnConfig("server.conf")
+            return res
 
-            service = @request.service
-            config = ''
-            for key, val of @body
-                switch (typeof val)
-                  when "object"
-                    if val instanceof Array
-                      for i in val
-                        config += "#{key} #{i}\n" if key is "route"
-                        config += "#{key} \"#{i}\"\n" if key is "push"
-                  when "number", "string"
-                    config += key + ' ' + val + "\n"
-                  when "boolean"
-                    config += key + "\n"
-  
-            console.log "config: " + config
-            #filename = __dirname+'/services/'+varguid+'/openvpn/server.conf'
-            filename = '/tmp/config/openvpn/server.conf'
-            try
-              console.log "write openvpn config to #{filename}..."
-              dir = path.dirname filename
-              unless path.existsSync dir
-                console.log 'no path exists'
-                exec "mkdir -p #{dir}", (error, stdout, stderr) =>
-                  unless error
-                    console.log 'created path and wrote config'
-                    fs.writeFileSync filename, config
-              else
-                fs.writeFileSync filename, config
-                console.log 'wrote config file'
-
-              exec "touch /tmp/config/openvpn/on"
-   
-              dbvpn.main.set @params.id, @body, =>
-              console.log "#{@params.id} added to OpenVPN service configuration"
-              return {"result":"success"}
-
-
-            catch err
-              console.log "error in writing config"
-              return new Error "Unable to write configuration into #{filename}!"
+          when "/services/#{@params.id}/openvpn/client"
+            console.log 'in openvpn route in src'
+            res = @validateschema(clientschema)
+            console.log 'validate res:' + res
+            return @createOpenvpnConfig("client.conf") unless res instanceof Error
+            return new Error "Invalid JSON object"
     
           when "/services/#{@params.id}/openvpn/users"
             console.log 'in openvpn user route'
             service = @request.service
-            res = @validateOpenvpnUser()
-            unless res instanceof Error
-              return @createCCDConfig(service.description.name, "/config/openvpn/ccd/#{@body.email}", @body)
-            else
-              return res
+            res = @validateschema(userschema)
+            console.log res
+            return @createCCDConfig(service.description.name, "/config/openvpn/ccd/#{@body.email}") unless res instanceof Error
+            return new Error "Invalid JSON object"
 
           when "/services/#{@params.id}/openvpn/sites"
             console.log 'in openvpn site post'
             service = @request.service
-            res = @validateOpenvpnSite()
-            unless res instanceof Error
-              return @createCCDConfig(service.description.name, "/config/openvpn/ccd/#{@body.commonname}", @body)
-            else
-              return res
+            res = @validateschema(siteschema)
+            if res instanceof Error
+              return new Error "Invalid JSON object"
+            return @createCCDConfig(service.description.name, "/config/openvpn/ccd/#{@body.commonname}", @body)
 
           else return new Error "No method found"
 
