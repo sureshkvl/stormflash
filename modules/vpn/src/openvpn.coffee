@@ -99,9 +99,16 @@ userschema =
           items: { type: "string" }
 
 
+
 module.exports = class vpn
   constructor: (@request, @body, @params) ->
     console.log "initialized vpn"
+    @serverschema = serverschema
+    @clientschema = clientschema
+    @siteschema = siteschema
+    @userschema = userschema
+
+   
 
   # validateOpenvpn: Validates if a given POST openvpn service request json has valid schema. 
   # Returns JSON with 'success' as value to 'result' key Or an Error message.
@@ -131,6 +138,7 @@ module.exports = class vpn
               config += "#{key} \"#{i}\"\n" if key is "push"
 
     console.log "config test: " + config
+    filename = "/config/openvpn/ccd/#{filename}"
     try
       console.log "write user config to #{filename}..."
       dir = path.dirname filename
@@ -221,7 +229,7 @@ module.exports = class vpn
             service = @request.service
             res = @validateschema(userschema)
             console.log res
-            return @createCCDConfig(service.description.name, "/config/openvpn/ccd/#{@body.email}") unless res instanceof Error
+            return @createCCDConfig(service.description.name, "#{@body.email}") unless res instanceof Error
             return new Error "Invalid JSON object"
 
           when "/services/#{@params.id}/openvpn/sites"
@@ -229,15 +237,15 @@ module.exports = class vpn
             service = @request.service
             res = @validateschema(siteschema)
             if res instanceof Error
-              return new Error "Invalid JSON object"
-            return @createCCDConfig(service.description.name, "/config/openvpn/ccd/#{@body.commonname}", @body)
+              return new Error "Invalid JSON object"            
+            return @createCCDConfig(service.description.name, "#{@body.commonname}", @body)
 
           else return new Error "No method found"
 
       when "GET"
         switch pathname
           when "/services/#{@params.id}/openvpn"
-            console.log 'in openvpn route in src get' +@request.service.id
+            console.log 'in openvpn route in src get' + @request.service.id
             res =
               id: @request.service.id
               users: []
@@ -333,4 +341,30 @@ module.exports = class vpn
                 stream.on 'error', (error) ->
                     console.log error
                     status.emit 'end'
+          else return new Error "No method found"
+
+      when "DELETE"
+        switch pathname
+          when "/services/#{@params.id}/openvpn/users/#{@params.user}"
+            console.log 'In openvpn delete: ' + @params
+            userid = @params.user
+            entry = dbvpn.user.get userid
+
+            try
+                throw new Error "user does not exist!" unless entry
+
+                filename = "/config/openvpn/ccd/#{entry.email}"
+                console.log "removing user config on #{filename}..."
+                path.exists filename, (exists) =>
+                    throw new Error "user is already removed!" unless exists
+
+                    fs.unlink filename, (err) =>
+                        throw err if err
+
+                        db.user.rm userid, =>
+                            console.log "removed VPN user ID: #{userid}"
+                        return { deleted: true }
+            catch err
+                return new Error "Unable to remove user ID: #{userid} due to #{err}"
+
 

@@ -239,6 +239,11 @@ db.on 'load', ->
         console.log "In get /services/:id/*"
         res = handleServiceModule(@request, @body, @params, '')
         @send res
+    @del '/services/:id/*', loadService, ->
+        console.log "In delete /services/:id/*"
+        res = handleServiceModule(@request, @body, @params, '')
+        @send res
+
 
     #personality is not a service module, it is workaround for firewall. 
     #TODO: remove after firewall service gets added.
