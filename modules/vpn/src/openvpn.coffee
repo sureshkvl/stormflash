@@ -114,6 +114,7 @@ module.exports = class vpn
   # Returns JSON with 'success' as value to 'result' key Or an Error message.
   validateschema: (schema) ->
     console.log 'performing schema validation on incoming OpenVPN JSON'
+    return new Error "No body as input" unless @body
     result = validate @body, schema
     console.log result
     return new Error "Invalid service openvpn posting!: #{result.errors}" unless result.valid
@@ -149,7 +150,9 @@ module.exports = class vpn
       else
         fs.writeFileSync filename, config
 
-      exec "svcs #{servicename} sync"
+      #TODO: For unit testing till svc is part of cloudflash we use service openvpn restart
+      #exec "svcs #{servicename} sync"
+      exec "service openvpn restart"
       dbvpn.user.set @body.id, @body, =>
         console.log "#{filename} added to OpenVPN service configuration"
       return {"result":"success"}
@@ -188,8 +191,9 @@ module.exports = class vpn
         console.log 'wrote config file'
 
       exec "touch /config/openvpn/on"
-
-      dbvpn.main.set @params.id, @body, =>
+      console.log "params " + @params.id
+      console.log "body " + @body
+      dbvpn.main.set @params.id, @body,  =>
         console.log "#{@params.id} added to OpenVPN service configuration"
       return {"result":"success"}
 
@@ -212,10 +216,8 @@ module.exports = class vpn
             console.log 'in openvpn route in src'
             res = @validateschema(serverschema)
             console.log 'validate res:' + res
-            if res instanceof Error
-              return new Error "Invalid JSON object"
-            res = @createOpenvpnConfig("server.conf")
-            return res
+            return @createOpenvpnConfig("server.conf") unless res instanceof Error
+            return new Error "Invalid JSON object"
 
           when "/services/#{@params.id}/openvpn/client"
             console.log 'in openvpn route in src'
@@ -237,7 +239,7 @@ module.exports = class vpn
             service = @request.service
             res = @validateschema(siteschema)
             if res instanceof Error
-              return new Error "Invalid JSON object"            
+              return new Error "Invalid JSON object"
             return @createCCDConfig(service.description.name, "#{@body.commonname}", @body)
 
           else return new Error "No method found"
@@ -346,14 +348,13 @@ module.exports = class vpn
       when "DELETE"
         switch pathname
           when "/services/#{@params.id}/openvpn/users/#{@params.user}"
-            console.log 'In openvpn delete: ' + @params
+            console.log 'In openvpn deleteuser : ' + @params
             userid = @params.user
             entry = dbvpn.user.get userid
+            filename = "/config/openvpn/ccd/#{entry.email}"
+            throw new Error "user does not exist!" unless entry
 
             try
-                throw new Error "user does not exist!" unless entry
-
-                filename = "/config/openvpn/ccd/#{entry.email}"
                 console.log "removing user config on #{filename}..."
                 path.exists filename, (exists) =>
                     throw new Error "user is already removed!" unless exists

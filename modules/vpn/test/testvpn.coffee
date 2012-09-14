@@ -30,6 +30,8 @@ newuser_err  = { "id": "889ace28-48e7-451a-a387-464625832891" ,"emailtest": "mas
 newsite_err  = { "id": "889ace28-48e7-451a-a387-464625832891" ,"commonnametest": "server.com", "push": []}
 newclientservice_err  = {"pull": "true", "tls-client":true, "dev": "tun", "proto":"udp","ca":"", "dh":"", "cert":"","key":"", "remote":"", "cipher":"", "tls-cipher":"", "route":[], "push":[], "persist-key":false}
 
+
+
 describe 'Testing Openvpn service: ', ->
 
   it 'should validate json body', ->
@@ -82,7 +84,7 @@ describe 'Testing Openvpn service: ', ->
     #userschema = require("../src/openvpn.coffee").userschema
     expect(vpn5.validateschema(vpn5.userschema)).to.eql({"result":"success"})
     body = newsite
-    vpn51 = new vpn(request, body, params)    
+    vpn51 = new vpn(request, body, params)
     siteschema = require("../src/openvpn.coffee").siteschema
     expect(vpn51.validateschema(vpn51.siteschema)).to.eql({"result":"success"})
 
@@ -98,7 +100,7 @@ describe 'Testing Openvpn service: ', ->
     params = orgparams
     request = orgrequest    
     request.url = "/services/#{params.id}/openvpn/sites"
-    request.method = 'POST'       
+    request.method = 'POST'
     body = newsite
     vpn7 = new vpn(request, body, params)
     expect(vpn7.serviceHandler()).to.eql({"result":"success"})
@@ -108,7 +110,7 @@ describe 'Testing Openvpn service: ', ->
     params = orgparams
     request = orgrequest
     request.url = "/services/#{params.id}/openvpn/users"
-    request.method = 'POST'    
+    request.method = 'POST'
     body = newuser
     vpn8 = new vpn(request, body, params)
     expect(vpn8.serviceHandler()).to.eql({"result":"success"})
@@ -120,8 +122,8 @@ describe 'Testing Openvpn service: ', ->
     body = newservice_err
     request = orgrequest
     params = orgparams
-    vpn9 = new vpn(request,body,params)    
-    expect(vpn9.validateschema(vpn9.serverschema)).to.eql({"result":"success"})
+    vpn9 = new vpn(request,body,params)
+    expect(vpn9.validateschema(vpn9.serverschema)).to.not.equal({"result":"success"})
 
   #Test with body as null for openvpn  //  test result fails
   it 'should not validate json body with error body null', ->
@@ -129,8 +131,8 @@ describe 'Testing Openvpn service: ', ->
     body = null
     request = orgrequest
     params = orgparams
-    vpn10 = new vpn(request,body,params)    
-    expect(vpn10.validateschema(vpn10.serverschema)).to.eql({"result":"success"})
+    vpn10 = new vpn(request,body,params)
+    expect(vpn10.validateschema(vpn10.serverschema)).to.not.equal({"result":"success"})
 
   #Test with filename as null for openvpn createOpenvpnConfig  
   it 'should not create configuration with error filename null', ->
@@ -142,7 +144,7 @@ describe 'Testing Openvpn service: ', ->
     vpn11 = new vpn(request,body,params)
     res = vpn11.createOpenvpnConfig(filename)
     console.log res
-    expect(res).to.eql({"result":"success"})
+    expect(res).to.not.equal({"result":"success"})
 
   #Test with serviceHandler with params as null   //  test result fails 
   it 'should not create config based on request path POST /services/:id/openvpn with error inputs params as null', ->
@@ -153,7 +155,7 @@ describe 'Testing Openvpn service: ', ->
     request.method = 'POST'
     body = newservice
     vpn12 = new vpn(request, body, params)
-    expect(vpn12.serviceHandler()).to.eql({"result":"success"})
+    expect(vpn12.serviceHandler()).to.not.equal({"result":"success"})
 
   #Test with serviceHandler with invalid request 
   it 'should not create config based on request path POST /services/:id/openvpn with error inputs invalid request method', ->
@@ -164,19 +166,19 @@ describe 'Testing Openvpn service: ', ->
     request.method = 'POST'
     body = newservice
     vpn13 = new vpn(request, body, params)
-    expect(vpn13.serviceHandler()).to.eql({"result":"success"})
+    expect(vpn13.serviceHandler()).to.not.equal({"result":"success"})
 
   #Test with validateschema for invalid schema for user and site  
-  it 'should nod validate user and site  schema', ->
+  it 'should not validate user and site  schema', ->
     request = body = params = null
     params = orgparams
-    request = orgrequest    
+    request = orgrequest
     body = newuser_err
-    vpn14 = new vpn(request, body, params)   
-    expect(vpn14.validateschema(vpn14.userschema)).to.eql({"result":"success"})
+    vpn14 = new vpn(request, body, params)
+    expect(vpn14.validateschema(vpn14.userschema)).to.not.equal({"result":"success"})
     body = newsite_err
-    vpn15 = new vpn(request, body, params)        
-    expect(vpn15.validateschema(vpn15.siteschema)).to.eql({"result":"success"})
+    vpn15 = new vpn(request, body, params)
+    expect(vpn15.validateschema(vpn15.siteschema)).to.not.equal({"result":"success"})
 
   #Test with validateschema for invalid schema for openvpn client
   it 'should not validate json body with error invalid schema for client', ->
@@ -184,11 +186,15 @@ describe 'Testing Openvpn service: ', ->
     body = newclientservice_err
     request = orgrequest
     params = orgparams
-    vpn16 = new vpn(request,body,params)    
-    expect(vpn16.validateschema(vpn16.clientschema)).to.eql({"result":"success"})
+    vpn16 = new vpn(request,body,params)
+    expect(vpn16.validateschema(vpn16.clientschema)).to.not.equal({"result":"success"})
 
 
-  
+ #Test DELETE user
+ #Test DELETE site
+ #Test with wrong values for DELETE user
+ #Test with wrong vlaues for DELETE site
+ 
 
 
 
