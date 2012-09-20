@@ -29,12 +29,10 @@
             return @next result
 
     @post '/services', validateServiceDesc, ->
-        console.log 'here here'
         service = cloudflash.new @body
-
         cloudflash.add service, (error) =>
             unless error
-
+                console.log service
                 @send service
             else
                 @next error
