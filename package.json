@@ -20,5 +20,5 @@
     "type": "git",
     "url": "git://github.com/clearpath-networks/cloudflash.git"
   },
-  "main": "cloudflash.coffee"
+  "main": "./lib/cloudflash.coffee"
 }

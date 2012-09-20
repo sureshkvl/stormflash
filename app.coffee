@@ -10,11 +10,8 @@
     @enable 'serve jquery', 'minify'
 
     @include './lib/services'
-#    @include 'personality'
+#    @include './lib/personality'
 
-#    @include 'openvpn'
-#    @include 'openvpnlog'
-#    @include 'firewall'
 
     @get '/test': ->
         @render index: {title: 'cloudflash', layout: no}
