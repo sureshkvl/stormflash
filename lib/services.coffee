@@ -29,6 +29,7 @@
             return @next result
 
     @post '/services', validateServiceDesc, ->
+        console.log 'here here'
         service = cloudflash.new @body
 
         cloudflash.add service, (error) =>
