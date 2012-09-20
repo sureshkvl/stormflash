@@ -10,7 +10,7 @@
     @enable 'serve jquery', 'minify'
 
     @include './lib/services'
-#    @include './lib/personality'
+    @include './lib/personality'
 
 
     @get '/test': ->

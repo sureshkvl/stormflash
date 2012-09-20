@@ -97,11 +97,6 @@
             else
                 @next error
 
-    @post '/personality': ->
-        console.log 'In post /services/:id/personality'
-        res = handleServiceModule(@request, @body, @params,'personality')
-        @send res
-
     @post '/services/:id/action', loadService, ->
         return @next new Error "Invalid service posting!" unless @body.command
         service = @request.service
