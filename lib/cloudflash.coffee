@@ -37,12 +37,13 @@ class CloudFlash
                     result:      { type: "string"  }
 
     constructor: (@param) ->
+        @include = @param.include
         @db = require('dirty') '/tmp/cloudflash.db'
         @db.on 'load', ->
             console.log 'loaded cloudflash.db'
             @forEach (key,val) ->
                 console.log 'found ' + key
-
+        
     new: (desc) ->
         service = {}
         service.id = uuid.v4()
@@ -127,7 +128,7 @@ class CloudFlash
                 @install service, (error) =>
                     unless error
                         # 3. include service API module
-                        #@include service.description.api
+                        @include service.description.api
 
                         # 4. add service into cloudflash
                         service.status = { installed: true }
