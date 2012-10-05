@@ -25,6 +25,7 @@ class CloudFlash
                     family: {"type": "string", "required": true}
                     version:{"type": "string", "required": true}
                     pkgurl: {"type": "string", "required": true}
+                    api: {"type": "string", "required": true}
             status:
                 type: "object"
                 required: false
@@ -36,8 +37,8 @@ class CloudFlash
                     running:     { type: "boolean" }
                     result:      { type: "string"  }
 
-    constructor: (@param) ->
-        @include = @param.include
+    constructor: (@include) ->
+        console.log "include is " + @include
         @db = require('dirty') '/tmp/cloudflash.db'
         @db.on 'load', ->
             console.log 'loaded cloudflash.db'
@@ -120,6 +121,9 @@ class CloudFlash
         # 1. check if package already installed, if so, we we skip download...
         @check service, (error) =>
             unless error
+                #openvpn is builtin and dpkg reports installed but APIs are not yet installed.
+                #This step repeates for every service post but there is no harm in including again for this execption.
+                @include "./node_modules/#{service.description.name}/#{service.description.api}" unless server.description == 'openvpn'
                 service.status = { installed: true }
                 @db.set service.id, service, ->
                     callback()
@@ -128,7 +132,7 @@ class CloudFlash
                 @install service, (error) =>
                     unless error
                         # 3. include service API module
-                        @include service.description.api
+                        @include "./node_modules/#{service.description.name}/#{service.description.api}"
 
                         # 4. add service into cloudflash
                         service.status = { installed: true }
@@ -154,4 +158,4 @@ class CloudFlash
 
 ##
 # SINGLETON CLASS OBJECT
-module.exports = new CloudFlash
+module.exports = CloudFlash

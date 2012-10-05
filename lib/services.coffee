@@ -2,7 +2,8 @@
 # CLOUDFLASH /services REST end-points
 
 @include = ->
-    cloudflash = require './cloudflash', { include: @include }
+    cloud = require('./cloudflash')
+    cloudflash = new cloud(@include)
 
     @get '/services': ->
         res = cloudflash.list()
