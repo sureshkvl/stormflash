@@ -1,5 +1,5 @@
 ##
-# CLOUDFLASH /services REST end-points
+# CLOUDFLASH /modules REST end-points
 
 @include = ->
     cloud = require('./cloudflash')

@@ -15,25 +15,25 @@ should be specified by using the Content-Type header, the Accept header.
     <th>Verb</th><th>URI</th><th>Description</th>
   </tr>
   <tr>
-    <td>GET</td><td>/services</td><td>List summary of services installed in VCG identified by service ID</td>
+    <td>GET</td><td>/modules</td><td>List summary of modules installed in VCG identified by module ID</td>
   </tr>
   <tr>
-    <td>POST</td><td>/services</td><td>Create a new service in VCG</td>
+    <td>POST</td><td>/modules</td><td>Create a new module in VCG</td>
   </tr>
   <tr>
-    <td>GET</td><td>/services/service-id</td><td>Describes an installed service in VCG by service ID</td>
+    <td>GET</td><td>/modules/module-id</td><td>Describes an installed module in VCG by module ID</td>
   </tr>
   <tr>
-    <td>DELETE</td><td>/services/service-id</td><td>Delete an installed service in VCG by service ID</td>
+    <td>DELETE</td><td>/modules/module-id</td><td>Delete an installed module in VCG by module ID</td>
   </tr>
   <tr>
-    <td>POST</td><td>/services/service-id/openvpn</td><td>Modify existing OpenVPN configuration</td>
+    <td>POST</td><td>/modules/module-id/openvpn</td><td>Modify existing OpenVPN configuration</td>
   </tr>
   <tr>
-    <td>POST</td><td>/services/service-id/firewall</td><td>Modify existing Firewall configuration</td>
+    <td>POST</td><td>/modules/module-id/firewall</td><td>Modify existing Firewall configuration</td>
   </tr>
   <tr>
-    <td>POST</td><td>/services/service-id/action</td><td>Execute command on the VCG</td>
+    <td>POST</td><td>/modules/module-id/action</td><td>Execute command on the VCG</td>
   </tr>
 
 </table>
@@ -46,7 +46,7 @@ API version in the URI.
 
 For example
 
-      /services/V1.0/service family/service type
+      /modules/V1.0/module family/module type
 
 
 *Authentication*
@@ -55,26 +55,26 @@ Current implementation of cloudflash in VCG does not require that each request w
 the user submiting the request.
 Plan is to have OAuth scheme of authentication.
 
-*Services API*
+*Modules API*
 ==============
 
- List Services
+ List Modules
 --------------
 
     Verb	URI	        Description
-    GET	/services	Lists summary of services configured in VCG identified by service ID.
+    GET	/modules	Lists summary of modules configured in VCG identified by module ID.
 
 
 Note: The request does not require a message body.
-Success: Returns JSON data with list of services installed on VCG. Each service is identified by service ID
+Success: Returns JSON data with list of modules installed on VCG. Each module is identified by module ID
 
-The service ID is generated is a UUID.
+The module ID is generated is a UUID.
 
-Service Family is the generic service type while name is the actual service name.
+Module Family is the generic module type while name is the actual module name.
 
 pkgurl: The package download link provided to VCG
 
-api: Supported APIs for this service.
+api: Supported APIs for this module.
 
 *Note: Currently no validation of the package contents done*
 
@@ -85,13 +85,13 @@ api: Supported APIs for this service.
 
 *Request*
 
-    GET /services HTTP/1.1
+    GET /modules HTTP/1.1
 
 *Response*
 
 ```
 {
-    "services": [
+    "modules": [
         {
             "id": "40860f06-7dcf-41ab-a414-98957b092b7b",
             "status": "installed"
@@ -107,22 +107,22 @@ api: Supported APIs for this service.
 }
 ```
 
-Create Service
+Create Module
 ---------------
 
 
     Verb	URI	        Description
-    POST	/services	Create a new service in VCG.
+    POST	/modules	Create a new module in VCG.
 
 
 The request **must** have the following parameters in JSON data
 
-      1. service version
-      2. service Name
-      3. Service Family
+      1. module version
+      2. module Name
+      3. Module Family
       4. Package URL
 
-On success it returns JSON data with the UUID for the service created.
+On success it returns JSON data with the UUID for the module created.
 
 **Example Request and Response**
 
@@ -153,17 +153,17 @@ On success it returns JSON data with the UUID for the service created.
         }
     }
 
-Describe Service
+Describe Module
 ----------------
 
     Verb	URI	                 Description
-    GET	    /services/service-id	  Show a service in VCG specified by service-ID
+    GET	    /modules/module-id	  Show a module in VCG specified by module-ID
 
 **Example Request and Response**
 
 ### Request Headers
 
-    GET /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
+    GET /modules/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
 
 ### Response JSON
 
@@ -185,11 +185,11 @@ Describe Service
         }
     }
 
-Delete a service
+Delete a module
 ----------------
 
     Verb	URI	                 Description
-    DELETE	/services/service-id	  Delete a service in VCG specified by service-ID
+    DELETE	/modules/module-id	  Delete a module in VCG specified by module-ID
 
 
 On Success returns 200 with JSON data
@@ -200,7 +200,7 @@ On Success returns 200 with JSON data
 
 ### Request Headers
 
-    DELETE /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
+    DELETE /modules/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
 
 ### Response JSON
 
@@ -209,17 +209,17 @@ On Success returns 200 with JSON data
 
 Action Command API
 ------------------
-This API is used to perform the action like start, stop, restart and sync on the installed services as identified by service-id
+This API is used to perform the action like start, stop, restart and sync on the installed modules as identified by module-id
 
 
     Verb	URI	                 Description
-    POST	/services/service-id/action	  Execute an action command
+    POST	/modules/module-id/action	  Execute an action command
 
 **Example Request and Response**
 
 ### Request Headers
 
-    POST /services/a12796b8-c786-4351-ba7d-4b95cd8e0797/action HTTP/1.1
+    POST /modules/a12796b8-c786-4351-ba7d-4b95cd8e0797/action HTTP/1.1
 
 ### Request JSON
 
@@ -237,9 +237,9 @@ Post openVPN Configuration
 --------------------------
 
     Verb	URI	        		Description
-    POST	/services/service-id/openvpn	 Update the openvpn server.conf file in VCG.
+    POST	/modules/module-id/openvpn	 Update the openvpn server.conf file in VCG.
 
-On success it returns JSON data with the service-id, service Name, config success.
+On success it returns JSON data with the module-id, module Name, config success.
 
 *TODO: Define JSON format for error codes and description.*
 
@@ -299,9 +299,9 @@ Add a User to VPN
 -----------------
 
     Verb	URI	        		                 Description
-    POST	/services/service-id/openvpn/users	 Add user into client-config-directory
+    POST	/modules/module-id/openvpn/users	 Add user into client-config-directory
 
-On success it returns JSON data with the service-id, service Name, config success.
+On success it returns JSON data with the module-id, module Name, config success.
 
 **Example Request and Response**
 
@@ -331,7 +331,7 @@ Delete a User from VPN
 ----------------------
 
     Verb	URI	                 Description
-    DELETE	/services/service-id/openvpn/users/user-id	  Delete user from client-config-directory
+    DELETE	/modules/module-id/openvpn/users/user-id	  Delete user from client-config-directory
 
 
 On Success returns 200 with JSON data
@@ -340,7 +340,7 @@ On Success returns 200 with JSON data
 
 ### Request Headers
 
-    DELETE /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668/openvpn/users/a5ce61b6-80ff-4cfa-aa49-9efe83c0c80b HTTP/1.1
+    DELETE /modules/d40d38bd-aab0-4430-ac61-4b8ee91dc668/openvpn/users/a5ce61b6-80ff-4cfa-aa49-9efe83c0c80b HTTP/1.1
 
 ### Response JSON
 
@@ -350,13 +350,13 @@ Describe OpenVPN
 ----------------
 
     Verb	URI	                 Description
-    GET	    /services/service-id/openvpn	  Show OpenVPN info in VCG specified by service-ID
+    GET	    /modules/module-id/openvpn	  Show OpenVPN info in VCG specified by module-ID
 
 **Example Request and Response**
 
 ### Request Headers
 
-    GET /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668/openvpn HTTP/1.1
+    GET /modules/d40d38bd-aab0-4430-ac61-4b8ee91dc668/openvpn HTTP/1.1
 
 ### Response JSON
 
@@ -385,7 +385,7 @@ Describe OpenVPN
 		]
     }
 
-Please note that the top-level `id` returned above refers to the service-ID.
+Please note that the top-level `id` returned above refers to the module-ID.
 
 Upon error, error code 500 will be returned
 
@@ -398,17 +398,17 @@ Modify the firewall Config
 
 
             Verb	URI	        			Description
-             POST	/services/service-id/firewall		 Update the firewall firewall.sh file in VCG.
+             POST	/modules/module-id/firewall		 Update the firewall firewall.sh file in VCG.
 
 
 The request must have the following parameters in JSON data
 
-      1. service Name
-      2. service Type
-      3. Service id
+      1. module Name
+      2. module Type
+      3. Module id
       4. firewall base64 encrypted value
 
-On success it returns JSON data with the service-id, service Name, command success.
+On success it returns JSON data with the module-id, module Name, command success.
 
 *TODO: Define JSON format for error codes and description.*
 
@@ -432,7 +432,7 @@ Content-Length	1107
 Content-Type	application/json; charset=utf-8
 Host	10.2.56.153:3000
 Pragma	no-cache
-Referer	http://10.2.56.153:3000/services/415794ee-c6f7-4545-a5a6-3253448de10e/firewall
+Referer	http://10.2.56.153:3000/modules/415794ee-c6f7-4545-a5a6-3253448de10e/firewall
 User-Agent	Mozilla/5.0 (Windows NT 5.1; rv:12.0) Gecko/20100101 Firefox/12.0
 X-Requested-With	XMLHttpRequest
 Response Headers From Cache
@@ -444,7 +444,7 @@ X-Powered-By	Express
 
 ### Request JSON
 
-            { "services":
+            { "modules":
                         { "firewall" :
                                       {
 					"command":"IyEvYmluL3NoDQppcHRhYmxlcyAoKSB7IHRlc3QgIiQyIiAhPSAic2hvcmV3YWxsIiAmJiBzYWZlX2NhbGwgaXB0YWJsZXMgJEA7IH0NCg0Kc2FmZV9jYWxsICgpIHsNCgliaW49JCh3aGljaCAkMSkNCglzaGlmdA0KCSRiaW4gJEANCglpZiBbICQ/		ICE9IDAgXTsgdGhlbiANCgkgICAgaXB0YWJsZXMtcmVzdG9yZSA8IC9jb25maWcvaXB0YWJsZXMuc2F2ZQ0KCSAgICBleGl0IDENCglmaQ0KfQ0KIyBxdCAoKSB7ICIkQCIgPi9kZXYvbnVsbCAyPiYxIH0NCg0KaWYgWyAteCAvYmluL2J1c3lib3ggXTsgdGhlbg0KCSMgWFhYIC0gaGFjayAtIGJ1ZyB3aXRoIGlwdGFibGVzLXNhdmUgaW4gcnVudCBpbWFnZQ0KCWNwIC9ldGMvbmV0d29yay9pcHRhYmxlcy5kZWZhdWx0IC9jb25maWcvaXB0YWJsZXMuc2F2ZQ0KZWxzZQ0KCWlwdGFibGVzLXNhdmUgPiAvY29uZmlnL2lwdGFibGVzLnNhdmUNCmZpDQoNClsgLWYgL2NvbmZpZy9pcHRhYmxlcy9mdW5jdGlvbnMgXSAmJiAuIC9jb25maWcvaXB0YWJsZXMvZnVuY3Rpb25zDQoNCmlwdGFibGVzIC1MIHNob3Jld2FsbCAtbg0KaXB0YWJsZXMgLUYgc2hvcmV3YWxsDQppcHRhYmxlcyAtWCBzaG9yZXdhbGwNCmlwdGFibGVzIC10IG5hdCAtRg0KaXB0YWJsZXMgLXQgbmF0IC1YDQppcHRhYmxlcyAtdCBuYXQgLVAgUFJFUk9VVElORyBBQ0NFUFQNCmlwdGFibGVzIC10IG5hdCAtUCBQT1NUUk9VVElORyBBQ0NFUFQNCmlwdGFibGVzIC10IG5hdCAtUCBPVVRQVVQgQUNDRVBUDQppcHRhYmxlcyAtdCBtYW5nbGUgLUYNCmlwdGFibGVzIC10IG1hbmdsZSAtWA0K"
@@ -457,7 +457,7 @@ X-Powered-By	Express
 
 
         {
-           "services":{
+           "modules":{
                         "id":"415794ee-c6f7-4545-a5a6-3253448de10e",
                         "name":"iptable",
                         "command":"success"

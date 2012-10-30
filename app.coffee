@@ -19,11 +19,11 @@
     @on 'set nickname': ->
         @client.nickname = @data.nickname
 
-    @on serviceadded: ->
+    @on moduleadded: ->
         @broadcast said: {nickname: @client.nickname, text: @data.text}
         @emit said: {nickname: @client.nickname, text: @data.text}
 
-    @on servicedeleted: ->
+    @on moduledeleted: ->
         @broadcast said: {nickname: @client.nickname, text: @data.text}
         @emit said: {nickname: @client.nickname, text: @data.text}
 
@@ -39,7 +39,7 @@
     @client '/index.js': ->
         @connect()
 
-        @on serviceadded: ->
+        @on moduleadded: ->
           $('#panel').append "<p>#{@data} and #{@text}</p>"
 
         $ =>
@@ -54,15 +54,15 @@
             switch $form.attr('id')
                 when 'create'
                     type = "POST"
-                    url = '/services'
+                    url = '/modules'
                     data = $form.serializeFormJSON()
                 when 'action'
                     type = "POST"
-                    url = "/services/#{sid}/action"
+                    url = "/modules/#{sid}/action"
                     data = { 'command': $form.find('option:selected').val() }
                 when 'delete'
                     type = "DELETE"
-                    url = "/services/#{sid}"
+                    url = "/modules/#{sid}"
                 when 'personality'
                     type = "POST"
                     url = "/personality"
@@ -77,7 +77,7 @@
                 data: json
                 contentType: "application/json; charset=utf-8"
                 success: (data) =>
-                    @emit serviceevent: { text: data }
+                    @emit moduleevent: { text: data }
 
             e.preventDefault()
 
@@ -90,7 +90,7 @@
         @connect()
 
         @on openvpnadded: ->
-          $('#panel').append "<p>#{@data.services.openvpn} said: #{@data.service.id}</p>"
+          $('#panel').append "<p>#{@data.modules.openvpn} said: #{@data.module.id}</p>"
 
         $ =>
 
@@ -102,7 +102,7 @@
              unless id is " " and id is "undefined"
              	 $.ajax
                   type: "POST"
-                  url: '/services/'+id+'/openvpn'
+                  url: '/modules/'+id+'/openvpn'
                   data: json
                   contentType: "application/json; charset=utf-8"
                   success: (data) =>
@@ -115,7 +115,7 @@
         @connect()
 
         @on firewalladded: ->
-          $('#panel').append "<p>#{@data.services.firewall} said: #{@data.service.id}</p>"
+          $('#panel').append "<p>#{@data.modules.firewall} said: #{@data.module.id}</p>"
 
         $ =>
 
@@ -128,7 +128,7 @@
              unless id is " " and id is "undefined"
              	 $.ajax
                   type: "POST"
-                  url: '/services/'+id+'/firewall'
+                  url: '/modules/'+id+'/firewall'
                   data: json
                   contentType: "application/json; charset=utf-8"
                   success: (data) =>
@@ -150,20 +150,20 @@
           body ->
             div id: 'panel'
             div ->
-                p 'Create a new Service'
+                p 'Create a new Module'
                 form '#create', ->
                     input
                         type: 'hidden'
                         name: 'version'
                         value: '1.0'
                     p ->
-                        span 'Service Name: '
+                        span 'Module Name: '
                         input '#name'
                             type: 'text'
                             name: 'name'
                             value: 'at'
                     p ->
-                        span 'Service Type: '
+                        span 'Module Type: '
                         input '#family',
                             type: 'text'
                             name: 'family'
@@ -176,10 +176,10 @@
                             value: 'http://10.1.10.145/vpnrac-0.0.1.deb'
                     button 'Send'
             div ->
-                p 'Send an action to Service'
+                p 'Send an action to Module'
                 form '#action', ->
                     p ->
-                        span 'Service ID: '
+                        span 'Module ID: '
                         input
                             type: 'text'
                             name: 'id'
@@ -193,14 +193,14 @@
                             option value: 'sync', 'Sync'
                     button 'Send'
             div ->
-                p 'Delete a Service'
+                p 'Delete a Module'
                 form '#delete', ->
                     p ->
-                        span 'Service ID: '
+                        span 'Module ID: '
                         input '#id'
                             type: 'text'
                             name: 'id'
-                            value: 'service id'
+                            value: 'module id'
                     button 'Send'
             div ->
                 p 'Post a Personality'
@@ -236,21 +236,21 @@
               script src: '/openvpn.js'
             body ->
               div id: 'panel'
-              form '#services', ->
+              form '#modules', ->
                 p ->
-                      span 'Service Name: '
+                      span 'Module Name: '
                       input '#name'
                           type: 'text'
                           name: 'name'
                           value: 'openvpn'
                 p ->
-                    span 'Service Type: '
+                    span 'Module Type: '
                     input '#type',
                         type: 'text'
                         name: 'type'
                         value: 'vpn'
                 p ->
-                      span 'Service id: '
+                      span 'Module id: '
                       input '#id'
                           type: 'text'
                           name: 'guid'
@@ -276,21 +276,21 @@
               script src: '/firewall.js'
             body ->
               div id: 'panel'
-              form '#services', ->
+              form '#modules', ->
                 p ->
-                      span 'Service Name: '
+                      span 'Module Name: '
                       input '#name'
                           type: 'text'
                           name: 'name'
                           value: 'firewall'
                 p ->
-                    span 'Service Type: '
+                    span 'Module Type: '
                     input '#type',
                         type: 'text'
                         name: 'type'
                         value: 'iptables'
                 p ->
-                      span 'Service id: '
+                      span 'Module id: '
                       input '#id'
                           type: 'text'
                           name: 'guid'
