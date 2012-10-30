@@ -5,7 +5,7 @@
     cloud = require('./cloudflash')
     cloudflash = new cloud(@include)
 
-    @get '/services': ->
+    @get '/modules': ->
         res = cloudflash.list()
         console.log res
         @send res
@@ -13,42 +13,42 @@
     # POST/PUT VALIDATION
     # 1. need to make sure the incoming JSON is well formed
     # 2. destructure the inbound object with proper schema
-    validateServiceDesc = ->
+    validateModuleDesc = ->
         console.log @body
         result = cloudflash.validate @body
         console.log result
-        return @next new Error "Invalid service posting!: #{result.errors}" unless result.valid
+        return @next new Error "Invalid module posting!: #{result.errors}" unless result.valid
         @next()
 
-    # helper routine for retrieving service data from dirty db
-    loadService = ->
+    # helper routine for retrieving module data from dirty db
+    loadModule = ->
         result = cloudflash.lookup @params.id
         unless result instanceof Error
-            @request.service = result
+            @request.module = result
             @next()
         else
             return @next result
 
-    @post '/services', validateServiceDesc, ->
-        service = cloudflash.new @body
-        cloudflash.add service, (error) =>
+    @post '/modules', validateModuleDesc, ->
+        module = cloudflash.new @body
+        cloudflash.add module, (error) =>
             unless error
-                console.log service
-                @send service
+                console.log module
+                @send module
             else
                 @next error
 
-    @get '/services/:id', loadService, ->
-        service = @request.service
+    @get '/modules/:id', loadModule, ->
+        module = @request.module
 
         # for debugging the below command is uncommented. Kindly enable this
         #exec "pwd", (error, stdout, stderr) =>
-        exec "svcs #{service.description.name} status", (error, stdout, stderr) =>
+        exec "svcs #{module.description.name} status", (error, stdout, stderr) =>
             if error or not stdout?
-                service.status = null
+                module.status = null
             else
                 status =
-                    installed: service.status?.installed?
+                    installed: module.status?.installed?
                     initialized: false
                     enabled: false
                     running: false
@@ -63,45 +63,45 @@
                     unless stdout.match /not running/
                         status.running = true
 
-                service.status = status
+                module.status = status
 
-            console.log service
-            @send service
+            console.log module
+            @send module
 
 
-    @put '/services/:id', validateServiceDesc, loadService, ->
+    @put '/modules/:id', validateModuleDesc, loadModule, ->
         # XXX - can have intelligent merge here
 
         # PUT VALIDATION
         # 1. need to make sure the incoming JSON is well formed
         # 2. destructure the inbound object with proper schema
-        # 3. perform 'extend' merge of inbound service data with existing data
-        service = @request.service
+        # 3. perform 'extend' merge of inbound module data with existing data
+        module = @request.module
 
         # desc = @body
         # @body = entry
         # @body.description ?= desc if desc?
 
-        db.set service.id, service, ->
-            console.log "updated service ID: #{service.id}"
-            console.log service
-            @send service
+        db.set module.id, module, ->
+            console.log "updated module ID: #{module.id}"
+            console.log module
+            @send module
             # do some work
 
-    @del '/services/:id', loadService, ->
+    @del '/modules/:id', loadModule, ->
         # 1. verify that the package is actually installed
         # 2. perform dpkg -r PACKAGENAME
-        # 3. remove the service entry from DB
-        cloudflash.remove @request.service, =>
+        # 3. remove the module entry from DB
+        cloudflash.remove @request.module, =>
             unless error
                 @send { deleted: true }
             else
                 @next error
 
-    @post '/services/:id/action', loadService, ->
-        return @next new Error "Invalid service posting!" unless @body.command
-        service = @request.service
-        desc = service.description
+    @post '/modules/:id/action', loadModule, ->
+        return @next new Error "Invalid module posting!" unless @body.command
+        module = @request.module
+        desc = module.description
 
         console.log "looking to issue 'svcs #{desc.name} #{@body.command}'"
         switch @body.command
@@ -116,23 +116,23 @@
     ##
     # TEST ENDPOINTS
 
-    @get '/test/services': ->
+    @get '/test/modules': ->
         cloudflash.list()
 
-        service = cloudflash.lookup 'helloworld'
-        console.log service
+        module = cloudflash.lookup 'helloworld'
+        console.log module
 
-        service = cloudflash.new {
+        module = cloudflash.new {
             version: '1.0'
             name: 'at'
             family: 'remote-access'
             pkgurl: 'http://10.1.10.145/vpnrac-0.0.1.deb'
         }
 
-        cloudflash.add service, (error) =>
+        cloudflash.add module, (error) =>
             unless error
                 console.log 'added successfully'
-                @send service
+                @send module
             else
                 console.log 'adding failed'
                 @next error

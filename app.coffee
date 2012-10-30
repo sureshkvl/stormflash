@@ -9,7 +9,7 @@
 
     @enable 'serve jquery', 'minify'
 
-    @include './lib/services'
+    @include './lib/modules'
     @include './lib/personality'
 
 

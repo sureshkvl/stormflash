@@ -8,7 +8,7 @@ class CloudFlash
     path = require 'path'
 
     schema =
-        name: "service"
+        name: "module"
         type: "object"
         additionalProperties: false
         properties:
@@ -44,114 +44,114 @@ class CloudFlash
             console.log 'loaded cloudflash.db'
             @forEach (key,val) ->
                 console.log 'found ' + key
-        
-    new: (desc) ->
-        service = {}
-        service.id = uuid.v4()
-        service.description = desc
-        service.description.id ?= uuid.v4()
 
-        return service
+    new: (desc) ->
+        module = {}
+        module.id = uuid.v4()
+        module.description = desc
+        module.description.id ?= uuid.v4()
+
+        return module
 
     lookup: (id) ->
-        console.log "looking up service ID: #{id}"
+        console.log "looking up module ID: #{id}"
         entry = @db.get id
         if entry
 
             if schema?
-                console.log 'performing schema validation on retrieved service entry'
+                console.log 'performing schema validation on retrieved module entry'
                 result = validate entry, schema
                 console.log result
-                return new Error "Invalid service retrieved: #{result.errors}" unless result.valid
+                return new Error "Invalid module retrieved: #{result.errors}" unless result.valid
 
             return entry
         else
-            return new Error "No such service ID: #{id}"
+            return new Error "No such module ID: #{id}"
 
     list: ->
-        res = { 'services': [] }
+        res = { 'modules': [] }
         @db.forEach (key,val) ->
             console.log 'found ' + key
-            res.services.push val
+            res.modules.push val
         console.log 'listing...'
         return res
 
-    validate: (service) ->
-        console.log 'performing schema validation on service description'
-        return validate service, schema.properties.description
+    validate: (module) ->
+        console.log 'performing schema validation on module description'
+        return validate module, schema.properties.description
 
 
     ##
     # ASYNC ROUTINES
 
-    check: (service, callback) ->
-        desc = service.description
+    check: (module, callback) ->
+        desc = module.description
         console.log "checking if the package '#{desc.name}' has already been installed..."
         exec "dpkg -l #{desc.name} | grep #{desc.name}", (error, stdout, stderr) =>
             callback error
 
-    install: (service, callback) ->
-        desc = service.description
+    install: (module, callback) ->
+        desc = module.description
         # let's download this file from the web
-        filename = "/tmp/#{service.id}.pkg"
+        filename = "/tmp/#{module.id}.pkg"
         webreq(desc.pkgurl, (error, response, body) =>
             # 1. verify that file has been downloaded
             # 2. dpkg -i filename
             # 3. verify that package has been installed
             # 4. XXX - figure out the API endpoint dynamically
             # 5. return success message back
-            return callback new Error "Unable to download service package! Error was: #{error}" if error?
+            return callback new Error "Unable to download module package! Error was: #{error}" if error?
 
-            console.log "checking for service package at #{filename}"
+            console.log "checking for module package at #{filename}"
             if path.existsSync filename
-                console.log 'found service package, issuing dpkg -i'
+                console.log 'found module package, issuing dpkg -i'
                 exec "dpkg -i -F depends #{filename}", (error, stdout, stderr) =>
                 #exec "echo #{filename}", (error, stdout, stderr) =>
-                    return callback new Error "Unable to install service package!" if error
+                    return callback new Error "Unable to install module package!" if error
 
                     console.log "verifying that the package has been installed as #{desc.name}"
                     exec "dpkg -l #{desc.name}", (error, stdout, stderr) =>
-                        return callback new Error "Unable to verify service package installation!" if error
+                        return callback new Error "Unable to verify module package installation!" if error
                         callback()
             else
-                return callback new Error "Unable to download and install service package!"
+                return callback new Error "Unable to download and install module package!"
             ).pipe(fs.createWriteStream(filename))
 
-    add: (service, callback) ->
+    add: (module, callback) ->
         # 1. check if package already installed, if so, we we skip download...
-        @check service, (error) =>
+        @check module, (error) =>
             unless error
                 #openvpn is builtin and dpkg reports installed but APIs are not yet installed.
-                #This step repeates for every service post but there is no harm in including again for this execption.
-                @include "./node_modules/#{service.description.name}/#{service.description.api}" unless server.description == 'openvpn'
-                service.status = { installed: true }
-                @db.set service.id, service, ->
+                #This step repeates for every module post but there is no harm in including again for this execption.
+                @include "./node_modules/#{module.description.name}/#{module.description.api}" unless server.description == 'openvpn'
+                module.status = { installed: true }
+                @db.set module.id, module, ->
                     callback()
             else
-                # 2. install service
-                @install service, (error) =>
+                # 2. install module
+                @install module, (error) =>
                     unless error
-                        # 3. include service API module
-                        @include "./node_modules/#{service.description.name}/#{service.description.api}"
+                        # 3. include module API module
+                        @include "./node_modules/#{module.description.name}/#{module.description.api}"
 
-                        # 4. add service into cloudflash
-                        service.status = { installed: true }
-                        @db.set service.id, service, ->
+                        # 4. add module into cloudflash
+                        module.status = { installed: true }
+                        @db.set module.id, module, ->
                             callback()
                     else
                         callback error
 
-    remove: (service, callback) ->
-        desc = service.description
+    remove: (module, callback) ->
+        desc = module.description
 
-        @check service, (error) =>
-            return callback new Error "Unable to verify service package installation!" if error
+        @check module, (error) =>
+            return callback new Error "Unable to verify module package installation!" if error
 
-            console.log "removing the service package: dpkg -r #{desc.name}"
+            console.log "removing the module package: dpkg -r #{desc.name}"
             exec "dpkg -r #{desc.name}", (error, stdout, stderr) =>
-                return @next new Error "Unable to remove service package '#{desc.name}': #{stderr}" if error
-                @db.rm service.id, =>
-                    console.log "removed service ID: #{service.id}"
+                return @next new Error "Unable to remove module package '#{desc.name}': #{stderr}" if error
+                @db.rm module.id, =>
+                    console.log "removed module ID: #{module.id}"
                     callback()
 
 
