@@ -129,29 +129,38 @@ On success it returns JSON data with the UUID for the service created.
 ### Request JSON
 
     {
-    	"name": "at",
-    	"family": "remote-access",
+    	"name": "openvon",
+    	"family": "vpn",
     	"version": "1.0",
-    	"pkgurl": "http://my-url.com/vpnrac-0.0.1.deb"
+        "pkg": [
+             "npm://openvpn",
+             "deb://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.deb",
+             "rpm://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.rpm"
+         ],
+         "api": "./lib/openvpn",
     }
 
 
 ### Response JSON
-
     {
-        "id": "61df014d-90cd-4f6f-8928-0a3aadff4658",
-        "description": {
-            "version": "1.0",
-            "name": "at",
-            "family": "remote-access",
-            "pkgurl": "http://10.1.10.145/vpnrac-0.0.1.deb",
-            "id": "48c8d63e-1a3e-4f99-bf2b-a8c5c57afe8d"
-        },
-        "api": "/to/be/defined/in/future",
-        "status": {
-            "installed": true
-        }
+      "id": "3f26cb88-9508-4693-a0bb-da650d9c545f",
+      "description": {
+        "version": "1.0",
+        "name": "openvpn",
+        "family": "remote-access",
+        "pkg": [
+          "npm://openvpn",
+          "deb://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.deb",
+          "rpm://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.rpm"
+        ],
+        "api": "./lib/openvpn",
+        "id": "81abefcc-bb38-4d16-accb-d7f59bda620b"
+      },
+      "status": {
+        "installed": true
+      }
     }
+
 
 Describe Service
 ----------------
@@ -163,27 +172,26 @@ Describe Service
 
 ### Request Headers
 
-    GET /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
+    GET /services/3f26cb88-9508-4693-a0bb-da650d9c545f HTTP/1.1
 
 ### Response JSON
-
     {
-        "id": "492e025d-2ae7-49e6-b27d-441ba3784ce3",
-        "description": {
-            "version": "1.0",
-            "name": "at",
-            "family": "remote-access",
-            "pkgurl": "http://10.1.10.145/vpnrac-0.0.1.deb",
-            "id": "7aeeb1a6-88ae-401b-95b6-c5d059b77db0"
-        },
-        "status": {
-            "installed": true,
-            "initialized": false,
-            "enabled": false,
-            "running": false,
-            "result": "/home/plee/hack.node/cloudflash\n"
-        }
+      "id": "3f26cb88-9508-4693-a0bb-da650d9c545f",
+      "description": {
+        "version": "1.0",
+        "name": "openvpn",
+        "family": "remote-access",
+        "pkg": [
+          "npm://openvpn",
+          "deb://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.deb",
+          "rpm://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.rpm"
+        ],
+        "api": "./lib/openvpn",
+        "id": "81abefcc-bb38-4d16-accb-d7f59bda620b"
+      },
+      "status": null
     }
+
 
 Delete a service
 ----------------

@@ -3,7 +3,6 @@ class CloudFlash
     validate = require('json-schema').validate
     uuid = require('node-uuid')
     exec = require('child_process').exec
-    webreq = require 'request'
     fs = require 'fs'
     path = require 'path'
 
@@ -24,7 +23,8 @@ class CloudFlash
                     name:   {"type": "string", "required": true}
                     family: {"type": "string", "required": true}
                     version:{"type": "string", "required": true}
-                    pkgurl: {"type": "string", "required": true}
+                    pkg:
+                        items: {"type":"string"}
                     api: {"type": "string", "required": true}
             status:
                 type: "object"
@@ -87,43 +87,24 @@ class CloudFlash
     check: (service, callback) ->
         desc = service.description
         console.log "checking if the package '#{desc.name}' has already been installed..."
-        exec "dpkg -l #{desc.name} | grep #{desc.name}", (error, stdout, stderr) =>
+        #TODO: If the post has newer version of npm module, we need to check and install it.
+        exec "ls -l ./node_modules | grep #{desc.name}", (error, stdout, stderr) =>
+            console.log error
             callback error
 
     install: (service, callback) ->
         desc = service.description
-        # let's download this file from the web
-        filename = "/tmp/#{service.id}.pkg"
-        webreq(desc.pkgurl, (error, response, body) =>
-            # 1. verify that file has been downloaded
-            # 2. dpkg -i filename
-            # 3. verify that package has been installed
-            # 4. XXX - figure out the API endpoint dynamically
-            # 5. return success message back
-            return callback new Error "Unable to download service package! Error was: #{error}" if error?
-
-            console.log "checking for service package at #{filename}"
-            if path.existsSync filename
-                console.log 'found service package, issuing dpkg -i'
-                exec "dpkg -i -F depends #{filename}", (error, stdout, stderr) =>
-                #exec "echo #{filename}", (error, stdout, stderr) =>
-                    return callback new Error "Unable to install service package!" if error
-
-                    console.log "verifying that the package has been installed as #{desc.name}"
-                    exec "dpkg -l #{desc.name}", (error, stdout, stderr) =>
-                        return callback new Error "Unable to verify service package installation!" if error
-                        callback()
-            else
-                return callback new Error "Unable to download and install service package!"
-            ).pipe(fs.createWriteStream(filename))
+        index = 0
+        index = installPackages desc, service.id, index, callback
 
     add: (service, callback) ->
         # 1. check if package already installed, if so, we we skip download...
         @check service, (error) =>
             unless error
-                #openvpn is builtin and dpkg reports installed but APIs are not yet installed.
-                #This step repeates for every service post but there is no harm in including again for this execption.
-                @include "./node_modules/#{service.description.name}/#{service.description.api}" unless server.description == 'openvpn'
+                #This step repeates for every service post but there is no harm in including again.
+                filename = "./node_modules/#{service.description.name}/#{service.description.api}"
+                console.log 'including this file ' + filename
+                @include "./node_modules/#{service.description.name}/#{service.description.api}"
                 service.status = { installed: true }
                 @db.set service.id, service, ->
                     callback()
@@ -131,8 +112,11 @@ class CloudFlash
                 # 2. install service
                 @install service, (error) =>
                     unless error
+                        console.log 'include is ' + @include
                         # 3. include service API module
-                        @include "./node_modules/#{service.description.name}/#{service.description.api}"
+                        filename = "./node_modules/#{service.description.name}/#{service.description.api}"
+                        console.log 'including this file ' + filename
+                        #@include "./node_modules/#{service.description.name}/#{service.description.api}"
 
                         # 4. add service into cloudflash
                         service.status = { installed: true }
@@ -148,14 +132,92 @@ class CloudFlash
             return callback new Error "Unable to verify service package installation!" if error
 
             console.log "removing the service package: dpkg -r #{desc.name}"
-            exec "dpkg -r #{desc.name}", (error, stdout, stderr) =>
+            exec "rm -rf ./node_modules/#{desc.name}", (error, stdout, stderr) =>
                 return @next new Error "Unable to remove service package '#{desc.name}': #{stderr}" if error
                 @db.rm service.id, =>
                     console.log "removed service ID: #{service.id}"
                     callback()
 
-
-
 ##
 # SINGLETON CLASS OBJECT
 module.exports = CloudFlash
+
+installPackages =  (desc,id, index, callback) ->
+    #console.log desc
+    console.log 'number of packages ' + desc.pkg.length + 'index under download is ' + index
+    if index ==  desc.pkg.length
+        console.log "Done installing all the packages"
+        callback()
+        return
+    url = require 'url'
+    exec = require('child_process').exec
+    webreq = require 'request'
+    exec = require('child_process').exec
+    fs = require 'fs'
+    path = require 'path'
+    pkg = desc.pkg[index]
+    #console.log pkg
+    parsedurl = url.parse pkg, true
+    console.log parsedurl
+    console.log 'the protocol for the package download is ' + parsedurl.protocol
+    unless parsedurl.protocol == 'npm:'
+        filename = "/tmp/#{id}.#{parsedurl.protocol}"
+        console.log filename
+        port = 80
+        port = parsedurl.port if parsedurl.port
+        pkgurl = "http://" + parsedurl.hostname + ":#{port}" + "#{parsedurl.path}"
+        console.log 'url to download the package:' + pkgurl
+    else
+        console.log 'issuing npm install'
+        console.log 'parsedurl.host is '  + parsedurl.host
+        console.log 'parsedurl.protocol is ' + parsedurl.protocol
+
+    switch (parsedurl.protocol)
+        when 'npm:'
+            #exec "npm install #{parsedurl.host}; while [! -f ./node_modules/#{desc.name}/#{desc.api} ]; do \ sleep 2\ done" , (error, stdout, stderr) =>
+            exec "npm install #{parsedurl.host}; ls -l ./node_modules/#{desc.name} " , (error, stdout, stderr) =>
+                console.log error if error
+                #console.log stderr
+                return callback new Error "Unable to load module using npm!" if error
+                installPackages desc, id, index+1, callback
+        when 'deb:'
+            # 1. verify that file has been downloaded
+            # 2. dpkg -i filename
+            # 3. verify that package has been installed
+            # 4. XXX - figure out the API endpoint dynamically
+            # 5. return success message back
+
+            webreq(pkgurl, (error, response, body) =>
+                return callback new Error "Unable to download service package! #{desc.pkg[index]} Error was: #{error}" if error
+                console.log "checking for service package at #{filename}"
+                if path.existsSync filename
+                    console.log 'found service package, issuing dpkg -i'
+                    exec "dpkg -i -F depends #{filename}", (error, stdout, stderr) =>
+                        return callback new Error "Unable to install service package!" if error
+
+                        console.log "verifying that the package has been installed as #{desc.name}"
+                        exec "dpkg -l #{desc.name}", (error, stdout, stderr) =>
+                            return callback new Error "Unable to verify service package installation!" if error
+                            installPackages desc, id, index+1, callback
+                else
+                    return callback new Error "Unable to download and install service debian package: #{desc.name}!"
+            ).pipe(fs.createWriteStream(filename))
+        when 'rpm:'
+            webreq(pkgurl, (error, response, body) =>
+                return callback new Error "Unable to download service package! #{desc.pkg[index]} Error was: #{error}" if error
+                console.log "checking for service package at #{filename}"
+                if path.existsSync filename
+                    console.log 'found service package, issuing rpm -i'
+                    exec "rpm -ivh #{filename}", (error, stdout, stderr) =>
+                        return callback new Error "Unable to install service package!" if error
+
+                        console.log "verifying that the package has been installed as #{desc.name}"
+                        exec "rpm -q #{desc.name}", (error, stdout, stderr) =>
+                            return callback new Error "Unable to verify service package installation!" if error
+                            installPackages desc, id, index+1, callback
+                else
+                    return callback new Error "Unable to download and install service rpm package: #{desc.name}!"
+            ).pipe(fs.createWriteStream(filename))
+        else
+            err = new Error "Unsupported protocol!#{parsedurl.protocol}"
+            callback(err)
