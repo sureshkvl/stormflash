@@ -4,6 +4,7 @@
 @include = ->
     cloud = require('./cloudflash')
     cloudflash = new cloud(@include)
+    exec = require('child_process').exec
 
     @get '/services': ->
         res = cloudflash.list()
