@@ -83,17 +83,17 @@
         # @body = entry
         # @body.description ?= desc if desc?
 
-        db.set service.id, service, ->
+        cloudflash.db.set service.id, service, ->
             console.log "updated service ID: #{service.id}"
             console.log service
-            @send service
+        @send service
             # do some work
 
     @del '/services/:id', loadService, ->
         # 1. verify that the package is actually installed
         # 2. perform dpkg -r PACKAGENAME
         # 3. remove the service entry from DB
-        cloudflash.remove @request.service, =>
+        cloudflash.remove @request.service, (error) =>
             unless error
                 @send { deleted: true }
             else
