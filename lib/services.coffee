@@ -83,10 +83,11 @@
         # @body = entry
         # @body.description ?= desc if desc?
 
+        zappasend = @send
         cloudflash.db.set service.id, service, ->
             console.log "updated service ID: #{service.id}"
             console.log service
-        @send service
+            zappasend service
             # do some work
 
     @del '/services/:id', loadService, ->
