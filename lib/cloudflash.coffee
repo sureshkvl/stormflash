@@ -38,7 +38,7 @@ class CloudFlash
                     result:      { type: "string"  }
 
     constructor: (@include) ->
-        console.log "include is " + @include
+		#console.log "include is " + @include
         @db = require('dirty') '/tmp/cloudflash.db'
         @db.on 'load', ->
             console.log 'loaded cloudflash.db'
