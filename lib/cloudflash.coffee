@@ -38,7 +38,6 @@ class CloudFlash
                     result:      { type: "string"  }
 
     constructor: (@include) ->
-		#console.log "include is " + @include
         @db = require('dirty') '/tmp/cloudflash.db'
         @db.on 'load', ->
             console.log 'loaded cloudflash.db'
@@ -88,7 +87,7 @@ class CloudFlash
         desc = service.description
         console.log "checking if the package '#{desc.name}' has already been installed..."
         #TODO: If the post has newer version of npm module, we need to check and install it.
-        exec "ls -l ./node_modules | grep #{desc.name}", (error, stdout, stderr) =>
+        exec "ls -l /lib/node_modules | grep #{desc.name}", (error, stdout, stderr) =>
             console.log error
             callback error
 
@@ -101,10 +100,6 @@ class CloudFlash
         # 1. check if package already installed, if so, we we skip download...
         @check service, (error) =>
             unless error
-                #This step repeates for every service post but there is no harm in including again.
-				#filename = "./node_modules/#{service.description.name}/#{service.description.api}"
-				#console.log 'including this file ' + filename
-				#@include "./node_modules/#{service.description.name}/#{service.description.api}"
                 service.status = { installed: true }
                 @db.set service.id, service, ->
                     callback()
@@ -112,11 +107,14 @@ class CloudFlash
                 # 2. install service
                 @install service, (error) =>
                     unless error
-                        console.log 'include is ' + @include
+                        console.log 'environment variables for node'
+                        console.log process.env
                         # 3. include service API module
-                        filename = "./node_modules/#{service.description.name}/#{service.description.api}"
+                        filename = "#{service.description.name}/#{service.description.api}"
                         console.log 'including this file ' + filename
-                        @include "#{filename}"
+                        sub = require "/lib/node_modules/#{service.description.name}"
+                        console.log sub
+                        @include sub
 
                         # 4. add service into cloudflash
                         service.status = { installed: true }
@@ -174,14 +172,11 @@ installPackages =  (desc,id, index, callback) ->
 
     switch (parsedurl.protocol)
         when 'npm:'
-            #exec "npm install #{parsedurl.host}; while [! -f ./node_modules/#{desc.name}/#{desc.api} ]; do \ sleep 2\ done" , (error, stdout, stderr) =>
-            exec "npm install #{parsedurl.host}; ls -l ./node_modules/#{desc.name} " , (error, stdout, stderr) =>
-				filename = "./node_modules/#{desc.name}/#{desc.api}.coffee"
-                callback error unless path.existsSync filename
+            exec "npm install -g #{parsedurl.host} --prefix=/; ls -l /lib/node_modules/#{desc.name}" , (error, stdout, stderr) =>
                 console.log error if error
-                #console.log stderr
                 return callback new Error "Unable to load module using npm!" if error
                 installPackages desc, id, index+1, callback
+                                    
         when 'deb:'
             # 1. verify that file has been downloaded
             # 2. dpkg -i filename
