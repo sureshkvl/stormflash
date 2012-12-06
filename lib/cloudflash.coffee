@@ -102,9 +102,9 @@ class CloudFlash
         @check service, (error) =>
             unless error
                 #This step repeates for every service post but there is no harm in including again.
-                filename = "./node_modules/#{service.description.name}/#{service.description.api}"
-                console.log 'including this file ' + filename
-                @include "./node_modules/#{service.description.name}/#{service.description.api}"
+				#filename = "./node_modules/#{service.description.name}/#{service.description.api}"
+				#console.log 'including this file ' + filename
+				#@include "./node_modules/#{service.description.name}/#{service.description.api}"
                 service.status = { installed: true }
                 @db.set service.id, service, ->
                     callback()
@@ -116,7 +116,7 @@ class CloudFlash
                         # 3. include service API module
                         filename = "./node_modules/#{service.description.name}/#{service.description.api}"
                         console.log 'including this file ' + filename
-                        #@include "./node_modules/#{service.description.name}/#{service.description.api}"
+                        @include "#{filename}"
 
                         # 4. add service into cloudflash
                         service.status = { installed: true }
@@ -176,6 +176,8 @@ installPackages =  (desc,id, index, callback) ->
         when 'npm:'
             #exec "npm install #{parsedurl.host}; while [! -f ./node_modules/#{desc.name}/#{desc.api} ]; do \ sleep 2\ done" , (error, stdout, stderr) =>
             exec "npm install #{parsedurl.host}; ls -l ./node_modules/#{desc.name} " , (error, stdout, stderr) =>
+				filename = "./node_modules/#{desc.name}/#{desc.api}.coffee"
+                callback error unless path.existsSync filename
                 console.log error if error
                 #console.log stderr
                 return callback new Error "Unable to load module using npm!" if error
