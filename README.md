@@ -15,25 +15,23 @@ should be specified by using the Content-Type header, the Accept header.
     <th>Verb</th><th>URI</th><th>Description</th>
   </tr>
   <tr>
-    <td>GET</td><td>/services</td><td>List summary of services installed in VCG identified by service ID</td>
+    <td>GET</td><td>/services</td><td>List summary of services installed in VCG/CPEs identified by service ID</td>
   </tr>
   <tr>
-    <td>POST</td><td>/services</td><td>Create a new service in VCG</td>
+    <td>POST</td><td>/services</td><td>Create a new service in VCG/CPE </td>
   </tr>
   <tr>
-    <td>GET</td><td>/services/service-id</td><td>Describes an installed service in VCG by service ID</td>
+    <td>GET</td><td>/services/service-id</td><td>Describes an installed service in VCG/CPEs by service ID</td>
+  </tr>
+   <tr>
+    <td>PUT</td><td>/services/service-id</td><td>Update existing service configuration in VCG/CPEs by service-id </td>
   </tr>
   <tr>
-    <td>DELETE</td><td>/services/service-id</td><td>Delete an installed service in VCG by service ID</td>
+    <td>DELETE</td><td>/services/service-id</td><td>Delete an installed service in VCG/CPEs by service ID</td>
   </tr>
+  
   <tr>
-    <td>POST</td><td>/services/service-id/openvpn</td><td>Modify existing OpenVPN configuration</td>
-  </tr>
-  <tr>
-    <td>POST</td><td>/services/service-id/firewall</td><td>Modify existing Firewall configuration</td>
-  </tr>
-  <tr>
-    <td>POST</td><td>/services/service-id/action</td><td>Execute command on the VCG</td>
+    <td>POST</td><td>/services/service-id/action</td><td>Execute command on the VCG/CPEs </td>
   </tr>
 
 </table>
@@ -51,7 +49,7 @@ For example
 
 *Authentication*
 
-Current implementation of cloudflash in VCG does not require that each request will include the credntials of
+Current implementation of cloudflash in VCG/CPEs does not require that each request will include the credntials of
 the user submiting the request.
 Plan is to have OAuth scheme of authentication.
 
@@ -62,17 +60,17 @@ Plan is to have OAuth scheme of authentication.
 --------------
 
     Verb	URI	        Description
-    GET	/services	Lists summary of services configured in VCG identified by service ID.
+    GET	/services	Lists summary of services configured in VCG/CPEs identified by service ID.
 
 
 Note: The request does not require a message body.
-Success: Returns JSON data with list of services installed on VCG. Each service is identified by service ID
+Success: Returns JSON data with list of services installed on VCG/CPEs. Each service is identified by service ID
 
 The service ID is generated is a UUID.
 
 Service Family is the generic service type while name is the actual service name.
 
-pkgurl: The package download link provided to VCG
+pkg: The package download link provided.
 
 api: Supported APIs for this service.
 
@@ -91,20 +89,30 @@ api: Supported APIs for this service.
 
 ```
 {
-    "services": [
-        {
-            "id": "40860f06-7dcf-41ab-a414-98957b092b7b",
-            "status": "installed"
-            "api": "/vpnrac",
-			"description": {
-				 "name": "at",
-            	 "family": "remote-access",
-			     "version": "1.0",
-            	 "pkgurl": "http://my-url.com/vpnrac-0.0.1.deb"
-			}
-        }
-    ]
+   "services":
+   [
+       {
+           "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
+           "description":
+           {
+               "version": "1.0",
+               "name": "openvpn",
+               "family": "vpn",
+               "pkg":
+               [
+                   "npm://openvpn"
+               ],
+               "api": "lib/openvpn",
+               "id": "20a80663-d311-4372-99d2-4b1ab14e443c"
+           },
+           "status":
+           {
+               "installed": true
+           }
+       }
+   ]
 }
+
 ```
 
 Create Service
@@ -112,7 +120,7 @@ Create Service
 
 
     Verb	URI	        Description
-    POST	/services	Create a new service in VCG.
+    POST	/services	Create a new service in VCG/CPEs.
 
 
 The request **must** have the following parameters in JSON data
@@ -126,70 +134,153 @@ On success it returns JSON data with the UUID for the service created.
 
 **Example Request and Response**
 
-### Request JSON
+### Request JSON for npm
 
     {
-    	"name": "openvon",
-    	"family": "vpn",
-    	"version": "1.0",
-        "pkg": [
-             "npm://openvpn",
-             "deb://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.deb",
-             "rpm://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.rpm"
-         ],
-         "api": "./lib/openvpn",
-    }
-
-
-### Response JSON
-    {
-      "id": "3f26cb88-9508-4693-a0bb-da650d9c545f",
-      "description": {
         "version": "1.0",
         "name": "openvpn",
-        "family": "remote-access",
+        "family": "vpn",
         "pkg": [
-          "npm://openvpn",
-          "deb://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.deb",
-          "rpm://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.rpm"
+             "npm://openvpn"
         ],
-        "api": "./lib/openvpn",
-        "id": "81abefcc-bb38-4d16-accb-d7f59bda620b"
-      },
-      "status": {
-        "installed": true
-      }
+        "api": "lib/openvpn"
     }
+
+### Response JSON
+
+   {
+       "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
+       "description":
+       {
+           "version": "1.0",
+           "name": "openvpn",
+           "family": "vpn",
+           "pkg":
+           [
+               "npm://openvpn"
+           ],
+           "api": "lib/openvpn",
+           "id": "20a80663-d311-4372-99d2-4b1ab14e443c"
+       },
+       "status":
+       {
+           "installed": true
+       }
+    }
+
+### Request JSON for deb
+
+    {
+        "version": "1.0",
+        "name": "openvpn",
+        "family": "vpn",
+        "pkg": [
+            "http://10.2.55.106/cloudflash/openvpn-2.1.3.i386.deb"
+        ],
+        "api": "lib/openvpn"
+    }
+### Response JSON
+
+   {
+        "id": "f39c0125-6a2e-423b-afbe-00215dfa9284",
+        "description": {
+            "version": "1.0",
+            "name": "openvpn",
+            "family": "vpn",
+            "pkg": [
+                "http://10.2.55.106/cloudflash/openvpn-2.1.3.i386.deb"
+            ],
+            "api": "lib/openvpn",
+            "id": "9e0bc2df-195e-43e5-a65d-fa9275e60e54"
+        },
+        "status": {
+            "installed": true
+   }
 
 
 Describe Service
 ----------------
 
     Verb	URI	                 Description
-    GET	    /services/service-id	  Show a service in VCG specified by service-ID
+    GET	    /services/service-id	  Show a service in VCG/CPEs specified by service-ID
 
 **Example Request and Response**
 
 ### Request Headers
 
-    GET /services/3f26cb88-9508-4693-a0bb-da650d9c545f HTTP/1.1
+    GET /services/2ccc8dc8-62c5-491b-b305-3c029bde6f64 HTTP/1.1
 
 ### Response JSON
+
     {
-      "id": "3f26cb88-9508-4693-a0bb-da650d9c545f",
-      "description": {
+       "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
+       "description":
+       {
+           "version": "1.0",
+           "name": "openvpn",
+           "family": "vpn",
+           "pkg":
+           [
+               "npm://openvpn"
+           ],
+           "api": "lib/openvpn",
+           "id": "20a80663-d311-4372-99d2-4b1ab14e443c"
+       },
+       "status":
+       {
+           "installed": true,
+           "initialized": false,
+           "enabled": false,
+           "running": false,
+           "result": "openvpn is uninitialized and not running "
+       }
+    }
+
+Update Service
+----------------
+
+    Verb	URI	                 Description
+    PUT	    /services/service-id	  Show a service in VCG/CPEs specified by service-ID
+
+**Example Request and Response**
+
+### Request Headers
+
+    {
         "version": "1.0",
         "name": "openvpn",
-        "family": "remote-access",
+        "family": "vpn",
         "pkg": [
-          "npm://openvpn",
-          "deb://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.deb",
-          "rpm://10.1.10.152/SecurePrivateNetwork-linux-32bit-3.1.15.rpm"
+             "npm://openvpn"
         ],
-        "api": "./lib/openvpn",
-        "id": "81abefcc-bb38-4d16-accb-d7f59bda620b"
-      },
-      "status": null
+        "api": "lib/openvpn"
+    }
+
+
+### Response JSON
+
+    {
+       "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
+       "description":
+       {
+           "version": "1.0",
+           "name": "openvpn",
+           "family": "vpn",
+           "pkg":
+           [
+               "npm://openvpn"
+           ],
+           "api": "lib/openvpn",
+           "id": "20a80663-d311-4372-99d2-4b1ab14e443c"
+       },
+       "status":
+       {
+           "installed": true,
+           "initialized": false,
+           "enabled": false,
+           "running": false,
+           "result": "openvpn is uninitialized and not running "
+       }
     }
 
 
@@ -197,7 +288,7 @@ Delete a service
 ----------------
 
     Verb	URI	                 Description
-    DELETE	/services/service-id	  Delete a service in VCG specified by service-ID
+    DELETE	/services/service-id	  Delete a service in VCG/CPEs specified by service-ID
 
 
 On Success returns 200 with JSON data
@@ -208,11 +299,13 @@ On Success returns 200 with JSON data
 
 ### Request Headers
 
-    DELETE /services/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
+    DELETE services/2ccc8dc8-62c5-491b-b305-3c029bde6f64 
 
 ### Response JSON
 
-    { deleted: true }
+    {
+       "deleted": true
+    }
 
 
 Action Command API
@@ -227,14 +320,17 @@ This API is used to perform the action like start, stop, restart and sync on the
 
 ### Request Headers
 
-    POST /services/a12796b8-c786-4351-ba7d-4b95cd8e0797/action HTTP/1.1
+    POST /services/2ccc8dc8-62c5-491b-b305-3c029bde6f64/action  HTTP/1.1
 
 ### Request JSON
 
-    { command: "stop" }
+    {
+       "command":"start"
+    }
 
 ### Response JSON
 
-    { result: true }
-
+    {
+       "result": true
+    }
 
