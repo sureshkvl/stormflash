@@ -4,6 +4,7 @@
 @include = ->
     cloud = require('./cloudflash')
     cloudflash = new cloud(@include)
+    exec = require('child_process').exec
 
     @get '/modules': ->
         res = cloudflash.list()
@@ -82,7 +83,7 @@
         # @body = entry
         # @body.description ?= desc if desc?
 
-        db.set module.id, module, ->
+        cloudflash.db.set module.id, module, =>
             console.log "updated module ID: #{module.id}"
             console.log module
             @send module
@@ -92,7 +93,7 @@
         # 1. verify that the package is actually installed
         # 2. perform dpkg -r PACKAGENAME
         # 3. remove the module entry from DB
-        cloudflash.remove @request.module, =>
+        cloudflash.remove @request.module, (error) =>
             unless error
                 @send { deleted: true }
             else

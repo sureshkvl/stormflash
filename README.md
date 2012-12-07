@@ -1,11 +1,10 @@
 cloudflash
 ==========
 
-CloudFlash is a web framework for cloud based automation of openvpn, firmware, modules, and services.
+CloudFlash is a web framework for cloud based automation of modules, services, and firmware
 
 CloudFlash supports JSON data serialization format. The format for both the request and the response
 should be specified by using the Content-Type header, the Accept header.
-
 
 *List of APIs*
 =============
@@ -15,25 +14,23 @@ should be specified by using the Content-Type header, the Accept header.
     <th>Verb</th><th>URI</th><th>Description</th>
   </tr>
   <tr>
-    <td>GET</td><td>/modules</td><td>List summary of modules installed in VCG identified by module ID</td>
+    <td>GET</td><td>/services</td><td>List summary of modules installed in VCG/CPEs identified by service ID</td>
   </tr>
   <tr>
-    <td>POST</td><td>/modules</td><td>Create a new module in VCG</td>
+    <td>POST</td><td>/modules</td><td>Create a new module in VCG/CPE </td>
   </tr>
   <tr>
-    <td>GET</td><td>/modules/module-id</td><td>Describes an installed module in VCG by module ID</td>
+    <td>GET</td><td>/modules/module-id</td><td>Describes an installed module in VCG/CPEs by module ID</td>
+  </tr>
+   <tr>
+    <td>PUT</td><td>/modules/module-id</td><td>Update existing module configuration in VCG/CPEs by module-id </td>
   </tr>
   <tr>
-    <td>DELETE</td><td>/modules/module-id</td><td>Delete an installed module in VCG by module ID</td>
+    <td>DELETE</td><td>/modules/module-id</td><td>Delete an installed module in VCG/CPEs by module ID</td>
   </tr>
+  
   <tr>
-    <td>POST</td><td>/modules/module-id/openvpn</td><td>Modify existing OpenVPN configuration</td>
-  </tr>
-  <tr>
-    <td>POST</td><td>/modules/module-id/firewall</td><td>Modify existing Firewall configuration</td>
-  </tr>
-  <tr>
-    <td>POST</td><td>/modules/module-id/action</td><td>Execute command on the VCG</td>
+    <td>POST</td><td>/modules/module-id/action</td><td>Execute command on the VCG/CPEs </td>
   </tr>
 
 </table>
@@ -51,7 +48,7 @@ For example
 
 *Authentication*
 
-Current implementation of cloudflash in VCG does not require that each request will include the credntials of
+Current implementation of cloudflash in VCG/CPEs does not require that each request will include the credentials of
 the user submiting the request.
 Plan is to have OAuth scheme of authentication.
 
@@ -62,17 +59,17 @@ Plan is to have OAuth scheme of authentication.
 --------------
 
     Verb	URI	        Description
-    GET	/modules	Lists summary of modules configured in VCG identified by module ID.
+    GET	/modules	Lists summary of modules configured in VCG/CPEs identified by module ID.
 
 
 Note: The request does not require a message body.
-Success: Returns JSON data with list of modules installed on VCG. Each module is identified by module ID
+Success: Returns JSON data with list of modules installed on VCG/CPEs. Each module is identified by module ID
 
 The module ID is generated is a UUID.
 
 Module Family is the generic module type while name is the actual module name.
 
-pkgurl: The package download link provided to VCG
+pkg: The package download link provided.
 
 api: Supported APIs for this module.
 
@@ -91,20 +88,37 @@ api: Supported APIs for this module.
 
 ```
 {
-    "modules": [
-        {
-            "id": "40860f06-7dcf-41ab-a414-98957b092b7b",
-            "status": "installed"
-            "api": "/vpnrac",
-			"description": {
-				 "name": "at",
-            	 "family": "remote-access",
-			     "version": "1.0",
-            	 "pkgurl": "http://my-url.com/vpnrac-0.0.1.deb"
-			}
-        }
-    ]
+   "modules":
+   [
+       {
+           "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
+           "description":
+           {
+               "version": "1.0",
+               "name": "openvpn",
+               "family": "vpn",
+               "packages":
+               [
+                   {
+						"url": "npm://openvpn",
+						"version": "1.2",
+						"include": true
+				   },
+				   {
+						"url": "deb://some.host.com/filename",
+						"version": "3.2.1"
+				   }
+               ],
+               "id": "20a80663-d311-4372-99d2-4b1ab14e443c"
+           },
+           "status":
+           {
+               "installed": true
+           }
+       }
+   ]
 }
+
 ```
 
 Create Module
@@ -112,8 +126,7 @@ Create Module
 
 
     Verb	URI	        Description
-    POST	/modules	Create a new module in VCG.
-
+    POST	/modules	Create a new module in VCG/CPEs.
 
 The request **must** have the following parameters in JSON data
 
@@ -129,68 +142,149 @@ On success it returns JSON data with the UUID for the module created.
 ### Request JSON
 
     {
-    	"name": "at",
-    	"family": "remote-access",
-    	"version": "1.0",
-    	"pkgurl": "http://my-url.com/vpnrac-0.0.1.deb"
+        "name": "cloudflash-openvpn",
+        "version": "1.3",
+        "family": "vpn",
+		"dependencies":
+		[
+			{
+				 "name": "openvpn",
+				 "version": "2.1.3",
+				 "installer": "apt-get"
+		 	},
+			{
+				 "name": "openvpn",
+				 "version": "2.1.3",
+				 "installer": "yum"
+			},
+			{
+				 "name": "spawnvpn",
+				 "version": "1.0",
+				 "installer": "dpkg",
+				 "url": "http://some.host.com/spawnvpn-1.0.i386.deb"
+			}
+		]
     }
-
 
 ### Response JSON
 
-    {
-        "id": "61df014d-90cd-4f6f-8928-0a3aadff4658",
-        "description": {
-            "version": "1.0",
-            "name": "at",
-            "family": "remote-access",
-            "pkgurl": "http://10.1.10.145/vpnrac-0.0.1.deb",
-            "id": "48c8d63e-1a3e-4f99-bf2b-a8c5c57afe8d"
-        },
-        "api": "/to/be/defined/in/future",
-        "status": {
-            "installed": true
-        }
+   {
+       "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
+       "description":
+       {
+           "version": "1.0",
+           "name": "openvpn",
+           "family": "vpn",
+		   "packages":
+		   [
+			   {
+					"url": "npm://openvpn",
+					"version": "1.2",
+					"include": true
+			   },
+			   {
+					"url": "deb://some.host.com/filename",
+					"version": "3.2.1"
+			   }
+		   ]
+       },
+       "status":
+       {
+           "installed": true
+       }
     }
 
 Describe Module
 ----------------
 
     Verb	URI	                 Description
-    GET	    /modules/module-id	  Show a module in VCG specified by module-ID
+    GET	    /modules/module-id	 Show a module in VCG/CPEs specified by module-ID
 
 **Example Request and Response**
 
 ### Request Headers
 
-    GET /modules/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
+    GET /modules/2ccc8dc8-62c5-491b-b305-3c029bde6f64 HTTP/1.1
 
 ### Response JSON
 
     {
-        "id": "492e025d-2ae7-49e6-b27d-441ba3784ce3",
-        "description": {
-            "version": "1.0",
-            "name": "at",
-            "family": "remote-access",
-            "pkgurl": "http://10.1.10.145/vpnrac-0.0.1.deb",
-            "id": "7aeeb1a6-88ae-401b-95b6-c5d059b77db0"
-        },
-        "status": {
-            "installed": true,
-            "initialized": false,
-            "enabled": false,
-            "running": false,
-            "result": "/home/plee/hack.node/cloudflash\n"
-        }
+       "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
+       "description":
+       {
+           "version": "1.0",
+           "name": "openvpn",
+           "family": "vpn",
+           "pkg":
+           [
+               "npm://openvpn"
+           ],
+           "api": "lib/openvpn",
+           "id": "20a80663-d311-4372-99d2-4b1ab14e443c"
+       },
+       "status":
+       {
+           "installed": true,
+           "initialized": false,
+           "enabled": false,
+           "running": false,
+           "result": "openvpn is uninitialized and not running "
+       }
     }
+
+Update Module
+----------------
+
+    Verb	URI	                 Description
+    PUT	    /modules/module-id	 Show a module in VCG/CPEs specified by module-ID
+
+**Example Request and Response**
+
+### Request Headers
+
+    {
+        "version": "1.0",
+        "name": "openvpn",
+        "family": "vpn",
+        "pkg": [
+             "npm://openvpn"
+        ],
+        "api": "lib/openvpn"
+    }
+
+
+### Response JSON
+
+    {
+       "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
+       "description":
+       {
+           "version": "1.0",
+           "name": "openvpn",
+           "family": "vpn",
+           "pkg":
+           [
+               "npm://openvpn"
+           ],
+           "api": "lib/openvpn",
+           "id": "20a80663-d311-4372-99d2-4b1ab14e443c"
+       },
+       "status":
+       {
+           "installed": true,
+           "initialized": false,
+           "enabled": false,
+           "running": false,
+           "result": "openvpn is uninitialized and not running "
+       }
+    }
+
 
 Delete a module
 ----------------
 
-    Verb	URI	                 Description
-    DELETE	/modules/module-id	  Delete a module in VCG specified by module-ID
-
+    Verb	URI	                  Description
+    DELETE	/modules/module-id	  Delete a module in VCG/CPEs specified by module-ID
 
 On Success returns 200 with JSON data
 
@@ -200,17 +294,18 @@ On Success returns 200 with JSON data
 
 ### Request Headers
 
-    DELETE /modules/d40d38bd-aab0-4430-ac61-4b8ee91dc668 HTTP/1.1
+    DELETE modules/2ccc8dc8-62c5-491b-b305-3c029bde6f64 
 
 ### Response JSON
 
-    { deleted: true }
+    {
+       "deleted": true
+    }
 
 
 Action Command API
 ------------------
 This API is used to perform the action like start, stop, restart and sync on the installed modules as identified by module-id
-
 
     Verb	URI	                 Description
     POST	/modules/module-id/action	  Execute an action command
@@ -219,249 +314,17 @@ This API is used to perform the action like start, stop, restart and sync on the
 
 ### Request Headers
 
-    POST /modules/a12796b8-c786-4351-ba7d-4b95cd8e0797/action HTTP/1.1
-
-### Request JSON
-
-    { command: "stop" }
-
-### Response JSON
-
-    { result: true }
-
-
-*OpenVPN API*
-=============
-
-Post openVPN Configuration
---------------------------
-
-    Verb	URI	        		Description
-    POST	/modules/module-id/openvpn	 Update the openvpn server.conf file in VCG.
-
-On success it returns JSON data with the module-id, module Name, config success.
-
-*TODO: Define JSON format for error codes and description.*
-
-**Example Request and Response**
-
-### Request Headers
-
+    POST /modules/2ccc8dc8-62c5-491b-b305-3c029bde6f64/action  HTTP/1.1
 
 ### Request JSON
 
     {
-        port: "7000",
-        dev: "tun",
-        proto: "udp",
-        ca: "/etc/ca-bundle.pem"
-        dh: "/etc/dh1024.pem"
-        cert: "/etc/identity/snap.cert",
-        key: "/etc/identity/snap.key",
-        server: "172.17.0.0 255.255.255.0",
-        'script-security': "3 system",
-        multihome: true,
-        management: "127.0.0.1 2020",
-        cipher: "AES-256-CBC",
-        'tls-cipher': "AES256-SHA",
-        auth: "SHA1",
-        topology: "subnet",
-        'route-gateway': "172.17.0.1"
-        'client-config-dir': "/config/openvpn/ccd"
-        'ccd-exclusive': true,
-        'ccd-to-client': true,
-        route: [ "192.168.0.0 255.255.255.0", "192.168.1.0 255.255.255.0" ],
-        push:  [ "route 192.168.3.0 255.255.255.0", "comp-lzo no" ],
-        'max-clients': "254",
-        'persist-key': true,
-        'persist-tun': true,
-        status: "/var/log/server-status.log",
-        keepalive: "5 45",
-        'comp-lzo': "no",
-        sndbuf: "262144"
-        rcvbuf: "262144"
-        txqueuelen: "500"
-        'replay-window': "512 15"
-        verb: "3"
-        mlock: true
+       "command":"start"
     }
-
-### Response JSON
-
-
-	{ result: true }
-
-
-Upon error, error code 500 will be returned
-
-
-Add a User to VPN
------------------
-
-    Verb	URI	        		                 Description
-    POST	/modules/module-id/openvpn/users	 Add user into client-config-directory
-
-On success it returns JSON data with the module-id, module Name, config success.
-
-**Example Request and Response**
-
-### Request Headers
-
-
-### Request JSON
-
-    {
-    	id: "492e025d-2ae7-49e6-b27d-441ba3784ce3",
-    	email: "master@oftheuniverse.com",
-    	push: [
-    		"dhcp-option DNS x.x.x.x",
-    		"ip-win32 dynamic",
-    		"route-delay 5"
-    	]
-    }
-
-### Response JSON
-
-	{ result: true }
-
-Upon error, error code 500 will be returned
-
-
-Delete a User from VPN
-----------------------
-
-    Verb	URI	                 Description
-    DELETE	/modules/module-id/openvpn/users/user-id	  Delete user from client-config-directory
-
-
-On Success returns 200 with JSON data
-
-**Example Request and Response**
-
-### Request Headers
-
-    DELETE /modules/d40d38bd-aab0-4430-ac61-4b8ee91dc668/openvpn/users/a5ce61b6-80ff-4cfa-aa49-9efe83c0c80b HTTP/1.1
-
-### Response JSON
-
-    { deleted: true }
-
-Describe OpenVPN
-----------------
-
-    Verb	URI	                 Description
-    GET	    /modules/module-id/openvpn	  Show OpenVPN info in VCG specified by module-ID
-
-**Example Request and Response**
-
-### Request Headers
-
-    GET /modules/d40d38bd-aab0-4430-ac61-4b8ee91dc668/openvpn HTTP/1.1
 
 ### Response JSON
 
     {
-        "id": "d40d38bd-aab0-4430-ac61-4b8ee91dc668",
-        "users": [
-			{
-    			id: "492e025d-2ae7-49e6-b27d-441ba3784ce3",
-    			email: "master@oftheuniverse.com",
-    			push: [
-    				"dhcp-option DNS x.x.x.x",
-    				"ip-win32 dynamic",
-    				"route-delay 5"
-    			]
-			}
-        ],
-		"connections": [
-			{
-				cname: "e-mail or UUID",
-				remote: "1.2.3.4:1234",
-				ip: "172.17.0.4",
-				received: 12345,
-				sent: 54321,
-				since: "Tue Jul 17 12:17:18 2012"
-			}
-		]
+       "result": true
     }
-
-Please note that the top-level `id` returned above refers to the module-ID.
-
-Upon error, error code 500 will be returned
-
-
-*Firewall API (Currently N/A)*
-==============================
-
-Modify the firewall Config
---------------------------
-
-
-            Verb	URI	        			Description
-             POST	/modules/module-id/firewall		 Update the firewall firewall.sh file in VCG.
-
-
-The request must have the following parameters in JSON data
-
-      1. module Name
-      2. module Type
-      3. Module id
-      4. firewall base64 encrypted value
-
-On success it returns JSON data with the module-id, module Name, command success.
-
-*TODO: Define JSON format for error codes and description.*
-
-**Example Request and Response**
-
-### Request Headers
-
-```
-Response Headersview source
-Connection	keep-alive
-Content-Length	95
-Content-Type	application/json; charset=utf-8
-X-Powered-By	Express
-Request Headersview source
-Accept	*/*
-Accept-Encoding	gzip, deflate
-Accept-Language	en-us,en;q=0.5
-Cache-Control	no-cache
-Connection	keep-alive
-Content-Length	1107
-Content-Type	application/json; charset=utf-8
-Host	10.2.56.153:3000
-Pragma	no-cache
-Referer	http://10.2.56.153:3000/modules/415794ee-c6f7-4545-a5a6-3253448de10e/firewall
-User-Agent	Mozilla/5.0 (Windows NT 5.1; rv:12.0) Gecko/20100101 Firefox/12.0
-X-Requested-With	XMLHttpRequest
-Response Headers From Cache
-Connection	keep-alive
-Content-Length	95
-Content-Type	application/json; charset=utf-8
-X-Powered-By	Express
-```
-
-### Request JSON
-
-            { "modules":
-                        { "firewall" :
-                                      {
-					"command":"IyEvYmluL3NoDQppcHRhYmxlcyAoKSB7IHRlc3QgIiQyIiAhPSAic2hvcmV3YWxsIiAmJiBzYWZlX2NhbGwgaXB0YWJsZXMgJEA7IH0NCg0Kc2FmZV9jYWxsICgpIHsNCgliaW49JCh3aGljaCAkMSkNCglzaGlmdA0KCSRiaW4gJEANCglpZiBbICQ/		ICE9IDAgXTsgdGhlbiANCgkgICAgaXB0YWJsZXMtcmVzdG9yZSA8IC9jb25maWcvaXB0YWJsZXMuc2F2ZQ0KCSAgICBleGl0IDENCglmaQ0KfQ0KIyBxdCAoKSB7ICIkQCIgPi9kZXYvbnVsbCAyPiYxIH0NCg0KaWYgWyAteCAvYmluL2J1c3lib3ggXTsgdGhlbg0KCSMgWFhYIC0gaGFjayAtIGJ1ZyB3aXRoIGlwdGFibGVzLXNhdmUgaW4gcnVudCBpbWFnZQ0KCWNwIC9ldGMvbmV0d29yay9pcHRhYmxlcy5kZWZhdWx0IC9jb25maWcvaXB0YWJsZXMuc2F2ZQ0KZWxzZQ0KCWlwdGFibGVzLXNhdmUgPiAvY29uZmlnL2lwdGFibGVzLnNhdmUNCmZpDQoNClsgLWYgL2NvbmZpZy9pcHRhYmxlcy9mdW5jdGlvbnMgXSAmJiAuIC9jb25maWcvaXB0YWJsZXMvZnVuY3Rpb25zDQoNCmlwdGFibGVzIC1MIHNob3Jld2FsbCAtbg0KaXB0YWJsZXMgLUYgc2hvcmV3YWxsDQppcHRhYmxlcyAtWCBzaG9yZXdhbGwNCmlwdGFibGVzIC10IG5hdCAtRg0KaXB0YWJsZXMgLXQgbmF0IC1YDQppcHRhYmxlcyAtdCBuYXQgLVAgUFJFUk9VVElORyBBQ0NFUFQNCmlwdGFibGVzIC10IG5hdCAtUCBQT1NUUk9VVElORyBBQ0NFUFQNCmlwdGFibGVzIC10IG5hdCAtUCBPVVRQVVQgQUNDRVBUDQppcHRhYmxlcyAtdCBtYW5nbGUgLUYNCmlwdGFibGVzIC10IG1hbmdsZSAtWA0K"
-                                      }
-			}
-	}
-
-
-### Response JSON
-
-
-        {
-           "modules":{
-                        "id":"415794ee-c6f7-4545-a5a6-3253448de10e",
-                        "name":"iptable",
-                        "command":"success"
-                       }
-         }
-
 
