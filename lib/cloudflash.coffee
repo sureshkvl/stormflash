@@ -5,9 +5,9 @@ class PackageManager
     fs = require 'fs'
     path = require 'path'
     constructor: (@include) ->
-        @db = require('dirty') '/tmp/cloudflash-depPackages.db'
+        @db = require('dirty') '/tmp/cloudflash-components.db'
         @db.on 'load', ->
-            console.log 'loaded cloudflash-depPackages.db'
+            console.log 'loaded cloudflash-components.db'
             @forEach (key,val) ->
                 console.log 'found ' + key
 
@@ -48,13 +48,13 @@ class PackageManager
             else
                 callback()
 
-    check: (depPackage, callback) ->
-        console.log "checking if the depPackage '#{depPackage.name}' has already been installed using #{depPackage.installer}..."
+    check: (component, callback) ->
+        console.log "checking if the component '#{component.name}' has already been installed using #{component.installer}..."
 
-        command = @getCommand depPackage.installer, "check", depPackage.name
+        command = @getCommand component.installer, "check", component.name
         @execute command, (error) =>
             unless error
-                console.log "#{depPackage.name} is already installed"
+                console.log "#{component.name} is already installed"
                 callback true
             else
                 console.log error
@@ -64,54 +64,54 @@ class PackageManager
         console.log "downloading #{url} to #{filename}..."
         webreq(url, (error, response, body) =>
             if error or not path.existsSync filename
-                callback new Error "Unable to download depPackage! #{url} Error was: #{error}"
+                callback new Error "Unable to download component! #{url} Error was: #{error}"
             else
                 callback()
 
         ).pipe(fs.createWriteStream(filename))
 
-    install: (depPackage, callback) =>
+    install: (component, callback) =>
 
-        if depPackage.url
+        if component.url
             filename = "/tmp/" + uuid.v4() + ".pkg"
-            @download depPackage.url, filename, (error) =>
+            @download component.url, filename, (error) =>
                 return callback error if error
 
-                command = @getCommand depPackage.installer, "install", filename
+                command = @getCommand component.installer, "install", filename
                 @execute command, (error) =>
-                    return callback new Error "Unable to install #{depPackage.name} due to #{error}!" if error
+                    return callback new Error "Unable to install #{component.name} due to #{error}!" if error
 
                     # verify installation and return result
-                    @check depPackage, (exists) ->
+                    @check component, (exists) ->
                         if exists
-                            console.log "Package #{depPackage.name} is successfully installed"
+                            console.log "Package #{component.name} is successfully installed"
                             callback()
                         else
-                            callback new Error "Unable to verify depPackage installation!"
+                            callback new Error "Unable to verify component installation!"
 
-    uninstall: (depPackage, callback) ->
-        console.log "uninstalling #{depPackage.name} using #{depPackage.installer}..."
-        command = @getCommand depPackage.installer, "uninstall", depPackage.name
+    uninstall: (component, callback) ->
+        console.log "uninstalling #{component.name} using #{component.installer}..."
+        command = @getCommand component.installer, "uninstall", component.name
         @execute command, (error) =>
             unless error
-                console.log "#{depPackage.name} has been successfully uninstalled."
+                console.log "#{component.name} has been successfully uninstalled."
                 callback()
             else
                 console.log error
-                callback new Error "#{depPackage.name} failed to uninstall!"
+                callback new Error "#{component.name} failed to uninstall!"
 
     ##
-    # make a unique id for the depPackage
-    uid: (depPackage) ->
-        switch depPackage.installer
+    # make a unique id for the component
+    uid: (component) ->
+        switch component.installer
             when "dpkg","apt-get"
-                return "deb://#{depPackage.name}"
+                return "deb://#{component.name}"
 
             when "rpm","yum"
-                return "rpm://#{depPackage.name}"
+                return "rpm://#{component.name}"
 
             when "npm"
-                return "npm://#{depPackage.name}"
+                return "npm://#{component.name}"
 
             else
                 return null
@@ -119,39 +119,39 @@ class PackageManager
     ##
     # ADD/REMOVE special higher-order routines that performs DB record keeping
 
-    add: (depPackage, callback) ->
-        @check depPackage, (exists) =>
-            id = @uid depPackage
+    add: (component, callback) ->
+        @check component, (exists) =>
+            id = @uid component
             if exists
                 record = @db.get id
                 unless record
                     # in the event that system already has it pre-installed
-                    record = depPackage
+                    record = component
                     record.persist = true
                 record.depends++
                 @db.set id, record, ->
                     callback()
             else
-                @install depPackage, (error) =>
+                @install component, (error) =>
                     return callback error if error
 
-                    depPackage.status = { installed: true }
-                    depPackage.depends = 1
-                    @db.set id, depPackage, ->
+                    component.status = { installed: true }
+                    component.depends = 1
+                    @db.set id, component, ->
                         callback()
 
-    remove: (depPackage, callback) ->
-        @check depPackage, (exists) =>
+    remove: (component, callback) ->
+        @check component, (exists) =>
             return callback() unless exists
 
-            id = @uid depPackage
+            id = @uid component
             record = @db.get id
             record.depends--
             if record.depends > 0 or record.persist
                 @db.set id, record, ->
                     callback()
             else
-                @uninstall depPackage, (error) =>
+                @uninstall component, (error) =>
                     unless error
                         @db.rm id, ->
                             callback()
@@ -256,7 +256,7 @@ class CloudFlash
         console.log "checking if the module '#{desc.name}' has already been installed..."
         @pkgmgr.check desc, (exists) ->
             unless exists
-                callback new Error "depPackage #{desc.name} not installed"
+                callback new Error "component #{desc.name} not installed"
             else
                 callback()
 
@@ -287,7 +287,7 @@ class CloudFlash
         # first filter out dependencies already installed
         async.reject desc.dependencies, checkPackage, (toInstallList) =>
             console.log "after reject to installist ",  toInstallList
-            # now have list of depPackages that need to be installed
+            # now have list of components that need to be installed
             # but we run through install on ALL dependencies
             async.mapSeries toInstallList , @pkgmgr.install, (error, results) =>
                 unless error
@@ -300,10 +300,10 @@ class CloudFlash
                             callback error
                         
                 else
-                    console.log "List of depPackages failed " + results
+                    console.log "List of components failed " + results
                     # if here, something went wrong, find those that were installed and remove them
-                    async.filter results, filterPackages, (depPackages) =>
-                        async.forEach depPackages, @pkgmgr.remove, (error) ->
+                    async.filter results, filterPackages, (components) =>
+                        async.forEach components, @pkgmgr.remove, (error) ->
                         callback error
 
 
@@ -311,7 +311,7 @@ class CloudFlash
     # ADD/REMOVE special higher-order routines that performs DB record keeping
 
     add: (module, callback) ->
-        # 1. check if depPackage already installed, if so, we we skip download...
+        # 1. check if component already installed, if so, we we skip download...
         @check module, (error) =>
             unless error
                 module.status = { installed: true }
@@ -341,13 +341,13 @@ class CloudFlash
         desc = module.description
 
         @check module, (error) =>
-            return callback new Error "Unable to verify module depPackage installation!" if error
+            return callback new Error "Unable to verify module component installation!" if error
 
             # remove all dependencies
             #
-            console.log "removing the module depPackage: dpkg -r #{desc.name}"
+            console.log "removing the module component: dpkg -r #{desc.name}"
             exec "dpkg -r #{desc.name}", (error, stdout, stderr) =>
-                return @next new Error "Unable to remove module depPackage '#{desc.name}': #{stderr}" if error
+                return @next new Error "Unable to remove module component '#{desc.name}': #{stderr}" if error
                 @db.rm module.id, =>
                     console.log "removed module ID: #{module.id}"
                     callback()
