@@ -170,6 +170,7 @@ class CloudFlash
 
     schema =
         name: "module"
+        id:   "module"
         type: "object"
         additionalProperties: false
         properties:
@@ -193,6 +194,11 @@ class CloudFlash
                                 installer: { type: "string", "required": true }
                                 version:   { type: "string" }
                                 url:       { type: "string" }
+                                dependencies:
+                                    type: "array"
+                                    required: false
+                                    additionalProperties: false
+                        
             status:
                 type: "object"
                 required: false
