@@ -127,9 +127,10 @@ On success it returns JSON data with the UUID for the module created.
 
 **Example Request and Response**
 
-### Request JSON
+*Request*
 
-    {
+```
+{
     "name": "cloudflash-uproxy",    
     "installer":"npm",
    "version": "1.0.8",
@@ -142,11 +143,13 @@ On success it returns JSON data with the UUID for the module created.
              "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
         }
     ]
-    }
+}
+```
 
-### Response JSON
+*Response JSON*
 
-   {
+```
+{
                "id": "cd46985b-77f7-4094-84bd-1ad4a02210fa",
                "description":
                {
@@ -169,6 +172,7 @@ On success it returns JSON data with the UUID for the module created.
                }
            }
 
+```
 
 Describe Module
 ----------------
@@ -220,9 +224,9 @@ Update Module
 
 **Example Request and Response**
 
-### Request Headers
-
-    {
+*Request*
+```
+{
     "name": "cloudflash-uproxy",    
     "installer":"npm",
    "version": "1.0.8",
@@ -235,12 +239,13 @@ Update Module
              "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
         }
     ]
-    }
+}
+```
 
+*Response JSON*
 
-### Response JSON
-
-    {
+```
+{
        "id": "95da2d83-77bf-415e-a02b-c641f59a3e84",
        "description":
        {
@@ -263,7 +268,7 @@ Update Module
        }
     }
 
-
+```
 
 
 Delete a module
