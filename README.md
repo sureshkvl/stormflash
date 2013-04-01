@@ -14,7 +14,7 @@ should be specified by using the Content-Type header, the Accept header.
     <th>Verb</th><th>URI</th><th>Description</th>
   </tr>
   <tr>
-    <td>GET</td><td>/services</td><td>List summary of modules installed in VCG/CPEs identified by service ID</td>
+    <td>GET</td><td>/modules</td><td>List summary of modules installed in VCG/CPEs identified by service ID</td>
   </tr>
   <tr>
     <td>POST</td><td>/modules</td><td>Create a new module in VCG/CPE </td>
@@ -59,7 +59,7 @@ Plan is to have OAuth scheme of authentication.
 --------------
 
     Verb	URI	        Description
-    GET	/modules	Lists summary of modules configured in VCG/CPEs identified by module ID.
+    GET	     /modules	     Lists summary of modules configured in VCG/CPEs identified by module ID.
 
 
 Note: The request does not require a message body.
@@ -88,37 +88,31 @@ api: Supported APIs for this module.
 
 ```
 {
-   "modules":
-   [
+       "id": "3e74a9be-9812-433a-ad26-7171612d6007",
+       "description":
        {
-           "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
-           "description":
-           {
-               "version": "1.0",
-               "name": "openvpn",
-               "family": "vpn",
-               "packages":
-               [
-                   {
-						"url": "npm://openvpn",
-						"version": "1.2",
-						"include": true
-				   },
-				   {
-						"url": "deb://some.host.com/filename",
-						"version": "3.2.1"
-				   }
-               ],
-               "id": "20a80663-d311-4372-99d2-4b1ab14e443c"
-           },
-           "status":
-           {
-               "installed": true
-           }
+           "name": "cloudflash-uproxy",
+           "installer": "npm",
+           "version": "1.0.9",
+           "dependencies":
+           [
+               {
+                   "name": "uproxy-template",
+                   "version": "1.0.1",
+                   "installer": "dpkg",
+                   "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
+               }
+           ]
+       },
+       "status":
+       {
+           "installed": true,
+           "initialized": false,
+           "enabled": false,
+           "running": false,
+           "result": "Error: Command failed: "
        }
-   ]
-}
-
+    }
 ```
 
 Create Module
@@ -128,12 +122,6 @@ Create Module
     Verb	URI	        Description
     POST	/modules	Create a new module in VCG/CPEs.
 
-The request **must** have the following parameters in JSON data
-
-      1. module version
-      2. module Name
-      3. Module Family
-      4. Package URL
 
 On success it returns JSON data with the UUID for the module created.
 
@@ -142,57 +130,45 @@ On success it returns JSON data with the UUID for the module created.
 ### Request JSON
 
     {
-        "name": "cloudflash-openvpn",
-        "version": "1.3",
-        "family": "vpn",
-		"dependencies":
-		[
-			{
-				 "name": "openvpn",
-				 "version": "2.1.3",
-				 "installer": "apt-get"
-		 	},
-			{
-				 "name": "openvpn",
-				 "version": "2.1.3",
-				 "installer": "yum"
-			},
-			{
-				 "name": "spawnvpn",
-				 "version": "1.0",
-				 "installer": "dpkg",
-				 "url": "http://some.host.com/spawnvpn-1.0.i386.deb"
-			}
-		]
+    "name": "cloudflash-uproxy",    
+    "installer":"npm",
+   "version": "1.0.8",
+    "dependencies":
+    [
+        {
+             "name": "uproxy-template",
+             "version": "1.0.1",
+             "installer": "dpkg",
+             "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
+        }
+    ]
     }
 
 ### Response JSON
 
    {
-       "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
-       "description":
-       {
-           "version": "1.0",
-           "name": "openvpn",
-           "family": "vpn",
-		   "packages":
-		   [
-			   {
-					"url": "npm://openvpn",
-					"version": "1.2",
-					"include": true
-			   },
-			   {
-					"url": "deb://some.host.com/filename",
-					"version": "3.2.1"
-			   }
-		   ]
-       },
-       "status":
-       {
-           "installed": true
-       }
-    }
+               "id": "cd46985b-77f7-4094-84bd-1ad4a02210fa",
+               "description":
+               {
+                   "name": "cloudflash-uproxy",
+                   "installer": "npm",
+                   "version": "1.0.8",
+                   "dependencies":
+                   [
+                       {
+                           "name": "uproxy-template",
+                           "version": "1.0.1",
+                           "installer": "dpkg",
+                           "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
+                       }
+                   ]
+               },
+               "status":
+               {
+                   "installed": true
+               }
+           }
+
 
 Describe Module
 ----------------
@@ -204,23 +180,26 @@ Describe Module
 
 ### Request Headers
 
-    GET /modules/2ccc8dc8-62c5-491b-b305-3c029bde6f64 HTTP/1.1
+    GET /modules/3e74a9be-9812-433a-ad26-7171612d600
 
 ### Response JSON
 
     {
-       "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
+       "id": "3e74a9be-9812-433a-ad26-7171612d6007",
        "description":
        {
-           "version": "1.0",
-           "name": "openvpn",
-           "family": "vpn",
-           "pkg":
+           "name": "cloudflash-uproxy",
+           "installer": "npm",
+           "version": "1.0.9",
+           "dependencies":
            [
-               "npm://openvpn"
-           ],
-           "api": "lib/openvpn",
-           "id": "20a80663-d311-4372-99d2-4b1ab14e443c"
+               {
+                   "name": "uproxy-template",
+                   "version": "1.0.1",
+                   "installer": "dpkg",
+                   "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
+               }
+           ]
        },
        "status":
        {
@@ -228,9 +207,10 @@ Describe Module
            "initialized": false,
            "enabled": false,
            "running": false,
-           "result": "openvpn is uninitialized and not running "
+           "result": "Error: Command failed: "
        }
     }
+
 
 Update Module
 ----------------
@@ -243,41 +223,47 @@ Update Module
 ### Request Headers
 
     {
-        "version": "1.0",
-        "name": "openvpn",
-        "family": "vpn",
-        "pkg": [
-             "npm://openvpn"
-        ],
-        "api": "lib/openvpn"
+    "name": "cloudflash-uproxy",    
+    "installer":"npm",
+   "version": "1.0.8",
+    "dependencies":
+    [
+        {
+             "name": "uproxy-template",
+             "version": "1.0.1",
+             "installer": "dpkg",
+             "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
+        }
+    ]
     }
 
 
 ### Response JSON
 
     {
-       "id": "2ccc8dc8-62c5-491b-b305-3c029bde6f64",
+       "id": "95da2d83-77bf-415e-a02b-c641f59a3e84",
        "description":
        {
-           "version": "1.0",
-           "name": "openvpn",
-           "family": "vpn",
-           "pkg":
+           "name": "cloudflash-uproxy",
+           "installer": "npm",
+           "version": "1.0.8",
+           "dependencies":
            [
-               "npm://openvpn"
-           ],
-           "api": "lib/openvpn",
-           "id": "20a80663-d311-4372-99d2-4b1ab14e443c"
+               {
+                   "name": "uproxy-template",
+                   "version": "1.0.1",
+                   "installer": "dpkg",
+                   "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
+               }
+           ]
        },
        "status":
        {
-           "installed": true,
-           "initialized": false,
-           "enabled": false,
-           "running": false,
-           "result": "openvpn is uninitialized and not running "
+           "installed": true
        }
     }
+
+
 
 
 Delete a module

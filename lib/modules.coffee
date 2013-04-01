@@ -35,28 +35,30 @@
         cloudflash.add module, (error) =>
             unless error
                 console.log module
-                @send module
+                if module.status.installed
+                  @send module
+                else
+                  @send 304
             else
                 @next error
 
     @get '/modules/:id', loadModule, ->
         module = @request.module
 
-        # for debugging the below command is uncommented. Kindly enable this
-        #exec "pwd", (error, stdout, stderr) =>
+        installed = null
+        if module.status
+            installed = true
+        status =
+            installed: installed ? false
+            initialized: false
+            enabled: false
+            running: false
+            result: 'unknown'
+
         exec "svcs #{module.description.name} status", (error, stdout, stderr) =>
-            if error or not stdout?
-                module.status = null
+            if error or stderr
+               status.result =  '' + error
             else
-                status =
-                    installed: module.status?.installed?
-                    initialized: false
-                    enabled: false
-                    running: false
-                    result: stdout
-
-                console.log stdout
-
                 if stdout.match /disabled/
                     status.initialized = true
                 else if stdout.match /enabled/
@@ -64,7 +66,9 @@
                     unless stdout.match /not running/
                         status.running = true
 
-                module.status = status
+                status.result = stdout
+
+            module.status = status
 
             console.log module
             @send module

@@ -1,3 +1,41 @@
+globalGetCommand = (installer, command, target, version) ->
+    append = ''
+    switch "#{installer}.#{command}"
+        when "dpkg.check", "apt-get.check"
+            append = "| grep #{version}" if version
+            return "dpkg -l #{target} | grep #{target} #{append}"
+        when "apt-get.install"
+            append="=#{version}" if version
+            return "dpkg -i #{target}#{append}"
+        when "dpkg.install"
+            return "dpkg -i #{target}"
+        when "dpkg.uninstall", "apt-get.uninstall"
+            return "dpkg -r #{target}"
+        when "yum.check", "rpm.check"
+            append = "-#{version}"
+            return "yum list available #{target}#{append}"
+        when "yum.install"
+            append = "-#{version}"
+            return "yum #{target}#{append}"
+        when "rpm.install"
+            return "rpm -ivh #{target}"
+        when "rpm.uninstall", "yum.uninstall"
+            return "rpm -r #{target}"
+        when "npm.install"
+            append = "@#{version}" if version?
+            return "npm install -g #{target}#{append} --prefix=/; ls -l /lib/node_modules/#{target}"
+        when "npm.uninstall"
+            append = "@#{version}" if version?
+            return "npm remove -g #{target}#{append} --prefix=/"
+        when "npm.check"
+            # TODO: Enhance this check with the version.
+            append = "@#{version}" if version?
+            return "cd /lib; npm ls 2>/dev/null | grep #{target}#{append}"
+            #return "ls -l /lib/node_modules/#{target}"
+        else
+            console.log new Error "invalid command #{installer}.#{command} for #{target}!"
+            return null
+
 class PackageManager
 
     uuid = require('node-uuid')
@@ -11,30 +49,8 @@ class PackageManager
             @forEach (key,val) ->
                 console.log 'found ' + key
 
-    getCommand: (installer, command, target) ->
-        switch "#{installer}.#{command}"
-            when "dpkg.check", "apt-get.check"
-                return "dpkg -l #{target} | grep #{target}"
-            when "dpkg.install"
-                return "dpkg -i #{target}"
-            when "dpkg.uninstall"
-                return "dpkg -r #{target}"
-
-            when "rpm.install"
-                return "rpm -ivh #{target}"
-            when "rpm.uninstall"
-                return "rpm -r #{target}"
-
-            when "npm.install"
-                return "npm install -g #{target} --prefix=/; ls -l /lib/node_modules/#{target}"
-            when "npm.uninstall"
-                return "npm remove -g #{target} --prefix=/"
-            when "npm.check"
-                return "ls -l /lib/node_modules/#{target}"
-
-            else
-                console.log new Error "invalid command #{installer}.#{command} for #{target}!"
-                return null
+    getCommand: (installer, command, target, version) ->
+        return globalGetCommand installer, command, target, version
 
     execute: (command, callback) ->
         unless command
@@ -51,7 +67,7 @@ class PackageManager
     check: (component, callback) ->
         console.log "checking if the component '#{component.name}' has already been installed using #{component.installer}..."
 
-        command = @getCommand component.installer, "check", component.name
+        command = @getCommand component.installer, "check", component.name, component.version
         @execute command, (error) =>
             unless error
                 console.log "#{component.name} is already installed"
@@ -71,7 +87,6 @@ class PackageManager
         ).pipe(fs.createWriteStream(filename))
 
     install: (component, callback) =>
-
         if component.url
             filename = "/tmp/" + uuid.v4() + ".pkg"
             @download component.url, filename, (error) =>
@@ -170,7 +185,6 @@ class CloudFlash
 
     schema =
         name: "module"
-        id:   "module"
         type: "object"
         additionalProperties: false
         properties:
@@ -198,7 +212,6 @@ class CloudFlash
                                     type: "array"
                                     required: false
                                     additionalProperties: false
-                        
             status:
                 type: "object"
                 required: false
@@ -298,13 +311,14 @@ class CloudFlash
             async.mapSeries toInstallList , @pkgmgr.install, (error, results) =>
                 unless error
                     # 2. install the primary module via NPM
-                    exec "npm install -g #{desc.name} --prefix=/; ls -l /lib/node_modules/#{desc.name}" , (error, stdout, stderr) =>
+                    command = globalGetCommand desc.installer, "install", desc.name, desc.version
+                    console.log 'command: ' + command
+                    exec command , (error, stdout, stderr) =>
                         unless error
                             console.log "Done installing modules #{desc.name}"
                             callback()
                         else
                             callback error
-                        
                 else
                     console.log "List of components failed " + results
                     # if here, something went wrong, find those that were installed and remove them
@@ -320,9 +334,12 @@ class CloudFlash
         # 1. check if component already installed, if so, we we skip download...
         @check module, (error) =>
             unless error
+                '''
                 module.status = { installed: true }
                 @db.set module.id, module, ->
-                    callback()
+                '''
+                module.status = { installed: false }
+                callback()
             else
                 # 2. install module
                 @install module, (error) =>
