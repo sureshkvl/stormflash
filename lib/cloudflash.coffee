@@ -368,8 +368,8 @@ class CloudFlash
 
             # remove all dependencies
             #
-            console.log "removing the module component: dpkg -r #{desc.name}"
-            exec "dpkg -r #{desc.name}", (error, stdout, stderr) =>
+            console.log "removing the module component: rm -rf #{desc.name}"
+            exec "rm -rf /lib/node_modules/#{desc.name}", (error, stdout, stderr) =>
                 return @next new Error "Unable to remove module component '#{desc.name}': #{stderr}" if error
                 @db.rm module.id, =>
                     console.log "removed module ID: #{module.id}"
