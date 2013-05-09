@@ -1,179 +1,3 @@
-globalGetCommand = (installer, command, target, version) ->
-    append = ''
-    switch "#{installer}.#{command}"
-        when "dpkg.check", "apt-get.check"
-            append = "| grep #{version}" if version
-            return "dpkg -l #{target} | grep #{target} #{append}"
-        when "apt-get.install"
-            append="=#{version}" if version
-            return "dpkg -i #{target}#{append}"
-        when "dpkg.install"
-            return "dpkg -i #{target}"
-        when "dpkg.uninstall", "apt-get.uninstall"
-            return "dpkg -r #{target}"
-        when "yum.check", "rpm.check"
-            append = "-#{version}"
-            return "yum list available #{target}#{append}"
-        when "yum.install"
-            append = "-#{version}"
-            return "yum #{target}#{append}"
-        when "rpm.install"
-            return "rpm -ivh #{target}"
-        when "rpm.uninstall", "yum.uninstall"
-            return "rpm -r #{target}"
-        when "npm.install"
-            append = "@#{version}" if version?
-            return "npm install -g #{target}#{append} --prefix=/; ls -l /lib/node_modules/#{target}"
-        when "npm.uninstall"
-            append = "@#{version}" if version?
-            return "npm remove -g #{target}#{append} --prefix=/"
-        when "npm.check"
-            # TODO: Enhance this check with the version.
-            append = "@#{version}" if version?
-            return "cd /lib; npm ls 2>/dev/null | grep #{target}#{append}"
-            #return "ls -l /lib/node_modules/#{target}"
-        else
-            console.log new Error "invalid command #{installer}.#{command} for #{target}!"
-            return null
-
-class PackageManager
-
-    uuid = require('node-uuid')
-    webreq = require 'request'
-    fs = require 'fs'
-    path = require 'path'
-    constructor: (@include) ->
-        @db = require('dirty') '/tmp/cloudflash-components.db'
-        @db.on 'load', ->
-            console.log 'loaded cloudflash-components.db'
-            @forEach (key,val) ->
-                console.log 'found ' + key
-
-    getCommand: (installer, command, target, version) ->
-        return globalGetCommand installer, command, target, version
-
-    execute: (command, callback) ->
-        unless command
-            return callback new Error "no valid command for execution!"
-
-        console.log "executing #{command}..."
-        exec = require('child_process').exec
-        exec command, (error, stdout, stderr) =>
-            if error
-                callback error
-            else
-                callback()
-
-    check: (component, callback) ->
-        console.log "checking if the component '#{component.name}' has already been installed using #{component.installer}..."
-
-        command = @getCommand component.installer, "check", component.name, component.version
-        @execute command, (error) =>
-            unless error
-                console.log "#{component.name} is already installed"
-                callback true
-            else
-                console.log error
-                callback false
-
-    download: (url, filename, callback) ->
-        console.log "downloading #{url} to #{filename}..."
-        webreq(url, (error, response, body) =>
-            if error or not path.existsSync filename
-                callback new Error "Unable to download component! #{url} Error was: #{error}"
-            else
-                callback()
-
-        ).pipe(fs.createWriteStream(filename))
-
-    install: (component, callback) =>
-        if component.url
-            filename = "/tmp/" + uuid.v4() + ".pkg"
-            @download component.url, filename, (error) =>
-                return callback error if error
-
-                command = @getCommand component.installer, "install", filename
-                @execute command, (error) =>
-                    return callback new Error "Unable to install #{component.name} due to #{error}!" if error
-
-                    # verify installation and return result
-                    @check component, (exists) ->
-                        if exists
-                            console.log "Package #{component.name} is successfully installed"
-                            callback()
-                        else
-                            callback new Error "Unable to verify component installation!"
-
-    uninstall: (component, callback) ->
-        console.log "uninstalling #{component.name} using #{component.installer}..."
-        command = @getCommand component.installer, "uninstall", component.name
-        @execute command, (error) =>
-            unless error
-                console.log "#{component.name} has been successfully uninstalled."
-                callback()
-            else
-                console.log error
-                callback new Error "#{component.name} failed to uninstall!"
-
-    ##
-    # make a unique id for the component
-    uid: (component) ->
-        switch component.installer
-            when "dpkg","apt-get"
-                return "deb://#{component.name}"
-
-            when "rpm","yum"
-                return "rpm://#{component.name}"
-
-            when "npm"
-                return "npm://#{component.name}"
-
-            else
-                return null
-
-    ##
-    # ADD/REMOVE special higher-order routines that performs DB record keeping
-
-    add: (component, callback) ->
-        @check component, (exists) =>
-            id = @uid component
-            if exists
-                record = @db.get id
-                unless record
-                    # in the event that system already has it pre-installed
-                    record = component
-                    record.persist = true
-                record.depends++
-                @db.set id, record, ->
-                    callback()
-            else
-                @install component, (error) =>
-                    return callback error if error
-
-                    component.status = { installed: true }
-                    component.depends = 1
-                    @db.set id, component, ->
-                        callback()
-
-    remove: (component, callback) ->
-        @check component, (exists) =>
-            return callback() unless exists
-
-            id = @uid component
-            record = @db.get id
-            record.depends--
-            if record.depends > 0 or record.persist
-                @db.set id, record, ->
-                    callback()
-            else
-                @uninstall component, (error) =>
-                    unless error
-                        @db.rm id, ->
-                            callback()
-                    else
-                        callback error
-
-
 class CloudFlash
 
     validate = require('json-schema').validate
@@ -181,8 +5,7 @@ class CloudFlash
     exec = require('child_process').exec
     fs = require 'fs'
     path = require 'path'
-    async = require 'async'
-
+    
     schema =
         name: "module"
         type: "object"
@@ -197,21 +20,7 @@ class CloudFlash
                 properties:
                     name:      { type: "string", "required": true }
                     installer: { type: "string", "required": true }
-                    version:   { type: "string" }
-                    url:       { type: "string" }
-                    dependencies:
-                        items:
-                            type: "object"
-                            additionalProperties: false
-                            properties:
-                                name:      { type: "string", "required": true }
-                                installer: { type: "string", "required": true }
-                                version:   { type: "string" }
-                                url:       { type: "string" }
-                                dependencies:
-                                    type: "array"
-                                    required: false
-                                    additionalProperties: false
+                    version:   { type: "string" }                    
             status:
                 type: "object"
                 required: false
@@ -228,15 +37,15 @@ class CloudFlash
         @db.on 'load', ->
             console.log 'loaded cloudflash.db'
             @forEach (key,val) ->
-                console.log 'found ' + key
-        @pkgmgr = new PackageManager
+                console.log 'found ' + key if val     
 
-    new: (desc) ->
+    new: (desc,id) ->
         module = {}
-        module.id = uuid.v4()
+        if id
+            module.id = id
+        else
+            module.id = uuid.v4()
         module.description = desc
-        module.description.dependencies ?= []
-
         return module
 
     lookup: (id) ->
@@ -253,6 +62,34 @@ class CloudFlash
             return entry
         else
             return new Error "No such module ID: #{id}"
+    
+    getCommand: (installer, command, target, version) ->
+        append = ''
+        switch "#{installer}.#{command}"
+            when "dpkg.check", "apt-get.check"
+                append = "| grep #{version}" if version
+                return "dpkg -l #{target} | grep #{target} #{append}"      
+            when "yum.check", "rpm.check"
+                append = "-#{version}"
+                return "yum list available #{target}#{append}"        
+            when "npm.check"            
+                append = "@#{version}" if version?
+                return "cd /lib; npm ls 2>/dev/null | grep #{target}#{append}"            
+            else
+                console.log new Error "invalid command #{installer}.#{command} for #{target}!"
+                return null
+
+    execute: (command, callback) ->
+        unless command
+            return callback new Error "no valid command for execution!"
+
+        console.log "executing #{command}..."
+        exec = require('child_process').exec
+        exec command, (error, stdout, stderr) =>
+            if error
+                callback error
+            else
+                callback()
 
     list: ->
         res = { 'modules': [] }
@@ -265,106 +102,58 @@ class CloudFlash
     validate: (module) ->
         console.log 'performing schema validation on module description'
         return validate module, schema.properties.description
+    
+    check: (component, callback) ->
+        console.log "checking if the component '#{component.name}' has already been installed using #{component.installer}..."
 
-
-    ##
-    # ASYNC ROUTINES
-
-    check: (module, callback) ->
-        desc = module.description
-        console.log "checking if the module '#{desc.name}' has already been installed..."
-        @pkgmgr.check desc, (exists) ->
-            unless exists
-                callback new Error "component #{desc.name} not installed"
-            else
-                callback()
-
-    install: (module, callback) ->
-        desc = module.description
-
-        mapinstall = (item, callback) =>
-            @pkgmgr.add item, (error) ->
-                unless error
-                    callback null, item
-                else
-                    callback error, null
-
-        checkPackage = (item, callback) =>
-            @pkgmgr.check item, (exists) ->
-                if exists
-                    callback true
-                else
-                    callback false
-
-        filterPackages = (item, callback) ->
-            if item==null
+        command = @getCommand component.installer, "check", component.name, component.version
+        @execute command, (error) =>
+            unless error
+                console.log "#{component.name} is already installed"
                 callback true
-            else
-                callback false
-
-
-        # first filter out dependencies already installed
-        async.reject desc.dependencies, checkPackage, (toInstallList) =>
-            console.log "after reject to installist ",  toInstallList
-            # now have list of components that need to be installed
-            # but we run through install on ALL dependencies
-            async.mapSeries toInstallList , @pkgmgr.install, (error, results) =>
-                unless error
-                    # 2. install the primary module via NPM
-                    command = globalGetCommand desc.installer, "install", desc.name, desc.version
-                    console.log 'command: ' + command
-                    exec command , (error, stdout, stderr) =>
-                        unless error
-                            console.log "Done installing modules #{desc.name}"
-                            callback()
-                        else
-                            callback error
-                else
-                    console.log "List of components failed " + results
-                    # if here, something went wrong, find those that were installed and remove them
-                    async.filter results, filterPackages, (components) =>
-                        async.forEach components, @pkgmgr.remove, (error) ->
-                        callback error
-
-
+            else                
+                callback error  
     ##
     # ADD/REMOVE special higher-order routines that performs DB record keeping
 
-    add: (module, callback) ->
-        # 1. check if component already installed, if so, we we skip download...
-        @check module, (error) =>
-            unless error
-                '''
+    add: (module, type, callback) ->
+        # 1. check if component already included in DB, if so, we skip including...
+        exists = 0
+        if type == true
+            @db.forEach (key,val) ->
+                if val && val.description.name == module.description.name then exists = 1
+        
+        if type == true && exists == 1           
+            return callback new Error "#{module.description.name} module already included try updating module!" 
+                        
+        @check module.description, (error) =>
+            unless error instanceof Error                
+                @include require "/lib/node_modules/#{module.description.name}"
+                # 2. add module into cloudflash
                 module.status = { installed: true }
                 @db.set module.id, module, ->
-                '''
-                module.status = { installed: false }
-                callback()
+                    callback(module)                
             else
-                # 2. install module
-                @install module, (error) =>
-                    unless error
-                        # 3. include API module
-                        try
-                            @include require "/lib/node_modules/#{module.description.name}"
-                            # 4. add module into cloudflash
-                            module.status = { installed: true }
-                            @db.set module.id, module, ->
-                                callback()
-                        catch err
-                            exec "npm remove -g #{module.description.name} --prefix=/"
-                            err = new Error "Unable to include the module #{module.description.name}"
-                            console.log err
-                            callback err
+                console.log 'module check: '+ error
+                return callback new Error "#{module.description.name} module not installed!"
 
-                    else
-                        callback error
-
+    update: (module, callback) ->        
+        
+        if module.id
+            @add module, false, (res) =>
+                unless res instanceof Error
+                    callback res
+                else
+                    callback res
+        else
+            callback new Error "Could not find ID! #{id}"      
+       
+                   
     remove: (module, callback) ->
         desc = module.description
 
-        @check module, (error) =>
-            return callback new Error "Unable to verify module component installation!" if error
+        @check desc, (error) =>
+            return callback new Error "Unable to verify module component installation!" if error instanceof Error
 
             # remove all dependencies
             #

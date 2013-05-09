@@ -32,15 +32,12 @@
 
     @post '/modules', validateModuleDesc, ->
         module = cloudflash.new @body
-        cloudflash.add module, (error) =>
-            unless error
-                console.log module
-                if module.status.installed
-                  @send module
-                else
-                  @send 304
+        cloudflash.add module, true, (res) =>
+            unless res instanceof Error
+                @send res
             else
-                @next error
+                @next new Error "Invalid module posting! #{res}"
+            
 
     @get '/modules/:id', loadModule, ->
         module = @request.module
@@ -81,17 +78,17 @@
         # 1. need to make sure the incoming JSON is well formed
         # 2. destructure the inbound object with proper schema
         # 3. perform 'extend' merge of inbound module data with existing data
-        module = @request.module
+        module = cloudflash.new @body, @params.id
 
         # desc = @body
         # @body = entry
         # @body.description ?= desc if desc?
 
-        cloudflash.db.set module.id, module, =>
-            console.log "updated module ID: #{module.id}"
-            console.log module
-            @send module
-            # do some work
+        cloudflash.update module, (res) =>
+            unless res instanceof Error
+                @send res
+            else
+                @next new Error "Invalid module posting! #{res}"
 
     @del '/modules/:id', loadModule, ->
         # 1. verify that the package is actually installed
@@ -118,27 +115,4 @@
 
             else return @next new Error "Invalid action, must specify 'command' (on|off,start|stop,restart,sync)!"
 
-    ##
-    # TEST ENDPOINTS
-
-    @get '/test/modules': ->
-        cloudflash.list()
-
-        module = cloudflash.lookup 'helloworld'
-        console.log module
-
-        module = cloudflash.new {
-            version: '1.0'
-            name: 'at'
-            family: 'remote-access'
-            pkgurl: 'http://10.1.10.145/vpnrac-0.0.1.deb'
-        }
-
-        cloudflash.add module, (error) =>
-            unless error
-                console.log 'added successfully'
-                @send module
-            else
-                console.log 'adding failed'
-                @next error
-
+    
