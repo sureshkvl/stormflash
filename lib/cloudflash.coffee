@@ -1,3 +1,8 @@
+Array::unique = ->
+  output = {}
+  output[@[key]] = @[key] for key in [0...@length]
+  value for key, value of output
+
 class CloudFlash
 
     validate = require('json-schema').validate
@@ -5,6 +10,7 @@ class CloudFlash
     exec = require('child_process').exec
     fs = require 'fs'
     path = require 'path'
+    fileops = require 'fileops'
     
     schema =
         name: "module"
@@ -18,9 +24,8 @@ class CloudFlash
                 required: true
                 additionalProperties: false
                 properties:
-                    name:      { type: "string", "required": true }
-                    installer: { type: "string", "required": true }
-                    version:   { type: "string" }                    
+                    name:      { type: "string", "required": true }                    
+                    version:   { type: "string", "required": true }                    
             status:
                 type: "object"
                 required: false
@@ -33,12 +38,13 @@ class CloudFlash
                     result:      { type: "string"  }
 
     constructor: (@include) ->
-        @db = require('dirty') '/tmp/cloudflash.db'
+        @db = require('dirty') '/tmp/cloudflash.db'        
         @db.on 'load', ->
             console.log 'loaded cloudflash.db'
-            @forEach (key,val) ->
-                console.log 'found ' + key if val     
-
+            @forEach (key,val) ->               
+                console.log 'found ' + key if val
+                   
+        
     new: (desc,id) ->
         module = {}
         if id
@@ -65,16 +71,10 @@ class CloudFlash
     
     getCommand: (installer, command, target, version) ->
         append = ''
-        switch "#{installer}.#{command}"
-            when "dpkg.check", "apt-get.check"
-                append = "| grep #{version}" if version
-                return "dpkg -l #{target} | grep #{target} #{append}"      
-            when "yum.check", "rpm.check"
-                append = "-#{version}"
-                return "yum list available #{target}#{append}"        
+        switch "#{installer}.#{command}"                   
             when "npm.check"            
                 append = "@#{version}" if version?
-                return "cd /lib; npm ls 2>/dev/null | grep #{target}#{append}"            
+                return "cd /lib; npm ls 2>/dev/null | grep #{target}#{append}"                         
             else
                 console.log new Error "invalid command #{installer}.#{command} for #{target}!"
                 return null
@@ -104,31 +104,69 @@ class CloudFlash
         return validate module, schema.properties.description
     
     check: (component, callback) ->
-        console.log "checking if the component '#{component.name}' has already been installed using #{component.installer}..."
+        console.log "checking if the component '#{component.name}' has already been installed using npm..."
 
-        command = @getCommand component.installer, "check", component.name, component.version
+        command = @getCommand 'npm', "check", component.name, component.version
         @execute command, (error) =>
             unless error
                 console.log "#{component.name} is already installed"
                 callback true
             else                
-                callback error  
+                callback error
+    ## To restart nodemon simplly update or create a file in cloudflash directory
+    '''
+    restartNode: (cloudflashModule) ->
+        result = ''
+        filename = "/lib/node_modules/cloudflash/lib/restartnode.coffee"        
+        cloudflashModule = cloudflashModule.unique()
+        console.log ' array: ' + cloudflashModule
+        for module in cloudflashModule
+            result += module
+        console.log 'result: ' + result         
+        fileops.createFile filename, (result) =>
+            return new Error "Unable to restart node!" if result instanceof Error
+            fileops.updateFile filename, result
+    '''
+    ## To include modules in DB to zappa server
+    includeModules: (cloudflashModule) ->
+        cloudflashModule = cloudflashModule.unique()
+        if cloudflashModule.length > 0
+            for module in cloudflashModule
+                console.log "include /lib/node_modules/#{module}"
+                @include require "/lib/node_modules/#{module}"
+        
     ##
     # ADD/REMOVE special higher-order routines that performs DB record keeping
-
-    add: (module, type, callback) ->
+    # If cloudflash modules sub-directory exist while nodemon started on re-installaing module nodemon restarts.
+    # when new module is installed via cloudflash controller / new sub directory created under /lib/nodemodules after nodemon started,
+    # nodemon doesnt re-starts 
+   
+    add: (module,entry, type, callback) ->
         # 1. check if component already included in DB, if so, we skip including...
-        exists = 0
-        if type == true
-            @db.forEach (key,val) ->
-                if val && val.description.name == module.description.name then exists = 1
+        exists = 0; cloudflashModule = []; exists = {}
         
+        @db.forEach (key,val) ->
+            if val && type == true && val.description.name == module.description.name then exists = 1                           
+            cloudflashModule.push val.description.name if val
+
+        console.log 'cloudflashModule: '+ cloudflashModule
         if type == true && exists == 1           
-            return callback new Error "#{module.description.name} module already included try updating module!" 
+            return callback new Error "#{module.description.name} module already included try updating module!"
+        
+        if type == false
+            if module.description.version && entry.description.version 
+                if module.description.version == entry.description.version
+                    return callback new Error "#{module.description.name} module no change in version!"      
+                 
                         
         @check module.description, (error) =>
-            unless error instanceof Error                
-                @include require "/lib/node_modules/#{module.description.name}"
+            unless error instanceof Error
+                cloudflashModule.push module.description.name
+                '''                               
+                if type == true
+                    @restartNode cloudflashModule
+                '''
+                @includeModules cloudflashModule                
                 # 2. add module into cloudflash
                 module.status = { installed: true }
                 @db.set module.id, module, ->
@@ -137,10 +175,10 @@ class CloudFlash
                 console.log 'module check: '+ error
                 return callback new Error "#{module.description.name} module not installed!"
 
-    update: (module, callback) ->        
+    update: (module,entry, callback) ->        
         
         if module.id
-            @add module, false, (res) =>
+            @add module,entry, false, (res) =>
                 unless res instanceof Error
                     callback res
                 else

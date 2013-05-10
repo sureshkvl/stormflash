@@ -36,21 +36,11 @@ should be specified by using the Content-Type header, the Accept header.
 </table>
 
 
-*URI structure*
-
-For now there is no API version specified in either URI or JSON data. But, in future we plan to use
-API version in the URI.
-
-For example
-
-      /modules/V1.0/module family/module type
-
-
 *Authentication*
 
 Current implementation of cloudflash in VCG/CPEs does not require that each request will include the credentials of
 the user submiting the request.
-Plan is to have OAuth scheme of authentication.
+Plan is to have Oauth scheme of authentication.
 
 *Modules API*
 ==============
@@ -67,17 +57,6 @@ Success: Returns JSON data with list of modules installed on VCG/CPEs. Each modu
 
 The module ID is generated is a UUID.
 
-Module Family is the generic module type while name is the actual module name.
-
-pkg: The package download link provided.
-
-api: Supported APIs for this module.
-
-*Note: Currently no validation of the package contents done*
-
-*TODO: Caller to provide md5sum of the package along with pkgurl*
-
-
 **Example Request and Response**
 
 *Request*
@@ -88,31 +67,23 @@ api: Supported APIs for this module.
 
 ```
 {
-       "id": "3e74a9be-9812-433a-ad26-7171612d6007",
-       "description":
-       {
-           "name": "cloudflash-uproxy",
-           "installer": "npm",
-           "version": "1.0.9",
-           "dependencies":
-           [
+       "modules":
+       [
+           {
+               "id": "d56467f6-2b53-467e-978a-c17039770353",
+               "description":
                {
-                   "name": "uproxy-template",
-                   "version": "1.0.1",
-                   "installer": "dpkg",
-                   "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
+                   "name": "cloudflash-uproxy",                   
+                   "version": "1.1.0"
+               },
+               "status":
+               {
+                   "installed": true
                }
-           ]
-       },
-       "status":
-       {
-           "installed": true,
-           "initialized": false,
-           "enabled": false,
-           "running": false,
-           "result": "Error: Command failed: "
-       }
-    }
+           }
+       ]
+}
+
 ```
 
 Create Module
@@ -124,6 +95,8 @@ Create Module
 
 
 On success it returns JSON data with the UUID for the module created.
+If module not installed return error
+To restrict multiple entry for same module, Return error on POST if entry already exists in DB.
 
 **Example Request and Response**
 
@@ -131,46 +104,27 @@ On success it returns JSON data with the UUID for the module created.
 
 ```
 {
-    "name": "cloudflash-uproxy",    
-    "installer":"npm",
-   "version": "1.0.8",
-    "dependencies":
-    [
-        {
-             "name": "uproxy-template",
-             "version": "1.0.1",
-             "installer": "dpkg",
-             "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
-        }
-    ]
+    "name": "cloudflash-uproxy",
+    "version": "1.1.0"
 }
+
 ```
 
 *Response JSON*
 
 ```
 {
-               "id": "cd46985b-77f7-4094-84bd-1ad4a02210fa",
-               "description":
-               {
-                   "name": "cloudflash-uproxy",
-                   "installer": "npm",
-                   "version": "1.0.8",
-                   "dependencies":
-                   [
-                       {
-                           "name": "uproxy-template",
-                           "version": "1.0.1",
-                           "installer": "dpkg",
-                           "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
-                       }
-                   ]
-               },
-               "status":
-               {
-                   "installed": true
-               }
-           }
+       "id": "d56467f6-2b53-467e-978a-c17039770353",
+       "description":
+       {
+           "name": "cloudflash-uproxy",           
+           "version": "1.1.0"
+       },
+       "status":
+       {
+           "installed": true
+       }
+}
 
 ```
 
@@ -184,26 +138,16 @@ Describe Module
 
 ### Request Headers
 
-    GET /modules/3e74a9be-9812-433a-ad26-7171612d600
+    GET /modules/d56467f6-2b53-467e-978a-c17039770353
 
 ### Response JSON
 
     {
-       "id": "3e74a9be-9812-433a-ad26-7171612d6007",
+       "id": "d56467f6-2b53-467e-978a-c17039770353",
        "description":
        {
-           "name": "cloudflash-uproxy",
-           "installer": "npm",
-           "version": "1.0.9",
-           "dependencies":
-           [
-               {
-                   "name": "uproxy-template",
-                   "version": "1.0.1",
-                   "installer": "dpkg",
-                   "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
-               }
-           ]
+           "name": "cloudflash-uproxy",           "
+           "version": "1.1.0"
        },
        "status":
        {
@@ -214,6 +158,7 @@ Describe Module
            "result": "Error: Command failed: "
        }
     }
+
 
 
 Update Module
@@ -227,18 +172,9 @@ Update Module
 *Request*
 ```
 {
-    "name": "cloudflash-uproxy",    
-    "installer":"npm",
-   "version": "1.0.8",
-    "dependencies":
-    [
-        {
-             "name": "uproxy-template",
-             "version": "1.0.1",
-             "installer": "dpkg",
-             "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
-        }
-    ]
+    "name": "cloudflash-uproxy",
+    "version":"1.1.0"
+ 
 }
 ```
 
@@ -246,27 +182,17 @@ Update Module
 
 ```
 {
-       "id": "95da2d83-77bf-415e-a02b-c641f59a3e84",
+       "id": "d56467f6-2b53-467e-978a-c17039770353",
        "description":
        {
            "name": "cloudflash-uproxy",
-           "installer": "npm",
-           "version": "1.0.8",
-           "dependencies":
-           [
-               {
-                   "name": "uproxy-template",
-                   "version": "1.0.1",
-                   "installer": "dpkg",
-                   "url": "http://repository.intercloud.net/cloudflash/uproxy-template-1.0.1.deb"
-               }
-           ]
+           "version":"1.1.0"
        },
        "status":
        {
            "installed": true
        }
-    }
+}
 
 ```
 

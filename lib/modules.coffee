@@ -32,7 +32,7 @@
 
     @post '/modules', validateModuleDesc, ->
         module = cloudflash.new @body
-        cloudflash.add module, true, (res) =>
+        cloudflash.add module,'', true, (res) =>
             unless res instanceof Error
                 @send res
             else
@@ -78,13 +78,13 @@
         # 1. need to make sure the incoming JSON is well formed
         # 2. destructure the inbound object with proper schema
         # 3. perform 'extend' merge of inbound module data with existing data
-        module = cloudflash.new @body, @params.id
+        module = cloudflash.new @body, @params.id       
 
         # desc = @body
         # @body = entry
         # @body.description ?= desc if desc?
 
-        cloudflash.update module, (res) =>
+        cloudflash.update module, @request.module, (res) =>
             unless res instanceof Error
                 @send res
             else
