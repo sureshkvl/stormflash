@@ -93,9 +93,8 @@ class CloudFlash
 
     list: ->
         res = { 'modules': [] }
-        @db.forEach (key,val) ->
-            console.log 'found ' + key
-            res.modules.push val
+        @db.forEach (key,val) ->            
+            res.modules.push val if val
         console.log 'listing...'
         return res
 
@@ -189,19 +188,16 @@ class CloudFlash
                    
     remove: (module, callback) ->
         desc = module.description
-
-        @check desc, (error) =>
-            return callback new Error "Unable to verify module component installation!" if error instanceof Error
-
-            # remove all dependencies
-            #
-            console.log "removing the module component: rm -rf #{desc.name}"
-            exec "rm -rf /lib/node_modules/#{desc.name}", (error, stdout, stderr) =>
-                return @next new Error "Unable to remove module component '#{desc.name}': #{stderr}" if error
-                @db.rm module.id, =>
-                    console.log "removed module ID: #{module.id}"
-                    callback()
-
+        cloudflashModule = []
+        @db.forEach (key,val) ->
+            if val && key != module.id                                       
+                cloudflashModule.push val.description.name
+        console.log 'cloudflashModule in DEL: '+ cloudflashModule                
+        @db.rm module.id, =>
+            @includeModules cloudflashModule
+            console.log "removed module ID: #{module.id}"
+            callback()
+            
 ##
 # SINGLETON CLASS OBJECT
 module.exports = CloudFlash

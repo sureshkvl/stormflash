@@ -91,9 +91,7 @@
                 @next new Error "Invalid module posting! #{res}"
 
     @del '/modules/:id', loadModule, ->
-        # 1. verify that the package is actually installed
-        # 2. perform dpkg -r PACKAGENAME
-        # 3. remove the module entry from DB
+        # 1. remove the module entry from DB
         cloudflash.remove @request.module, (error) =>
             unless error
                 @send { deleted: true }
