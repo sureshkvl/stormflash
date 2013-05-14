@@ -9,8 +9,7 @@ class CloudFlash
     uuid = require('node-uuid')
     exec = require('child_process').exec
     fs = require 'fs'
-    path = require 'path'
-    fileops = require 'fileops'
+    path = require 'path'    
     
     schema =
         name: "module"
@@ -112,20 +111,7 @@ class CloudFlash
                 callback true
             else                
                 callback error
-    ## To restart nodemon simplly update or create a file in cloudflash directory
-    '''
-    restartNode: (cloudflashModule) ->
-        result = ''
-        filename = "/lib/node_modules/cloudflash/lib/restartnode.coffee"        
-        cloudflashModule = cloudflashModule.unique()
-        console.log ' array: ' + cloudflashModule
-        for module in cloudflashModule
-            result += module
-        console.log 'result: ' + result         
-        fileops.createFile filename, (result) =>
-            return new Error "Unable to restart node!" if result instanceof Error
-            fileops.updateFile filename, result
-    '''
+    ## To restart nodemon simplly update or create a file in cloudflash directory    
     ## To include modules in DB to zappa server
     includeModules: (cloudflashModule) ->
         cloudflashModule = cloudflashModule.unique()
@@ -160,11 +146,7 @@ class CloudFlash
                         
         @check module.description, (error) =>
             unless error instanceof Error
-                cloudflashModule.push module.description.name
-                '''                               
-                if type == true
-                    @restartNode cloudflashModule
-                '''
+                cloudflashModule.push module.description.name               
                 @includeModules cloudflashModule                
                 # 2. add module into cloudflash
                 module.status = { installed: true }
@@ -175,7 +157,6 @@ class CloudFlash
                 return callback new Error "#{module.description.name} module not installed!"
 
     update: (module,entry, callback) ->        
-        
         if module.id
             @add module,entry, false, (res) =>
                 unless res instanceof Error
