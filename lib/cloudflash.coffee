@@ -9,7 +9,8 @@ class CloudFlash
     uuid = require('node-uuid')
     exec = require('child_process').exec
     fs = require 'fs'
-    path = require 'path'    
+    path = require 'path'
+    fileops = require 'fileops'    
     
     schema =
         name: "module"
@@ -111,7 +112,7 @@ class CloudFlash
                 callback true
             else                
                 callback error
-    ## To restart nodemon simplly update or create a file in cloudflash directory    
+     
     ## To include modules in DB to zappa server
     includeModules: (cloudflashModule) ->
         cloudflashModule = cloudflashModule.unique()
@@ -121,10 +122,10 @@ class CloudFlash
                 @include require "/lib/node_modules/#{module}"
         
     ##
-    # ADD/REMOVE special higher-order routines that performs DB record keeping
-    # If cloudflash modules sub-directory exist while nodemon started on re-installaing module nodemon restarts.
-    # when new module is installed via cloudflash controller / new sub directory created under /lib/nodemodules after nodemon started,
-    # nodemon doesnt re-starts 
+    # For POST/PUT module endpoints
+    # check module installed in /lib/node_modules directory with version.
+    # For PUT if no change in version gives error
+    # Entry added to DB is success.
    
     add: (module,entry, type, callback) ->
         # 1. check if component already included in DB, if so, we skip including...
@@ -166,19 +167,23 @@ class CloudFlash
         else
             callback new Error "Could not find ID! #{id}"      
        
-                   
-    remove: (module, callback) ->
-        desc = module.description
-        cloudflashModule = []
-        @db.forEach (key,val) ->
-            if val && key != module.id                                       
-                cloudflashModule.push val.description.name
-        console.log 'cloudflashModule in DEL: '+ cloudflashModule                
-        @db.rm module.id, =>
-            @includeModules cloudflashModule
-            console.log "removed module ID: #{module.id}"
-            callback()
-            
+    ## check for module in /lib/node_modules/module-name directory 
+    #To remove module-id from DB               
+    remove: (module, callback) ->        
+        cloudflashModule = []; exists = 0
+        file = fileops.fileExistsSync "/lib/node_modules/#{module.description.name}"
+        unless file instanceof Error
+            return callback new Error "module #{module.description.name} exist!"
+        else                
+            @db.forEach (key,val) ->
+                if val && key != module.id                                       
+                    cloudflashModule.push val.description.name
+            console.log 'cloudflashModule in DEL: '+ cloudflashModule                
+            @db.rm module.id, =>
+                @includeModules cloudflashModule
+                console.log "removed module ID: #{module.id}"
+                callback()
+              
 ##
 # SINGLETON CLASS OBJECT
 module.exports = CloudFlash
