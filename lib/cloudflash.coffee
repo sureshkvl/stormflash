@@ -136,13 +136,15 @@ class CloudFlash
             cloudflashModule.push val.description.name if val
 
         console.log 'cloudflashModule: '+ cloudflashModule
-        if type == true && exists == 1           
-            return callback new Error "#{module.description.name} module already included try updating module!"
+        if type == true && exists == 1
+            # Return 304 status when module already exist           
+            return callback({"status": 304})
         
         if type == false
             if module.description.version && entry.description.version 
                 if module.description.version == entry.description.version
-                    return callback new Error "#{module.description.name} module no change in version!"      
+                    # Return 304 status when module and version already exist
+                    return callback({"status": 304})      
                  
                         
         @check module.description, (error) =>
@@ -173,7 +175,8 @@ class CloudFlash
         cloudflashModule = []; exists = 0
         file = fileops.fileExistsSync "/lib/node_modules/#{module.description.name}"
         unless file instanceof Error
-            return callback new Error "module #{module.description.name} exist!"
+            # Return 304 status when module already exist
+            return callback({result:304})
         else                
             @db.forEach (key,val) ->
                 if val && key != module.id                                       
@@ -182,7 +185,7 @@ class CloudFlash
             @db.rm module.id, =>
                 @includeModules cloudflashModule
                 console.log "removed module ID: #{module.id}"
-                callback()
+                callback({result:200})
               
 ##
 # SINGLETON CLASS OBJECT

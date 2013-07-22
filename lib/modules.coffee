@@ -34,7 +34,10 @@
         module = cloudflash.new @body
         cloudflash.add module,'', true, (res) =>
             unless res instanceof Error
-                @send res
+                if res.status == 304
+                    @send 304
+                else
+                    @send res
             else
                 @next new Error "Invalid module posting! #{res}"
             
@@ -86,17 +89,23 @@
 
         cloudflash.update module, @request.module, (res) =>
             unless res instanceof Error
-                @send res
+                if res.status == 304
+                    @send 304
+                else
+                    @send res
             else
                 @next new Error "Invalid module posting! #{res}"
 
     @del '/modules/:id', loadModule, ->
         # 1. remove the module entry from DB
-        cloudflash.remove @request.module, (error) =>
-            unless error
-                @send { deleted: true }
+        cloudflash.remove @request.module, (res) =>
+            unless res instanceof Error
+                if res.result == 304
+                    @send 304
+                else
+                    @send { deleted: true }                
             else
-                @next error
+                @next res
 
     @post '/modules/:id/action', loadModule, ->
         return @next new Error "Invalid module posting!" unless @body.command
