@@ -50,26 +50,25 @@
             installed = true
         status =
             installed: installed ? false
-            initialized: false
-            enabled: false
+            initialized: false            
             running: false
             result: 'unknown'
 
-        exec "svcs #{module.description.name} status", (error, stdout, stderr) =>
+        exec "monit summary | grep #{module.description.name}", (error, stdout, stderr) =>
+            console.log 'stdout : ' + stdout
             if error or stderr
                status.result =  '' + error
             else
-                if stdout.match /disabled/
-                    status.initialized = true
-                else if stdout.match /enabled/
-                    status.enabled = true
-                    unless stdout.match /not running/
+                if stdout.match /start pending/                    
+                        status.initialized = true
+                else if stdout.match /Running/
+                    unless stdout.match /stop pending/
+                        status.initialized = true
                         status.running = true
 
                 status.result = stdout
 
             module.status = status
-
             console.log module
             @send module
 
@@ -112,14 +111,13 @@
         module = @request.module
         desc = module.description
 
-        console.log "looking to issue 'svcs #{desc.name} #{@body.command}'"
+        console.log "looking to issue 'monit #{@body.command} #{desc.name}'"
         switch @body.command
-            when "on", "start", "off", "stop","restart", "sync"
-                exec "svcs #{desc.name} #{@body.command}", (error, stdout, stderr) =>
-                #exec "pwd", (error, stdout, stderr) =>
+            when "start","stop","restart"
+                exec "monit #{@body.command} #{desc.name}", (error, stdout, stderr) =>                
                     return @next new Error "Unable to perform requested action!" if error
                     @send { result: true }
 
-            else return @next new Error "Invalid action, must specify 'command' (on|off,start|stop,restart,sync)!"
+            else return @next new Error "Invalid action, must specify 'command' (start|stop,restart)!"
 
     
