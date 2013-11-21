@@ -1,6 +1,8 @@
 ##
 # CLOUDFLASH /modules REST end-points
 
+fileops = require 'fileops'
+
 @include = ->
     cloud = require('./cloudflash')
     cloudflash = new cloud(@include)
@@ -119,5 +121,16 @@
                     @send { result: true }
 
             else return @next new Error "Invalid action, must specify 'command' (start|stop,restart)!"
+
+    @get '/getmodules', ->
+        res = []
+        nodeModules = fileops.readdirSync "/lib/node_modules"
+        pattern = "^cloudflash"
+        regex = new RegExp(pattern)
+        for module in nodeModules
+            if regex.test(module)
+                console.log 'module: ' + module
+                res.push module
+        @send res
 
     
