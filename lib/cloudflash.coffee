@@ -186,7 +186,14 @@ class CloudFlash
                 @includeModules cloudflashModule
                 console.log "removed module ID: #{module.id}"
                 callback({result:200})
-              
+
+    # Garbage collect every 2 sec
+    # Run node with --expose-gc
+    if gc?
+        setInterval (
+            () -> gc()
+        ), 2000
+
 ##
 # SINGLETON CLASS OBJECT
 module.exports = CloudFlash
