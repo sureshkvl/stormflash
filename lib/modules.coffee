@@ -1,6 +1,8 @@
 ##
 # CLOUDFLASH /modules REST end-points
 
+fileops = require 'fileops'
+
 @include = ->
     cloud = require('./cloudflash')
     cloudflash = new cloud(@include)
@@ -32,15 +34,15 @@
 
     @post '/modules', validateModuleDesc, ->
         module = cloudflash.new @body
-        cloudflash.add module, (error) =>
-            unless error
-                console.log module
-                if module.status.installed
-                  @send module
+        cloudflash.add module,'', true, (res) =>
+            unless res instanceof Error
+                if res.status == 304
+                    @send 304
                 else
-                  @send 304
+                    @send res
             else
-                @next error
+                @next new Error "Invalid module posting! #{res}"
+            
 
     @get '/modules/:id', loadModule, ->
         module = @request.module
@@ -50,26 +52,25 @@
             installed = true
         status =
             installed: installed ? false
-            initialized: false
-            enabled: false
+            initialized: false            
             running: false
             result: 'unknown'
 
-        exec "svcs #{module.description.name} status", (error, stdout, stderr) =>
+        exec "monit summary | grep #{module.description.name}", (error, stdout, stderr) =>
+            console.log 'stdout : ' + stdout
             if error or stderr
                status.result =  '' + error
             else
-                if stdout.match /disabled/
-                    status.initialized = true
-                else if stdout.match /enabled/
-                    status.enabled = true
-                    unless stdout.match /not running/
+                if stdout.match /start pending/                    
+                        status.initialized = true
+                else if stdout.match /Running/
+                    unless stdout.match /stop pending/
+                        status.initialized = true
                         status.running = true
 
                 status.result = stdout
 
             module.status = status
-
             console.log module
             @send module
 
@@ -81,64 +82,55 @@
         # 1. need to make sure the incoming JSON is well formed
         # 2. destructure the inbound object with proper schema
         # 3. perform 'extend' merge of inbound module data with existing data
-        module = @request.module
+        module = cloudflash.new @body, @params.id       
 
         # desc = @body
         # @body = entry
         # @body.description ?= desc if desc?
 
-        cloudflash.db.set module.id, module, =>
-            console.log "updated module ID: #{module.id}"
-            console.log module
-            @send module
-            # do some work
+        cloudflash.update module, @request.module, (res) =>
+            unless res instanceof Error
+                if res.status == 304
+                    @send 304
+                else
+                    @send res
+            else
+                @next new Error "Invalid module posting! #{res}"
 
     @del '/modules/:id', loadModule, ->
-        # 1. verify that the package is actually installed
-        # 2. perform dpkg -r PACKAGENAME
-        # 3. remove the module entry from DB
-        cloudflash.remove @request.module, (error) =>
-            unless error
-                @send { deleted: true }
+        # 1. remove the module entry from DB
+        cloudflash.remove @request.module, (res) =>
+            unless res instanceof Error
+                if res.result == 304
+                    @send 304
+                else
+                    @send { deleted: true }                
             else
-                @next error
+                @next res
 
     @post '/modules/:id/action', loadModule, ->
         return @next new Error "Invalid module posting!" unless @body.command
         module = @request.module
         desc = module.description
 
-        console.log "looking to issue 'svcs #{desc.name} #{@body.command}'"
+        console.log "looking to issue 'monit #{@body.command} #{desc.name}'"
         switch @body.command
-            when "on", "start", "off", "stop","restart", "sync"
-                exec "svcs #{desc.name} #{@body.command}", (error, stdout, stderr) =>
-                #exec "pwd", (error, stdout, stderr) =>
+            when "start","stop","restart"
+                exec "monit #{@body.command} #{desc.name}", (error, stdout, stderr) =>                
                     return @next new Error "Unable to perform requested action!" if error
                     @send { result: true }
 
-            else return @next new Error "Invalid action, must specify 'command' (on|off,start|stop,restart,sync)!"
+            else return @next new Error "Invalid action, must specify 'command' (start|stop,restart)!"
 
-    ##
-    # TEST ENDPOINTS
+    @get '/getmodules', ->
+        res = []
+        nodeModules = fileops.readdirSync "/lib/node_modules"
+        pattern = "^cloudflash"
+        regex = new RegExp(pattern)
+        for module in nodeModules
+            if regex.test(module)
+                console.log 'module: ' + module
+                res.push module
+        @send res
 
-    @get '/test/modules': ->
-        cloudflash.list()
-
-        module = cloudflash.lookup 'helloworld'
-        console.log module
-
-        module = cloudflash.new {
-            version: '1.0'
-            name: 'at'
-            family: 'remote-access'
-            pkgurl: 'http://10.1.10.145/vpnrac-0.0.1.deb'
-        }
-
-        cloudflash.add module, (error) =>
-            unless error
-                console.log 'added successfully'
-                @send module
-            else
-                console.log 'adding failed'
-                @next error
-
+    
