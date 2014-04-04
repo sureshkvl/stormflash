@@ -8,7 +8,7 @@
       production: => @use 'errorHandler'
 
     @enable 'serve jquery', 'minify'
-
+    @include './lib/bolt'
     @include './lib/modules'
     @include './lib/personality'
 
