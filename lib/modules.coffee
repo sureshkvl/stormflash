@@ -7,11 +7,18 @@ fileops = require 'fileops'
     cloud = require('./cloudflash')
     cloudflash = new cloud(@include)
     exec = require('child_process').exec
-
+    packagelist=require('./packagelib')
+    pkglist=new packagelist()
     @get '/modules': ->
         res = cloudflash.list()
         console.log res
         @send res
+   
+    @get '/packages': ->
+        pkglist.list((res)=>
+                console.log res
+                @send res
+        )
 
     # POST/PUT VALIDATION
     # 1. need to make sure the incoming JSON is well formed
