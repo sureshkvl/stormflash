@@ -1,4 +1,57 @@
 #utility functions
+
+#getnpmname funciton parse input line (npm output), 
+#and return s the package name and version (only top level package)
+#input line : "npm ls" output line.
+#output : packageobj or null
+getnpmname = (name) ->
+	packageobj=
+		{
+		'name':''
+		'version':''
+		}
+	temparr=name.split(/\s+/)
+	# when parsing top packages- array length will be only 2.
+	# so we have to process only if array length is 2
+	if temparr.length == 2
+		for i in temparr
+			#example line : cloudflash-bolt@0.3.4
+			if i.indexOf('@') != -1
+				val=i.split('@')
+				#val[0] is name, val[1] is version
+				packageobj.name=val[0]
+				packageobj.version=val[1]
+				return packageobj
+	#return null if not able to parse
+	return null
+		
+
+
+
+#getpkgname function  parse the input line (dpkg -l output line)
+#and return the package name and version 
+#input: "dpkg -l" output
+#output: packageobj  or null
+#sample input line : ii  zlib1g-dev:amd64        1:1.2.7.dfsg-13ubuntu2             amd64     library
+getpkgname = (name) ->
+
+	packageobj=
+		{
+		'name':''
+		'version':''
+		}
+	temparr=name.split(/\s+/)
+	# for headers(dpkg -l output headers) array length will be less than 4
+	if temparr.length > 4
+		if temparr[1]?
+			packageobj.name=temparr[1]
+			packageobj.version=temparr[2]
+			return packageobj
+	return null
+
+
+
+#isInstalled function : Check the given tool is present in the filesystem
 isInstalled = (toolname)->
 	mod = require('find-in-path')
 	#console.log toolname
@@ -12,6 +65,8 @@ isInstalled = (toolname)->
 	return present
 
 
+#rundpkg function:
+# executes the dpkg -l command and parse the output and populate the resultarray with packagename and version number
 rundpkg = ((callback)->
 	cs=require('child_process')
 	myoutput=''
@@ -27,21 +82,41 @@ rundpkg = ((callback)->
 		i=0
 		for k in myout
 			#In dpkg output,initial 5 lines are headers.. so no need to process it.
-			i++
-			if i>4
-				temparr=k.split(/\s+/)
-				#column1 is package name
-				resultarray.push temparr[1] if temparr[1]?
+			#i++
+			#if i>4
+			op=getpkgname(k)
+			resultarray.push op unless op is null
+		callback(resultarray)
+	)
+
+#runnpm function:
+#executes the 'npm ls command' , and parse the output and populate the resultarray with only top level npm packages.
+runnpm = ((callback)->
+	cs=require('child_process')
+	myoutput=''
+	resultarray=[]
+	pg=cs.spawn('npm',['ls'])
+	pg.stdout.on 'data',(data)->
+		myoutput=myoutput.concat(data)
+	pg.stderr.on 'data',(data)->
+		console.log 'runnpm : recvd error' +data
+	pg.on 'close',(code)->
+		console.log 'runnpm: exits with code',code
+		myout=myoutput.split("\n")
+		for k in myout
+			op= getnpmname(k)
+			resultarray.push op unless op is null
 		callback(resultarray)
 	)
 
 
 
-#package list class
+
+#packageLib class
 class PackageLib
 	# global arrays
 	#linux flavors 
-	linuxflavors=['ubuntu','fedora','centos','redhat']
+	linuxflavors=['cloudnode','ubuntu','fedora','centos','redhat']
 	# pkgmgrapp array stores the  package manager applications supported for the respective OS flavor.
 	pkgmgrapp=[]
 	
@@ -49,10 +124,12 @@ class PackageLib
 	@ostype='Unknown'
 	@osflavor='Unknown'
 	@packageApp='Unknown'
+	@npmpresent=false
 
 	constructor:->
 		console.log 'PackageList constructor called'
-		#initialize pkgmgrapp array with ubuntu package manager details
+		#initialize pkgmgrapp array with cloudnode,ubuntu package manager details
+		pkgmgrapp.push(flavor:'cloudnode',pkg:['dpkg'])
 		pkgmgrapp.push(flavor:'ubuntu',pkg:['dpkg','apt-get'])
 		@ostype=require('os').type()
 		
@@ -79,6 +156,9 @@ class PackageLib
 					@packageApp=i
 					break
 		console.log 'packageapp ',@packageApp
+		#check the npm present
+		@npmpresent=isInstalled('npm')
+		console.log 'npm present',@npmpresent
 
 	
 	
@@ -87,18 +167,44 @@ class PackageLib
 			{
 			'os':''
 			'osflavor':''
-			'packagemanager':''
-			'installed':[]
+			'dpkg':
+				{
+				'enabled':''
+				'installed':[]
+				}
+			'npm':
+				{
+				'enabled':''
+				'installed':[]
+				}
 			}
 		res.os=@ostype
 		res.osflavor=@osflavor
-		res.packagemanager=@packageApp
+		res.npm.enabled=@npmpresent
 
-		if @packageApp is 'dpkg'
-			rundpkg((resultarray)=>
-				res.installed=resultarray
+		try
+			if @packageApp is 'dpkg'
+				res.dpkg.enabled=true
+				#populate the dpkg package results
+				rundpkg((resultarray)=>
+					res.dpkg.installed=resultarray
+					#populate the npm package results if npm is present
+					if @npmpresent is true
+						runnpm((tmp1array)=>
+							res.npm.installed=tmp1array
+							callback(res)
+							)
+					else
+						callback(res)
+					)
+			else
+			# currently no support to other package managers
 				callback(res)
-			)
 
+		catch err
+			console.log 'Error catched: ',err
+			callback(res)
+				
+		
 
 module.exports = PackageLib
