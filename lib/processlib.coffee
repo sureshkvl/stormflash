@@ -1,20 +1,59 @@
-forever=require('forever-monitor')
+forever = require('forever-monitor')
 
-class processmgr
+class ManagedService
+
+    @name = ''
+    # array of { id: uuid, process: foreverinstance }
+    @processes = []
+
+    add: (proc, id) ->
+        @processes.push
+            id: id
+            process: proc
+
+class ServiceManager
 	instance = null
 	uproxyprocess=null
 	openvpnprocess=null
 	strongswanprocess=null
 	commtouchprocess=null
 
-	@get:()->
-		if not @instance?
-			instance =  new @
-		instance
+    @services = []
+
+	# @get:()->
+	# 	if not @instance?
+	# 		instance =  new @
+	# 	instance
+    add: (service) ->
+        # validate service JSON object
+        #
+        # check if service.name already inside?
+        ms = new ManagedService service
+        @services.push ms if ms
+
+    get: (name) ->
+        # lookup inside @services
+        return someservice
+
+    list: ->
+        # list of all ManagedService objects
+
+    start: (name, uuid) ->
+        # lookup the service object
+
+        fproc = forever.start([ms.prog,ms.args,...
+        ms.add fproc, uuid
+
+    stop: (name, uuid) ->
+
+    restart: (name, uuid) ->
+
+    reload: (name, uuid) ->
+
 
 	startuproxy:()->
 		console.log 'processmgr: startuproxy is called'
-		if uproxyprocess is null  
+		if uproxyprocess is null
 			uproxyprocess=forever.start(['/usr/local/bin/universal','--config_file=/home/suresh/uproxy.ini','-L','/var/log/uproxy','&'], max: 1000,silent: true, spawnWith: customFds: [-1,-1,-1],detached:false)
 			console.log 'uproxy is started. pid is : ', uproxyprocess.child.pid
 		else
@@ -35,5 +74,5 @@ class processmgr
 			console.log 'uproxy restarted, pid : ',uproxyprocess.child.pid
 		else
 			@startuproxy()
-			
-module.exports= processmgr
+
+module.exports = processmgr
