@@ -12,11 +12,11 @@ class StormFlash
     path = require 'path'
     fileops = require 'fileops'
 
-    packagelist = require('./packagelib')
-    @pkglist = new packagelist()
+#    packagelist = require('./packagelib')
+#    @pkglist = new packagelist()
 
-    processmgr = require('./processlib')
-    @processmgr = new processmgr()
+#    processmgr = require('./processlib')
+#    @processmgr = new processmgr()
 
     schema =
         name: "module"
@@ -44,12 +44,14 @@ class StormFlash
                     result:      { type: "string"  }
 
     constructor: (@include) ->
+        console.log 'stormflash constructor called'
+        packagelist = require('./packagelib')
+        @pkglist = new packagelist()
         @db = require('dirty') '/tmp/stormflash.db'
         @db.on 'load', ->
             console.log 'loaded stormflash.db'
             @forEach (key,val) ->
                 console.log 'found ' + key if val
-
 
     new: (desc,id) ->
         module = {}

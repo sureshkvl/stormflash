@@ -1,12 +1,12 @@
 ##
-# STORMFLASH /extensions REST end-points
+# STORMFLASH /plugins REST end-points
 
 fileops = require 'fileops'
 
 @include = ->
     stormflash = require('./stormflash') @include
     exec = require('child_process').exec
-    @get '/extensions': ->
+    @get '/plugins': ->
         res = stormflash.list()
         console.log res
         @send res
@@ -30,7 +30,7 @@ fileops = require 'fileops'
         else
             return @next result
 
-    @post '/extensions', validateModuleDesc, ->
+    @post '/plugins', validateModuleDesc, ->
         module = stormflash.new @body
         stormflash.add module,'', true, (res) =>
             unless res instanceof Error
@@ -42,7 +42,7 @@ fileops = require 'fileops'
                 @next new Error "Invalid module posting! #{res}"
 
 
-    @get '/extensions/:id', loadModule, ->
+    @get '/plugins/:id', loadModule, ->
         module = @request.module
 
         installed = null
@@ -73,7 +73,7 @@ fileops = require 'fileops'
             @send module
 
 
-    @put '/extensions/:id', validateModuleDesc, loadModule, ->
+    @put '/plugins/:id', validateModuleDesc, loadModule, ->
         # XXX - can have intelligent merge here
 
         # PUT VALIDATION
@@ -95,7 +95,7 @@ fileops = require 'fileops'
             else
                 @next new Error "Invalid module posting! #{res}"
 
-    @del '/extensions/:id', loadModule, ->
+    @del '/plugins/:id', loadModule, ->
         # 1. remove the module entry from DB
         stormflash.remove @request.module, (res) =>
             unless res instanceof Error
@@ -106,7 +106,7 @@ fileops = require 'fileops'
             else
                 @next res
 
-    @post '/extensions/:id/action', loadModule, ->
+    @post '/plugins/:id/action', loadModule, ->
         return @next new Error "Invalid module posting!" unless @body.command
         module = @request.module
         desc = module.description

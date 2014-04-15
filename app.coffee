@@ -21,19 +21,23 @@ config =
 
 # activation logic starts here
 
-activate = require './lib/activation'
-activate.start
+activate = require('./lib/activation')
+activate.start()
 
 # register event into activate for when "success"
 #
 # 1. import stormbolt and start it
 activate.on "success", (data) =>
-    stormbolt = require ('stormbolt')
-
-    bolt = new stormbolt data.bolt
+    console.log 'received success event ',data
+    stormbolt = require ('cloudflash-bolt')
+    #stormbolt = require('/lib/node_modules/cloudflash-bolt/lib/bolt.coffee')
+    bolt = new stormbolt data
     bolt.start (res) ->
-        if res instanceof Error
+       if res instanceof Error
             console.log 'error: ' + res
+
+activate.on "failure", (data) =>
+    console.log 'received failure event', data
 
 # start the stormflash web application
 {@app} = require('zappajs') config.port, ->
@@ -46,7 +50,7 @@ activate.on "success", (data) =>
       production: => @use 'errorHandler'
 
     @enable 'serve jquery', 'minify'
-    @include './lib/extensions'
+    @include './lib/plugins'
     @include './lib/packages'
     @include './lib/personality'
 
