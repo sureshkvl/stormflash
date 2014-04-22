@@ -1,3 +1,4 @@
+###
 #utility functions
 
 #getnpmname funciton parse input line (npm output), 
@@ -105,11 +106,11 @@ runnpm = ((callback)->
             callback(resultarray)
     )
 
+###
+os=require('os')
 
-
-
-#packageLib class
-class PackageLib
+#EnvironmentLib class
+class EnvironmentLib
     # global arrays
     #linux flavors 
     linuxflavors=['cloudnode','ubuntu','fedora','centos','redhat']
@@ -117,22 +118,19 @@ class PackageLib
     pkgmgrapp=[]
 
     #global variables
-    @ostype='Unknown'
-    @osflavor='Unknown'
-    @packageApp='Unknown'
-    @npmpresent=false
+    #@ostype='Unknown'
+    #@osflavor='Unknown'
+    #@packageApp='Unknown'
+    #@npmpresent=false
 
     constructor:->
-        console.log 'PackageList constructor called'
+
+        console.log 'EnvironmentLib constructor called'
+        ###
         #initialize pkgmgrapp array with cloudnode,ubuntu package manager details
         pkgmgrapp.push(flavor:'cloudnode',pkg:['dpkg'])
         pkgmgrapp.push(flavor:'ubuntu',pkg:['dpkg','apt-get'])
-        @ostype=require('os').type()
-        #check the OS flavor, 
-        #if the /etc/lsb-release file is present  and flavor is matched with linuxflavors array, 
-        #then the new flavor name will be assigned in to @osflavor
-        #else, the default value  'Unknown' still remains. (applicable for non Linux OS also).
-        fs=require('fs')
+        #
         if fs.existsSync('/etc/lsb-release') is true
             contents=fs.readFileSync('/etc/lsb-release','utf8')
             console.log contents
@@ -154,48 +152,38 @@ class PackageLib
         #check the npm present
         @npmpresent=isInstalled('npm')
         console.log 'npm present',@npmpresent
-
+    ###
 
     list:(callback)->
         res=
             {
-            'os':''
-            'osflavor':''
-            'dpkg':
-                {
-                'enabled':''
-                'installed':[]
-                }
-            'npm':
-                {
-                'enabled':''
-                'installed':[]
-                }
+            'tmpdir':''
+            'endianness':''
+            'hostname':''
+            'type':''
+            'platform':''
+            'release':''
+            'arch':''
+            'uptime':''
+            'loadavg':[0]
+            'totalmem':0
+            'freemem': 0
+            'cpus':[]
+            'networkInterfaces':{}
             }
-        res.os=@ostype
-        res.osflavor=@osflavor
-        res.npm.enabled=@npmpresent
+        res.tmpdir=os.tmpdir()
+        res.endianness=os.endianness()
+        res.hostname=os.hostname()
+        res.type=os.type()
+        res.platform=os.platform()
+        res.release=os.release()
+        res.arch=os.arch()
+        res.uptime=os.uptime()
+        res.loadavg=os.loadavg()
+        res.totalmem=os.totalmem()
+        res.freemem=os.freemem()
+        res.cpus=os.cpus()
+        res.networkInterfaces=os.networkInterfaces()
+        callback(res)
 
-        try
-            if @packageApp is 'dpkg'
-                res.dpkg.enabled=true
-                #populate the dpkg package results
-                rundpkg((resultarray)=>
-                    res.dpkg.installed=resultarray
-                    #populate the npm package results if npm is present
-                    if @npmpresent is true
-                        runnpm((tmp1array)=>
-                            res.npm.installed=tmp1array
-                            callback(res)
-                            )
-                    else
-                        callback(res)
-                    )
-            else
-            # currently no support to other package managers
-                callback(res)
-        catch err
-            console.log 'Error catched: ',err
-            callback(res)
-
-module.exports = PackageLib
+module.exports = EnvironmentLib

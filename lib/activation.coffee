@@ -6,38 +6,42 @@ http = require("http")
 ping = require("net-ping")
 openssl=require('openssl-wrapper')
 
-
 class activation extends EventEmitter
-	constructor:->
-		@ACTIVATION_ENV=null
-		@NEXUS_SERVER=null
-		@REGKEY=null
-		@HOSTNAME=null
+    constructor:->
+        @ACTIVATION_ENV=null
+        @NEXUS_SERVER=null
+        @REGKEY=null
+        @HOSTNAME=null
+        @SOFTCPE_NEXUSFILE='/etc/nexus'
+        @VCG_NEXUSFILE='/etc/nexus_openstack'
+        @OPENSTACK_URL='http://169.254.169.254/openstack/latest/meta_data.json'
+        console.log 'activation : constructor called'
+        @boltdata=null
 
-		@SOFTCPE_NEXUSFILE='/etc/nexus'
-		@VCG_NEXUSFILE='/etc/nexus_openstack'
-		@OPENSTACK_URL='http://169.254.169.254/openstack/latest/meta_data.json'		
+    start: ()->
+    ## The below code, is just a hack for bolt integreation testing till activation module implementation.
+        setTimeout(()=>
+            console.log 'inside setinterval - start'
+            data=null
+            fileops = require("fileops")
+            res =  fileops.fileExistsSync filename
+            unless res instanceof Error
+                boltContent = fileops.readFileSync filename
+                @boltdata = JSON.parse boltContent
+                console.log "success event : data: ",data
+                this.emit "success",@boltdata
+            else
+                return new Error "File does not exist! " + res
+                console.log "failed event "
+                this.emit "failure","file not found"
+        5000)
+    getBoltData: ()->
+        console.log "activation: getBoltData is called"
+        return @boltdata
 
-		console.log 'activation : constructor called'
-
-	start: ()->
-	## The below code, is just a hack for bolt integreation testing till activation module implementation.
-		setTimeout(()=>
-			console.log 'inside setinterval - start'
-			data=null
-			fileops = require("fileops")
-			res =  fileops.fileExistsSync filename
-			unless res instanceof Error
-				boltContent = fileops.readFileSync filename
-				data = JSON.parse boltContent
-				console.log "success event : data: ",data
-				this.emit "success",data
-			else
-				return new Error "File does not exist! " + res
-				console.log "failed event "
-				this.emit "failure","file not found"
-		5000)
-	## hack ends here
+    ## hack ends here
+###multiline comment.
+#The below code is not yet complete..this is for phase2.. will be removed once stormtracker implementation and API details are clear
 		discover()
 		connect()
 		activate()
@@ -175,15 +179,10 @@ class activation extends EventEmitter
 					postactivate()
 
 		
-
-
-
-
-
 	print: ()->
-		 console.log 'activation - print fn'
+ 		console.log 'activation - print fn'
 
+
+###
 
 module.exports = new activation
-
-

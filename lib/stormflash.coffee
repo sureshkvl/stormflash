@@ -47,6 +47,8 @@ class StormFlash
         console.log 'stormflash constructor called'
         packagelist = require('./packagelib')
         @pkglist = new packagelist()
+        environmentlist = require('./environmentlib')
+        @environment = new environmentlist()
         @db = require('dirty') '/tmp/stormflash.db'
         @db.on 'load', ->
             console.log 'loaded stormflash.db'

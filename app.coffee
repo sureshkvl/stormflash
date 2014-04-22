@@ -53,5 +53,6 @@ activate.on "failure", (data) =>
     @include './lib/plugins'
     @include './lib/packages'
     @include './lib/personality'
+    @include './lib/environment'
 
 
