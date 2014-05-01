@@ -141,7 +141,7 @@ class PackageLib
 
         console.log "OS: #{@ostype}, Flavor #{@osflavor}"
         #detect the installed package manager application only if ostype or flavor is detected.		
-        unless @ostype is 'Unknown' or @osflavor is 'Unknown'
+        unless @ostype? or @osflavor?
             #identify the package list from the array for a linux flavor.
             for i in pkgmgrapp
                 pkglist= i.pkg if i.flavor.toLowerCase() is @osflavor.toLowerCase()
