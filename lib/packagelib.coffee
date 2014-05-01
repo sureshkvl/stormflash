@@ -180,17 +180,10 @@ class PackageLib
             if @packageApp is 'dpkg'
                 res.dpkg.enabled=true
                 #populate the dpkg package results
-                rundpkg((resultarray)=>
+                rundpkg (resultarray)=>
                     res.dpkg.installed=resultarray
-                    #populate the npm package results if npm is present
-                    if @npmpresent is true
-                        runnpm((tmp1array)=>
-                            res.npm.installed=tmp1array
-                            callback(res)
-                            )
-                    else
-                        callback(res)
-                    )
+                    callback(res)
+                    
             else
             # currently no support to other package managers
                 callback(res)

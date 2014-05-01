@@ -6,41 +6,49 @@ argv = require('optimist')
     .describe('f', 'location of stormflash configuration file')
     .argv
 
-# config file processing logic block
-config =
-    port: 5000
+util=require('util')
 
-# fileops = require("fileops")
-# res =  fileops.fileExistsSync argv.file
-# unless res instanceof Error
-#     boltContent = fileops.readFileSync argv.file
-#     config = JSON.parse boltContent
-# else
-#     return new Error "file does not exist! " + res
+util.log "application starts"
+# config file processing logic block
+fileops = require("fileops")
+res = fileops.fileExistsSync argv.file
+unless res instanceof Error
+    stormflashContent = fileops.readFileSync argv.file
+    util.log stormflashContent
+#    config = JSON.parse stormflashContent
+else
+    util.log "stormflash config file #{argv.file} doesnot exists..."
+    return new Error "file does not exist! " + res
+
+#util.log "stormflash config contents = " + config
+
 
 
 # activation logic starts here
 
-activate = require('./lib/activation')
-activate.start()
+activation = require('./lib/activation')
+activation.start()
+util.log "activation in progres...."
 
 # register event into activate for when "success"
 #
 # 1. import stormbolt and start it
-activate.on "success", (data) =>
-    console.log 'received success event ',data
-    stormbolt = require ('cloudflash-bolt')
-    #stormbolt = require('/lib/node_modules/cloudflash-bolt/lib/bolt.coffee')
+activation.on "success", (data) =>
+    util.log 'received activattion success event with bolt config data ', data
+    stormbolt = require ('stormbolt')
     bolt = new stormbolt data
     bolt.start (res) ->
        if res instanceof Error
-            console.log 'error: ' + res
+            util.log 'bolt error: ' + res
 
-activate.on "failure", (data) =>
-    console.log 'received failure event', data
+activation.on "failure", (data) =>
+    util.log 'received activation failure event with data ', data
+
+
+
 
 # start the stormflash web application
-{@app} = require('zappajs') config.port, ->
+{@app} = require('zappajs') 5000, ->
     @configure =>
       @use 'bodyParser', 'methodOverride', @app.router, 'static'
       @set 'basepath': '/v1.0'

@@ -5,6 +5,7 @@
 #root ca cert and key file 
 ca_key_file="/home/suresh/ca/private/cakey.pem"
 ca_crt_file="/home/suresh/ca/certs/ca.cert"
+metadata_file = "/home/suresh/metadata.json"
 myserialkey = "stormid"
 clientcount=1
 
@@ -65,6 +66,13 @@ signedcert = (reqdata , callback) ->
 
 
 @include = ->
+    # discovery stuff (openstack apis)
+    @get '/latest/meta-data': ->
+        res=fs.readFileSync(metadata_file)
+        console.log "discovery data ",res
+        @send res
+
+    # activation stuff (stormtracker apis)
     @get '/registry/serialkey': ->
         serialkey_resp =
             {
