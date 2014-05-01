@@ -3,7 +3,6 @@ EventEmitter=require('events').EventEmitter
 filename= "/etc/bolt/bolt.json"
 fileops = require 'fileops'
 http = require("http")
-ping = require("net-ping")
 openssl=require('openssl-wrapper')
 fs=require('fs')
 
@@ -87,17 +86,31 @@ class activation extends EventEmitter
             #unknown environment
             return false
 ###
-
     connect: (callback)=>
-        pingSession=ping.createSession()
-        pingSession.pingHost @STORMTRACKER_URL,(error,target)=>
-            if (error)
-                util.log "Ping failed #{@STORMTRACKER_URL} Error Msg : "+ error
-                callback(false)
+        util.log "connect inside"
+        cp = require('child_process')
+        process = cp.spawn('/bin/ping', ['-c','1', @STORMTRACKER_URL])
+        process.stdout.on 'data', (data)=>
+            util.log "ping data " + data
+            lines = data.toString().split('\n')
+            #first line to be processed.. sample output is below
+            #ping data PING 192.168.122.248 (192.168.122.248): 56 data bytes
+            #64 bytes from 192.168.122.248: seq=0 ttl=64 time=0.948 ms
+            array = lines[1].split(' ')
+            util.log array
+             
+            if (!array[4] || array[1].indexOf('Unreachable') > -1)
+                status = false
             else
-                util.log " Ping Success :" + target
-                callback(true)
+                status = true
+            util.log "connect status " + status
+            callback(status)
 
+        process.on 'error',(data)=>
+            callback(false)
+        process.stderr.on 'data',(data)=>
+            util.log "Ping error " + data
+            callback(false)
 
     register: (callback)=>
 
