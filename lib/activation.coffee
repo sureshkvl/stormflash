@@ -6,33 +6,29 @@ http = require("http")
 openssl=require('openssl-wrapper')
 fs=require('fs')
 
-# certificate file locations
-keyfile = '/etc/stormflash/certs/snap.key'
-csrfile = '/etc/stormflash/certs/snap.csr'
-certfile = '/etc/stormflash/certs/snap.cert'
-cafile = '/etc/stormflash/certs/ca.cert'
-
-# global def
-
-
+boltConfigfile = '/etc/stormstack/stormbolt.conf'
 
 class activation extends EventEmitter
-    constructor:()->
-        @ACTIVATION_ENV=null
-        @STORMTRACKER_URL=null
-        @REGKEY=1111
-        @HOSTNAME=null
+    constructor:(@config)->
+        util.log "activation consturctor called with "+ JSON.stringify @config
 
-        @SOFTCPE_NEXUSFILE='/etc/nexus'
-        @VCG_NEXUSFILE='/etc/nexus_openstack'
-#        @OPENSTACK_URL='http://169.254.169.254/openstack/latest/meta_data.json'
+        #certificate locations
+        @keyfile = "#{@config.certStore}/snap.key"
+        @csrfile = "#{@config.certStore}/snap.csr"
+        @certfile = "#{@config.certStore}/snap.cert"
+        @cafile = "#{@config.certStore}/ca.cert"
+        @metadatafile= "#{@config.certStore}/meta-data.json"
+
+        @activated = @config.activated
+
+
+        @STORMTRACKER_URL=null
+        @REGKEY=null
+        @HOSTNAME=null
+#       @OPENSTACK_URL='http://169.254.169.254/openstack/latest/meta_data.json'
         @OPENSTACK_URL='http://192.168.122.248/latest/meta-data'
-        
         @boltdata=null
         util.log "activation constructor called"
-
-
-
 
     isitVCG: (callback)=>
         util.log "inside isitVCG function" + @OPENSTACK_URL
@@ -40,14 +36,17 @@ class activation extends EventEmitter
             console.log "openstack metadata http response statusCode: " + res.statusCode
             res.on 'data',(chunk)=>
                 metadata= JSON.parse chunk.toString()
+                util.log "Metadata "+metadata
+                #return false, if nexusUrl or uuid is not present in the metadata
+                callback(false) unless  metadata.meta.nexusurl? or  metadata.uuid?
                 @STORMTRACKER_URL=metadata.meta.nexusUrl
                 @REGKEY=metadata.uuid
-                util.log metadata
                 util.log "StormTracker Url " + @STORMTRACKER_URL
                 util.log "uuidi " + @REGKEY
                 #write the metadata in file
-                fileops.updateFile "/etc/stormflash/vcg-metadata", metadata
-                #callback(true)
+                #fileops.updateFile "/etc/stormflash/vcg-metadata", metadata
+                fileops.updateFile @metadatafile, JSON.stringify metadata
+
             res.on 'end',(x)=>
                 console.log 'openstack metadata connection end',x
                 callback(true)
@@ -78,18 +77,19 @@ class activation extends EventEmitter
         ###
         else if isitHARDCPE() is true
             @ENVIRONMENT="HARDCPE"
-            return true
+            callback(true)
         else if isitSOFTCPE() is true
             @ENVIRONMENT="SOFTCPE"
-            return true
+            callback(true)
         else
             #unknown environment
-            return false
+            @ENVIRONMENT="UNKNOWN"
+            callback(false)
 ###
     connect: (callback)=>
         util.log "connect inside"
-        cp = require('child_process')
-        process = cp.spawn('/bin/ping', ['-c','1', @STORMTRACKER_URL])
+        spawn = require('child_process').spawn
+        process = spawn('/bin/ping', ['-c','1', @STORMTRACKER_URL])
         process.stdout.on 'data', (data)=>
             util.log "ping data " + data
             lines = data.toString().split('\n')
@@ -97,16 +97,16 @@ class activation extends EventEmitter
             #ping data PING 192.168.122.248 (192.168.122.248): 56 data bytes
             #64 bytes from 192.168.122.248: seq=0 ttl=64 time=0.948 ms
             array = lines[1].split(' ')
-            util.log array
-             
+            util.log "Ping output "+ array
             if (!array[4] || array[1].indexOf('Unreachable') > -1)
                 status = false
             else
                 status = true
             util.log "connect status " + status
             callback(status)
-
+   
         process.on 'error',(data)=>
+            util.log "Ping error" + data
             callback(false)
         process.stderr.on 'data',(data)=>
             util.log "Ping error " + data
@@ -129,10 +129,24 @@ class activation extends EventEmitter
                 util.log "Activation - Register: response data" + chunk.toString()
                 @HOSTNAME = metadata.serialkey
                 util.log "Activation - Register : serialkey is "+ @HOSTNAME
+                #Todo .. handle the error cases, in JSON format check & writing the file etc
+                fs.writeFileSync("/etc/hostname",@HOSTNAME)
                 contents = ''
                 contents = new Buffer(metadata.stormbolt.cabundle.data || '',metadata.stormbolt.cabundle.encoding)
-                util.log "Activation - Register : writing the cabundle "+ cafile
-                fs.writeFileSync(cafile,contents)
+                util.log "Activation - Register : writing the cabundle "+ @cafile
+                #Todo .. handle the error case in writing the file
+                fs.writeFileSync(@cafile,contents)
+                #write the bolt config file in a file
+                @boltdata=
+                    "cert" : @certfile,
+                    "key" : @keyfile,
+                    "ca" : @cafile,
+                    "remote" : metadata.stormbolt.servers,
+                    "listen" :metadata.stormbolt.proxy_listen_port,
+                    "local" :  metadata.stormbolt.server_port,
+                    "local_forwarding_ports" :metadata.stormbolt.local_forwarding_ports,
+                    "beaconParams": "#{metadata.stormbolt.beacon.interval}:#{metadata.stormbolt.beacon.retry}"
+                util.log JSON.stringify @boltdata
                 callback(true)
      
         req.on 'error', (err)=>
@@ -145,15 +159,19 @@ class activation extends EventEmitter
              "name":"client1",
              "encoding":"base64",
              "data":""
-         csrdata.data = fs.readFileSync(csrfile,'base64')
+         csrdata.data = fs.readFileSync(@csrfile,'base64')
          csrdata.name = @HOSTNAME
          console.log "in getCSRData"
          return csrdata
 
     sendCSRRequest: (callback)=>
-        openssl.exec 'genrsa',{out : keyfile ,'2048':false },(x)=>
+        openssl.exec 'genrsa',{out : @keyfile ,'2048':false },(x)=>
             util.log "Activation: openssl private key generation completed, result " + x
-            openssl.exec 'req',{batch:true,new:true,nodes:true,subj:'/emailAddress=certs@clearpathnet.com/C=US/ST=CA/L=El Segundo/O=ClearPath Networks/OU=VSP/CN='+@HOSTNAME,key:keyfile,out:csrfile},(x)=>
+            #Todo :  Error cases to be handled.
+
+            openssl.exec 'req',{batch:true,new:true,nodes:true,subj:'/emailAddress=certs@clearpathnet.com/C=US/ST=CA/L=El Segundo/O=ClearPath Networks/OU=VSP/CN='+@HOSTNAME,key:@keyfile,out:@csrfile},(x)=>
+                #Todo : Error cases to be handled
+
                 util.log "Activation: openssl csr generation completed , result",x
                 csrjson = @getCSRData()
                 util.log "Activation: successfully created the CSR Requests for signing ",csrjson
@@ -176,8 +194,9 @@ class activation extends EventEmitter
                         util.log "Activation: CSR response data" +chunk.toString()
                         contents = ''
                         contents = new Buffer(metadata.data || '',metadata.encoding)
-                        util.log "Activation: writing the signed certificate " + certfile
-                        fs.writeFileSync(certfile,contents)
+                        util.log "Activation: writing the signed certificate " + @certfile
+                        #Todo : Error cases - response to be validated. such as JSON format, certificate empty etc
+                        fs.writeFileSync(@certfile,contents)
                         callback(true)
                	req1.on 'error',(err)=>
                     util.log 'Activation : sendCSRRequest http req error',err
@@ -185,21 +204,62 @@ class activation extends EventEmitter
                 req1.write(JSON.stringify(csrjson))
                 req1.end()
 
+    isItActivated: ()=>
+        #check the activdated flag is true
+        #return false if @activated  is false
+        #check the certs folder for presence of certs files
+        if (fileops.fileExistsSync(@cafile) && fileops.fileExistsSync(@keyfile) && fileops.fileExistsSync(@certfile) && fileops.fileExistsSync(boltConfigfile)) is true
+            return true
+        else
+            return false
+
     start: ()=>
-        util.log "activation - start function called"
-        @discoverEnv (res)=>
+        util.log "activation start function called "+ JSON.stringify @config
+        
+        result= @isItActivated()
+        if result is true
+            util.log "its already activated..."
+            boltContent = fileops.readFileSync boltConfigfile
+            @boltconfig = JSON.parse boltContent
+            this.emit "success",@boltconfig
+            return
+            
+
+
+        @discoverEnv (result)=>
             util.log "Activation Environment is " + @ENVIRONMENT
-            util.log "Activation discoverEnv result"+ res
+            util.log "Activation discoverEnv result"+ result
+
+            #failure event  if res is false
+            this.emit "failure", "Unknown Environment" unless result
+
             @connect (result)=>
                 util.log " Activation: connectivity to stormtracker, result is " + result
-                @register (x)=>
-                    util.log "Activation: Registeration completed. result " + x
-                    @sendCSRRequest (x)=>
-                        util.log "CSR signing process over. result " + x
-                        #Todo:  bolt configuration taken from file.. to be modified to use the recevied infor from tracker
-                        boltContent = fileops.readFileSync "/etc/bolt/bolt.json"
-                        @boltdata = JSON.parse boltContent
-                        this.emit "success",@boltdata
-#                else
-#                    util.log " STORMTRACKER is not reachable"
-module.exports = new activation
+                    
+                #failure event  if result is false
+                this.emit "failure", "Failed to Connect the STORMTRACKER" unless result
+
+                @register (result)=>
+                    util.log "Activation: Registeration completed. result " + result
+
+                    #failure event  if res is false
+                    this.emit "failure", "Failed to Register with  STORMTRACKER" unless result
+
+                    @sendCSRRequest (result)=>
+                        util.log "CSR signing process over. result " + result
+
+                        #failure event  if res is false
+                        this.emit "failure", "Failed to Get the Signed certificate from STORMTRACKER" unless result
+
+                        try
+                            boltContent = fileops.readFileSync boltConfigfile
+                            @boltconfig = JSON.parse boltContent
+                        catch
+                            @boltconfig = @boltdata
+                            fileops.updateFile boltConfigfile, JSON.stringify @boltconfig
+                        finally
+                            this.emit "success",@boltconfig
+
+module.exports = (args) ->
+    new activation args
+#module.exports = new activation args

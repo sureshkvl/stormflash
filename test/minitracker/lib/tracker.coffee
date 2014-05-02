@@ -24,7 +24,10 @@ getBoltConfig= ->
     # hardcoded config
     stormbolt_config =
         {
-            "servers":["bolt://192.168.122.25:443","bolt://192.168.122.27:443"]
+            "servers":[],
+            "server_port":443,
+            "proxy_listen_port":9000,
+            "local_forwarding_port":5000,
             "beacon":
                 {
                     "interval":10
