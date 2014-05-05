@@ -8,20 +8,18 @@ fs=require('fs')
 
 boltConfigfile = '/etc/stormstack/stormbolt.conf'
 
+
+
 class activation extends EventEmitter
     constructor:(@config)->
         util.log "activation consturctor called with "+ JSON.stringify @config
 
         #certificate locations
-        @keyfile = "#{@config.certStore}/snap.key"
-        @csrfile = "#{@config.certStore}/snap.csr"
-        @certfile = "#{@config.certStore}/snap.cert"
-        @cafile = "#{@config.certStore}/ca.cert"
-        @metadatafile= "#{@config.certStore}/meta-data.json"
-
-        @activated = @config.activated
-
-
+        @keyfile = "#{@config.datadir}/certs/snap.key"
+        @csrfile = "#{@config.datadir}/certs/snap.csr"
+        @certfile = "#{@config.datadir}/certs/snap.cert"
+        @cafile = "#{@config.datadir}/certs/ca.cert"
+        @metadatafile= "#{@config.datadir}/certs/meta-data.json"
         @STORMTRACKER_URL=null
         @REGKEY=null
         @HOSTNAME=null
@@ -44,7 +42,6 @@ class activation extends EventEmitter
                 util.log "StormTracker Url " + @STORMTRACKER_URL
                 util.log "uuidi " + @REGKEY
                 #write the metadata in file
-                #fileops.updateFile "/etc/stormflash/vcg-metadata", metadata
                 fileops.updateFile @metadatafile, JSON.stringify metadata
 
             res.on 'end',(x)=>

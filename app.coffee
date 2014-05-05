@@ -18,20 +18,27 @@ try
 catch error
     util.log error
     util.log "stormflash using default storm parameters..."
-finally
     # whether error with config parsing or not, we will handle using config
-    config.port ?= 5000 #default port
-    config.logfile ?= "/var/log/stormflash.log"
-    config.dbStore ?= "/var/stormflash/db"
-    config.autobolt ?= true
-    config.stormtracker ?= "auto"
-    config.serialKey ?="unknown"
-    config.certStore ?= "/var/stormflash/certs"
-    util.log "stormflash infused with " + config
+    config=
+        port : 5000, #default port
+        logfile : "/var/log/stormflash.log",
+        datadir : "/var/stormflash",
+        stormtracker : "auto",
+        serialKey : "unknown",
+        autobolt : true
+finally
+    util.log "stormflash infused with " + JSON.stringify config
 
 #check and create the necessary data dirs
 #Todo.
-
+    fs=require('fs')
+if (fs.existsSync("#{config.datadir}") && fs.existsSync("#{config.datadir}/db") && fs.existsSync("#{config.datadir}/certs")) 
+    util.log "data directories are present"
+else 
+    util.log "data directories are not present...hence creating it"
+    fs.mkdirSync("#{config.datadir}")
+    fs.mkdirSync("#{config.datadir}/db")
+    fs.mkdirSync("#{config.datadir}/certs")
 
 # start the stormflash web application
 {@app} = require('zappajs') config.port, ->

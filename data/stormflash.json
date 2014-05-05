@@ -1,16 +1,13 @@
 {
-    "autobolt" : true
     "stormtracker" : "auto",
-    "port" : 5000
+    "port" : 5000,
     "serialKey" : "uuid",
     "logfile"  : "/var/log/stormflash.log",
-    "dbStore"  : "/var/stormflash/db",
-    "certStore" : "/var/stormflash/certs",
-    "pluginConfig" : "/var/stormflash/plugins",
+    "datadir"  : "/var/stormflash/db",
     "notifications":
      {
          "server" : "none",
          "topic" : "notifications.info"
      },
-    "activated":false
+    "autobolt":true
 }
