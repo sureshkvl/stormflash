@@ -1,4 +1,4 @@
-processmgr=require('../processlib.coffee')
+processmgr=require('../lib/processlib.coffee')
 
 uproxy =
 	name : 'uproxy'
@@ -17,8 +17,8 @@ udhcpd =
 processmgr.addService(uproxy)
 processmgr.addService(udhcpd)
 
-x=processmgr.start(uproxy.name,'instance1')
-console.log "process udhcpd start ",x
+processmgr.start uproxy.name,'instance1',(result)=>
+            console.log "test  : return value ",result
 setTimeout ()=>
     processmgr.restart(uproxy.name,'instance1')
 , 5000

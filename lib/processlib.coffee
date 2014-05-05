@@ -1,5 +1,7 @@
 forever = require('forever-monitor')
 validate = require('json-schema').validate
+util = require('util')
+fs = require('fs')
 
 schema =
     name : "service"
@@ -28,18 +30,18 @@ schema =
 #Managed Service class holds the information of the services (the service JSON structure, forever object handler )
 class ManagedService
 
-    constructor:(x)->
-        @name=x.name
-        @binpath=x.binpath
-        @binary=x.binname
-        @startargs=x.startargs
-        @reload=x.reload
+    constructor:(config)->
+        @name = config.name
+        @binpath = config.binpath
+        @binary = config.binname
+        @startargs = config.startargs
+        @reload = config.reload
 
         # array of { id: uuid, fproc: foreverinstance }
-        @processes=[]
+        @processes = []
 
     add: (proc, uuid) ->
-        console.log 'uuid id',uuid
+        util.log 'uuid id' + uuid
         @processes.push
             id: uuid
             fproc: proc
@@ -49,25 +51,25 @@ class ManagedService
 class ServiceManager
     constructor:()->
         @services = []
-        console.log "Service Manager constructor called"
+        util.log "Service Manager constructor called"
 
 
     validateServiceData: (data) ->
-        result=validate data,schema
+        result = validate data,schema
         if result.valid is true
-            console.log 'valid JSON data'
+            util.log 'valid JSON data'
             return true 
         else
-            console.log result
+            util.log result
             return false
 
     getManagedService: (name) ->
         # lookup inside @services
-        for i in @services
-            if i.name  is  name
-                return i 
+        for service in @services
+            if service.name  is  name
+                return service 
         #error case
-        console.log "managed service object for #{name} is not available in the array"
+        util.log "managed service object for #{name} is not available in the array"
         return new Error "service not available"
 
    
@@ -76,9 +78,9 @@ class ServiceManager
         return new Error "Invalid input data" unless @validateServiceData service
 
         #check whether the service already exists. If exists return error
-        x= @getManagedService(service.name)
-        unless x  instanceof Error
-            console.log "service already exists in the array"
+        instance = @getManagedService(service.name)
+        unless instance  instanceof Error
+            util.log "service already exists in the array"
             return new Error "Service already exists"
 
         #create a new service
@@ -87,80 +89,96 @@ class ServiceManager
 
 
     list: ()->
-        console.log 'inside list'
-        for i in @services
-            console.log i.name
-            console.log i.binpath
-            console.log i.binary
-            console.log i.startargs
-            console.log i.reload
+        util.log 'inside list'
+        for service in @services
+            util.log service.name
+            util.log service.binpath
+            util.log service.binary
+            util.log service.startargs
+            util.log service.reload
 
     #Check whether the process for the uuid is running already
     getForeverInstance: (ms,uuid) ->
-        console.log 'isRunning routine'
-        for i in ms.processes
-            if i.id is uuid
-                console.log "service #{ms.name} for uuid #{uuid} is present in processes array"
-                return i.fproc
-        console.log "service #{ms.name} for uuid #{uuid} is not present in processes array"
+        util.log 'isRunning routine'
+        for instance in ms.processes
+            if instance.id is uuid
+                util.log "service #{ms.name} for uuid #{uuid} is present in processes array"
+                return instance.fproc
+        util.log "service #{ms.name} for uuid #{uuid} is not present in processes array"
         return new Error "forever Instance not available"
 
-    start: (name, uuid) ->
-        console.log "start:", name
+    start: (name, uuid,callback) ->
+        util.log "start:" + name
         #get ms object
-        ms= @getManagedService(name)
+        ms = @getManagedService(name)
         return false if ms instanceof Error
 
         #get the handler check the service/with uuid isrunning already, if it runs no need to start again.
-        fi= @getForeverInstance(ms,uuid)
+        fi = @getForeverInstance(ms,uuid)
         return false unless fi instanceof Error
-       
-        binname =null
+    
+        binname = null
         #populate the with absolute path for binary.
         binname = "#{ms.binpath}/#{ms.binary}"
-        console.log  "The binary absolute path is",binname
+        util.log  "uThe binary absolute path is" + binname
+
+        #check whether the binary exists in the absolute path  - Error case
+        isexists = fs.existsSync(binname)
+        util.log "output of is existsin?" + isexists
+        unless isexists
+            util.log "The binary is not present in the system, result" 
+            return false
 
         #make it in forever format [prgname,arg1,arg2...]
-        x=[]
-        x= ms.startargs
-        x.unshift(binname)
+        args = []
+        args = ms.startargs
+        args.unshift(binname)
         # start the service
-        # Todo : forever parameters to be relooked
-        console.log x
-        fp = forever.start(x, max: 10000, silent: false, spawnWith: customFds: [-1,-1,-1], detached:false )
+        util.log args
+        fp = forever.start(args, max: 10000, silent: false, spawnWith: customFds: [-1,-1,-1], detached:false )
         # add the forever instance & uuid in ms object
-        ms.add fp,uuid
-        console.log "service #{name} for uuid #{uuid} successfully started "
-        return true
+        #ms.add fp,uuid
+        fp.on 'error',(err)=>
+            util.log "service returned the error." + err
+            callback(false)
+        fp.on 'exit', (code)=>
+            util.log "program exited.. " + code
+            callback(false)
+
+        fp.on 'start',(data)=>
+            util.log "service #{name} for uuid #{uuid} successfully started "
+            ms.add fp,uuid
+            callback(true)
+
 
     stop: (name, uuid) ->
-        console.log 'stop :',name
+        util.log 'stop :'+ name
         #get the service object
-        ms= @getManagedService(name)
+        ms = @getManagedService(name)
         return false if ms instanceof Error
         #get the handler check the service/with uuid isrunning already, if it runs no need to start again.
-        fi=@getForeverInstance(ms,uuid)
+        fi = @getForeverInstance(ms,uuid)
         return false if fi instanceof Error
         #stop the process
         fi.stop()
-        console.log "process stopped"
+        util.log "process stopped"
 
 
     restart: (name, uuid) ->
-        ms= @getManagedService(name)
+        ms = @getManagedService(name)
         return false if ms instanceof Error
-        fi=@getForeverInstance(ms,uuid)
+        fi = @getForeverInstance(ms,uuid)
         if fi instanceof Error
             start(name,uuid)
-            console.log "service is not running.. hence starting"
+            util.log "service is not running.. hence starting"
             return true
         else
             fi.restart()
-            console.log "restareted"
+            util.log "restareted"
             return true
         
     reload: (name, uuid) ->
-        console.log 'reload is called'
+        util.log 'reload is called'
         #Todo : to be implemented.
 
 module.exports = new ServiceManager
