@@ -47,6 +47,8 @@ class StormFlash
         console.log 'stormflash constructor called'
         packagelist = require('./packagelib')
         @pkglist = new packagelist()
+        processmgr = require('./processlib')
+        @processmgr = new processmgr()
         environmentlist = require('./environmentlib')
         @environment = new environmentlist()
         @db = require('dirty') '/tmp/stormflash.db'

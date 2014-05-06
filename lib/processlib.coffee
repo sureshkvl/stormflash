@@ -164,14 +164,15 @@ class ServiceManager
         util.log "process stopped"
 
 
-    restart: (name, uuid) ->
+    restart: (name, uuid,callback) ->
         ms = @getManagedService(name)
         return false if ms instanceof Error
         fi = @getForeverInstance(ms,uuid)
         if fi instanceof Error
-            start(name,uuid)
-            util.log "service is not running.. hence starting"
-            return true
+            start name,uuid,(result) =>
+                util.log "service is not running.. hence starting"
+                callback(result)
+            #return true
         else
             fi.restart()
             util.log "restareted"
