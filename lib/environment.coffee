@@ -4,6 +4,11 @@
 @include = ->
     stormflash = require('./stormflash') @include
 
+    @get '/': ->
+        stormflash.environment.list (res) =>
+            console.log res
+            @send res
+
     @get '/environment': ->
         stormflash.environment.list (res) =>
             console.log res

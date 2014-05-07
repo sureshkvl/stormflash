@@ -3,7 +3,7 @@
     "port" : 5000,
     "serialKey" : "uuid",
     "logfile"  : "/var/log/stormflash.log",
-    "datadir"  : "/var/stormflash/db",
+    "datadir"  : "/var/stormflash",
     "notifications":
      {
          "server" : "none",

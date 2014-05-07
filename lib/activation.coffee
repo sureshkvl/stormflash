@@ -202,13 +202,9 @@ class activation extends EventEmitter
                 req1.end()
 
     isItActivated: ()=>
-        #check the activdated flag is true
-        #return false if @activated  is false
-        #check the certs folder for presence of certs files
-        if (fileops.fileExistsSync(@cafile) && fileops.fileExistsSync(@keyfile) && fileops.fileExistsSync(@certfile) && fileops.fileExistsSync(boltConfigfile)) is true
-            return true
-        else
-            return false
+        #Logic to be placed after final conclusion.
+        #check the certs folder for presence of certs files, bolt config etc.
+        return false
 
     start: ()=>
         util.log "activation start function called "+ JSON.stringify @config
@@ -228,25 +224,33 @@ class activation extends EventEmitter
             util.log "Activation discoverEnv result"+ result
 
             #failure event  if res is false
-            this.emit "failure", "Unknown Environment" unless result
+            if result is false
+                this.emit "failure", "Unknown Environment"
+                return
 
             @connect (result)=>
                 util.log " Activation: connectivity to stormtracker, result is " + result
                     
                 #failure event  if result is false
-                this.emit "failure", "Failed to Connect the STORMTRACKER" unless result
+                if result is false
+                    this.emit "failure", "Failed to Connect the STORMTRACKER" 
+                    return result
 
                 @register (result)=>
                     util.log "Activation: Registeration completed. result " + result
 
                     #failure event  if res is false
-                    this.emit "failure", "Failed to Register with  STORMTRACKER" unless result
+                    if result is false
+                        this.emit "failure", "Failed to Register with  STORMTRACKER"
+                        return result
 
                     @sendCSRRequest (result)=>
                         util.log "CSR signing process over. result " + result
 
                         #failure event  if res is false
-                        this.emit "failure", "Failed to Get the Signed certificate from STORMTRACKER" unless result
+                        if result is false 
+                            this.emit "failure", "Failed to Get the Signed certificate from STORMTRACKER"
+                            return result
 
                         try
                             boltContent = fileops.readFileSync boltConfigfile
@@ -256,6 +260,7 @@ class activation extends EventEmitter
                             fileops.updateFile boltConfigfile, JSON.stringify @boltconfig
                         finally
                             this.emit "success",@boltconfig
+                            return true
 
 module.exports = (args) ->
     new activation args

@@ -30,15 +30,14 @@ finally
     util.log "stormflash infused with " + JSON.stringify config
 
 #check and create the necessary data dirs
-#Todo.
-    fs=require('fs')
-if (fs.existsSync("#{config.datadir}") && fs.existsSync("#{config.datadir}/db") && fs.existsSync("#{config.datadir}/certs")) 
-    util.log "data directories are present"
-else 
-    util.log "data directories are not present...hence creating it"
-    fs.mkdirSync("#{config.datadir}")
-    fs.mkdirSync("#{config.datadir}/db")
-    fs.mkdirSync("#{config.datadir}/certs")
+fs=require('fs')
+try
+    fs.mkdirSync("#{config.datadir}") unless fs.existsSync("#{config.datadir}")
+    fs.mkdirSync("#{config.datadir}/db")  unless fs.existsSync("#{config.datadir}/db")
+    fs.mkdirSync("#{config.datadir}/certs") unless fs.existsSync("#{config.datadir}/certs")
+catch error
+    util.log "Error in creating data dirs"
+
 
 # start the stormflash web application
 {@app} = require('zappajs') config.port, ->

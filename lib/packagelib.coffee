@@ -105,6 +105,14 @@ runnpm = ((callback)->
             callback(resultarray)
     )
 
+npm_install = (data,callback)->
+    exec = require('child_process').exec
+    console.log "installing nodejs app #{data.name}"
+    exec "npm install #{data.name}@#{data.version}; ls -l ./node_modules/#{data.name} " , (error, stdout, stderr) =>
+        console.log "success fully installed"
+        callback(true)
+
+
 
 
 
@@ -154,7 +162,28 @@ class PackageLib
         #check the npm present
         @npmpresent=isInstalled('npm')
         console.log 'npm present',@npmpresent
+    install:(data,callback)->
+        console.log data
+        exec = require('child_process').exec
+        url = require 'url'
+        parsedurl = url.parse data.source, true
+        console.log parsedurl
+        console.log 'the protocol for the package download is ' + parsedurl.protocol
 
+        switch (parsedurl.protocol)
+            when 'npm:'
+                console.log "npm protocol.. we should do nodejs installation"
+                console.log "we dont update repo currently.. installating with default" unless parsedurl.host?
+                npm_install data,(result)=>
+                    console.log result
+                    callback("{installed}")
+
+            when 'deb:'
+                console.log "deb protocol.. we should do debian package installation"
+            else
+                console.log "unknown protocol.. dont know what to do..ignoring"
+
+        callback("{install:true}")
 
     list:(callback)->
         res=

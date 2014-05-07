@@ -182,4 +182,4 @@ class ServiceManager
         util.log 'reload is called'
         #Todo : to be implemented.
 
-module.exports = new ServiceManager
+module.exports = ServiceManager
