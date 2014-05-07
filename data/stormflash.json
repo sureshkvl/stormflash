@@ -1,0 +1,13 @@
+{
+    "stormtracker" : "auto",
+    "port" : 5000,
+    "serialKey" : "uuid",
+    "logfile"  : "/var/log/stormflash.log",
+    "datadir"  : "/var/stormflash",
+    "notifications":
+     {
+         "server" : "none",
+         "topic" : "notifications.info"
+     },
+    "autobolt":true
+}
