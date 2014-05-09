@@ -1,6 +1,13 @@
 {
 	"name": "stormflash",
+	"description": "stormflash provides remote application lifecycle management on any arbitrary endpoint",
 	"version": "0.7.1",
+	"author": "Peter K. Lee",
+	"homepage": "http://stormstack.org",
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/stormstack/stormflash.git"
+	},
 	"dependencies": {
 		"stormbolt": "0.1.x",
        	"zappajs": "0.3.x",
@@ -8,7 +15,6 @@
 		"request": "2.9.x",
 		"json-schema": "0.2.0",
 		"lazy": "1.0.x",
-		"node-uuid": "1.3.x",
 		"async": "0.1.x",
        	"fileops":"0.1.3",
 		"node-uuid": "1.3.x",
@@ -19,16 +25,33 @@
 		"openssl-wrapper":"0.2.x",
 		"events":"1.0.x"
 	},
+	"devDependencies": {
+		"coffee-script": ">=1.3"
+	},
+	"optionalDependencies": {},
 	"engines": {
 		"node": ">=0.6.x"
 	},
-	"devDependencies": {},
-	"optionalDependencies": {},
-	"author": "Peter K. Lee",
-	"description": "stormflash provides remote application lifecycle management on any arbitrary endpoint",
-	"repository": {
-		"type": "git",
-		"url": "git://github.com/stormstack/stormflash.git"
+	"main": "./lib/stormflash",
+	"config": {
+		"port": 5000,
+		"logfile": "/var/log/stormflash.log",
+		"datadir": "/var/stormflash",
+		"stormstack": {
+			"enabled": true,  // set to false for manual configuration
+			"tracker": "", // specify explicit stormtracker URL
+			"bolt": "/etc/stormstack/stormbolt.json",
+			"autobolt": true
+		}
 	},
-	"main": "./lib/stormflash.coffee"
+	"scripts": {
+		"prepublish": "find src -name '*.coffee' | xargs coffee -o lib -c",
+		"start": "node lib/app.js"
+	},
+	"contributors": [
+		"Suresh",
+		"Geetha",
+		"Ravi",
+		"Siva"
+	]
 }

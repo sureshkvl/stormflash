@@ -49,8 +49,7 @@ class StormFlash
         @pkglist = new packagelist()
         processlib = require('./processlib')
         @processmgr = new processlib()
-        environmentlist = require('./environmentlib')
-        @environment = new environmentlist()
+        @env = require './environment'
         @db = require('dirty') '/tmp/stormflash.db'
         @db.on 'load', ->
             console.log 'loaded stormflash.db'

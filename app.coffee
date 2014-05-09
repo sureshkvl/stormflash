@@ -50,13 +50,10 @@ catch error
       production: => @use 'errorHandler'
 
     @enable 'serve jquery', 'minify'
-    @include './lib/plugins'
-    @include './lib/packages'
-    @include './lib/personality'
-    @include './lib/environment'
+    @include './lib/api'
 
 # activation logic starts here
-if config.autobolt
+if config.stormstack.enabled
     activation = require('./lib/activation')(config)
     # register event into activate for when "success"
     activation.on "success", (data) =>

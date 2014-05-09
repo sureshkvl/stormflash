@@ -1,7 +1,7 @@
 ###
 #utility functions
 
-#getnpmname funciton parse input line (npm output), 
+#getnpmname funciton parse input line (npm output),
 #and return s the package name and version (only top level package)
 #input line : "npm ls" output line.
 #output : packageobj or null
@@ -25,10 +25,10 @@ getnpmname = (name) ->
                     return packageobj
     #return null if not able to parse
     return null
-		
+
 
 #getpkgname function  parse the input line (dpkg -l output line)
-#and return the package name and version 
+#and return the package name and version
 #input: "dpkg -l" output
 #output: packageobj  or null
 #sample input line : ii  zlib1g-dev:amd64        1:1.2.7.dfsg-13ubuntu2             amd64     library
@@ -107,25 +107,27 @@ runnpm = ((callback)->
     )
 
 ###
-os=require('os')
+os = require('os')
 
-#EnvironmentLib class
-class EnvironmentLib
-    # global arrays
-    #linux flavors 
+class Environment
+
+    async = require 'async'
+    request = require 'request'
+    providers = [
+        name: "openstack"
+        metaurl: "http://169.254.169.254/openstack/latest/meta_data.json"
+       , # this comma MUST be one column lower
+        name: "gce"
+        metaurl: "http://169.254.169.254/computeMetadata/v1"
+    ]
+
+    #linux flavors
     linuxflavors=['cloudnode','ubuntu','fedora','centos','redhat']
     # pkgmgrapp array stores the  package manager applications supported for the respective OS flavor.
     pkgmgrapp=[]
 
-    #global variables
-    #@ostype='Unknown'
-    #@osflavor='Unknown'
-    #@packageApp='Unknown'
-    #@npmpresent=false
-
-    constructor:->
-
-        console.log 'EnvironmentLib constructor called'
+    constructor: ->
+        console.log 'Environment constructor called'
         ###
         #initialize pkgmgrapp array with cloudnode,ubuntu package manager details
         pkgmgrapp.push(flavor:'cloudnode',pkg:['dpkg'])
@@ -138,7 +140,7 @@ class EnvironmentLib
                 @osflavor= val if contents.toLowerCase().indexOf(val.toLowerCase()) != -1
 
         console.log "OS: #{@ostype}, Flavor #{@osflavor}"
-        #detect the installed package manager application only if ostype or flavor is detected.		
+        #detect the installed package manager application only if ostype or flavor is detected.
         unless @ostype is 'Unknown' or @osflavor is 'Unknown'
             #identify the package list from the array for a linux flavor.
             for i in pkgmgrapp
@@ -152,38 +154,58 @@ class EnvironmentLib
         #check the npm present
         @npmpresent=isInstalled('npm')
         console.log 'npm present',@npmpresent
-    ###
 
-    list:(callback)->
-        res=
-            {
-            'tmpdir':''
-            'endianness':''
-            'hostname':''
-            'type':''
-            'platform':''
-            'release':''
-            'arch':''
-            'uptime':''
-            'loadavg':[0]
-            'totalmem':0
-            'freemem': 0
-            'cpus':[]
-            'networkInterfaces':{}
-            }
-        res.tmpdir=os.tmpdir()
-        res.endianness=os.endianness()
-        res.hostname=os.hostname()
-        res.type=os.type()
-        res.platform=os.platform()
-        res.release=os.release()
-        res.arch=os.arch()
-        res.uptime=os.uptime()
-        res.loadavg=os.loadavg()
-        res.totalmem=os.totalmem()
-        res.freemem=os.freemem()
-        res.cpus=os.cpus()
-        res.networkInterfaces=os.networkInterfaces()
-        callback(res)
+        ###
 
-module.exports = EnvironmentLib
+    check: (provider, callback) ->
+        callback unless provider?
+        request provider.metaurl, (err, res, body) ->
+            console.log "#{provider.name} metadata http response statusCode: " + res.statusCode
+
+            if res.statusCode == 200
+                try
+                    metadata = JSON.parse body
+                    util.log "metadata: "+metadata
+                    stormdata =
+                        provider: provider.name
+                        stormtracker: metadata.meta.stormtracker
+                        serialkey: metadata.uuid
+
+                    return callback stormdata if stormdata.serialkey
+                catch error
+                    util.log "unable to process response: "+body
+            callback
+
+    discover: (callback) ->
+        i = 0
+        stormdata = null
+        async.until (
+            () -> # test condition
+                i >= providers.count or stormdata?
+            (repeat) -> # repeat function
+                @check providers[i++], (match) ->
+                    stormdata = match if match?
+                    repeat
+            (err) -> # finally
+                if err or not stormdata?
+                    util.log "unable to discover the running provider environment!"
+                callback stormdata
+        )
+
+    os: ->
+        tmpdir: os.tmpdir()
+        endianness: os.endianness()
+        hostname: os.hostname()
+        type: os.type()
+        platform: os.platform()
+        release: os.release()
+        arch: os.arch()
+        uptime: os.uptime()
+        loadavg: os.loadavg()
+        totalmem: os.totalmem()
+        freemem: os.freemem()
+        cpus: os.cpus()
+        networkInterfaces: os.networkInterfaces()
+
+module.exports = new Environment
+
