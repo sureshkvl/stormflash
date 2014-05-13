@@ -1,16 +1,19 @@
-stormflash = require('./stormflash') @include
-
-##
-# STORMFLASH /environment REST end-points
+# stormflash agent API endpoints
+# when 'imported' from another stormflash agent,
 
 @include = ->
+
+    validate = require('json-schema').validate
+
     @get '/': ->
-        res = stormflash.env.os()
+        res = @storm.env.os()
         console.log res
         @send res
 
+# /environment
+
     @get '/environment': ->
-        res = stormflash.env.os()
+        res = @storm.env.os()
         console.log res
         @send res
 
@@ -19,13 +22,10 @@ stormflash = require('./stormflash') @include
        console.log x
        @send x
 
-##
 # /packages
-
-@include = ->
-    validate = require('json-schema').validate
-    schema =
-        name: "personality"
+    schema = {}
+    schema.packages =
+        name: "packages"
         type: "object"
         required: true
         properties:
@@ -35,28 +35,20 @@ stormflash = require('./stormflash') @include
 
     @post '/packages': ->
         console.log JSON.stringify @body
-        result = validate @body, schema
+        result = validate @body, schema.packages
         console.log result
-        stormflash.pkglist.install @body, (res) =>
+        @storm.install @body, (res) =>
             console.log res
             @send res
 
     @get '/packages': ->
-        stormflash.pkglist.list (res) =>
+        @storm.list (res) =>
             console.log res
             @send res
 
-#
 # /personality
 
-@include = ->
-
-    fs = require 'fs'
-    validate = require('json-schema').validate
-    exec = require('child_process').exec
-    path = require 'path'
-
-    schema =
+    schema.personality =
         name: "personality"
         type: "object"
         items:
@@ -72,9 +64,13 @@ stormflash = require('./stormflash') @include
 
         #console.log @body
 
-        result = validate @body, schema
+        result = validate @body, schema.personality
         console.log result
         return @next new Error "Invalid personality posting!: #{result.errors}" unless result.valid
+
+        fs = require 'fs'
+        exec = require('child_process').exec
+        path = require 'path'
 
         for p in @body.personality
             #console.log p
@@ -102,15 +98,13 @@ stormflash = require('./stormflash') @include
 
         @send { result: 'success' }
 
-##
-# STORMFLASH /plugins REST end-points
+# /plugins
 
-fileops = require 'fileops'
-
-@include = ->
+    fs = require 'fs'
     exec = require('child_process').exec
+
     @get '/plugins': ->
-        res = stormflash.list()
+        res = @storm.list()
         console.log res
         @send res
 
@@ -119,14 +113,14 @@ fileops = require 'fileops'
     # 2. destructure the inbound object with proper schema
     validateModuleDesc = ->
         console.log @body
-        result = stormflash.validate @body
+        result = @storm.validate @body
         console.log result
         return @next new Error "Invalid module posting!: #{result.errors}" unless result.valid
         @next()
 
     # helper routine for retrieving module data from dirty db
     loadModule = ->
-        result = stormflash.lookup @params.id
+        result = @storm.lookup @params.id
         unless result instanceof Error
             @request.module = result
             @next()
@@ -134,8 +128,8 @@ fileops = require 'fileops'
             return @next result
 
     @post '/plugins', validateModuleDesc, ->
-        module = stormflash.new @body
-        stormflash.add module,'', true, (res) =>
+        module = @storm.new @body
+        @storm.add module,'', true, (res) =>
             unless res instanceof Error
                 if res.status == 304
                     @send 304
@@ -183,13 +177,13 @@ fileops = require 'fileops'
         # 1. need to make sure the incoming JSON is well formed
         # 2. destructure the inbound object with proper schema
         # 3. perform 'extend' merge of inbound module data with existing data
-        module = stormflash.new @body, @params.id
+        module = @storm.new @body, @params.id
 
         # desc = @body
         # @body = entry
         # @body.description ?= desc if desc?
 
-        stormflash.update module, @request.module, (res) =>
+        @storm.update module, @request.module, (res) =>
             unless res instanceof Error
                 if res.status == 304
                     @send 304
@@ -200,7 +194,7 @@ fileops = require 'fileops'
 
     @del '/plugins/:id', loadModule, ->
         # 1. remove the module entry from DB
-        stormflash.remove @request.module, (res) =>
+        @storm.remove @request.module, (res) =>
             unless res instanceof Error
                 if res.result == 304
                     @send 304
@@ -225,7 +219,7 @@ fileops = require 'fileops'
 
     @get '/getmodules', ->
         res = []
-        nodeModules = fileops.readdirSync "/lib/node_modules"
+        nodeModules = fs.readdirSync "/lib/node_modules"
         pattern = "^stormflash"
         regex = new RegExp(pattern)
         for module in nodeModules

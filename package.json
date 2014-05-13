@@ -12,18 +12,16 @@
 		"stormbolt": "0.1.x",
        	"zappajs": "0.3.x",
 		"dirty": "0.9.x",
-		"request": "2.9.x",
+		"request": "2.34.x",
 		"json-schema": "0.2.0",
 		"lazy": "1.0.x",
-		"async": "0.1.x",
-       	"fileops":"0.1.3",
+		"async": "0.8.x",
 		"node-uuid": "1.3.x",
 		"optimist":"0.6.0",
 		"mux-demux":"3.7.8",
 		"find-in-path":"0.0.x",
 		"forever-monitor":"1.2.x",
-		"openssl-wrapper":"0.2.x",
-		"events":"1.0.x"
+		"pem": "1.4.x"
 	},
 	"devDependencies": {
 		"coffee-script": ">=1.3"
@@ -38,8 +36,8 @@
 		"logfile": "/var/log/stormflash.log",
 		"datadir": "/var/stormflash",
 		"stormstack": {
-			"enabled": true,  // set to false for manual configuration
-			"tracker": "", // specify explicit stormtracker URL
+			"enabled": true,
+			"tracker": "",
 			"bolt": "/etc/stormstack/stormbolt.json",
 			"autobolt": true
 		}

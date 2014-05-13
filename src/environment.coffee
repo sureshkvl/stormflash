@@ -113,6 +113,8 @@ class Environment
 
     async = require 'async'
     request = require 'request'
+    util = require 'util'
+
     providers = [
         name: "openstack"
         metaurl: "http://169.254.169.254/openstack/latest/meta_data.json"
@@ -158,34 +160,44 @@ class Environment
         ###
 
     check: (provider, callback) ->
-        callback unless provider?
-        request provider.metaurl, (err, res, body) ->
-            console.log "#{provider.name} metadata http response statusCode: " + res.statusCode
+        callback() unless provider? and provider
+        util.log "making a request to #{provider.metaurl}..."
+        request
+            uri: provider.metaurl
+            timeout: 2000
+          , (err, res, body) ->
+            if err
+                util.log "request failed: "+err
+                return callback()
 
-            if res.statusCode == 200
-                try
+            try
+                util.log "#{provider.name} metadata http response statusCode: " + res.statusCode
+                if res.statusCode == 200
                     metadata = JSON.parse body
                     util.log "metadata: "+metadata
                     stormdata =
                         provider: provider.name
-                        stormtracker: metadata.meta.stormtracker
-                        serialkey: metadata.uuid
+                        tracker: metadata.meta.stormtracker
+                        skey: metadata.uuid
 
                     return callback stormdata if stormdata.serialkey
-                catch error
-                    util.log "unable to process response: "+body
-            callback
+            catch error
+                util.log "check failed for #{provider.name}: " + error
+
+            callback()
 
     discover: (callback) ->
         i = 0
         stormdata = null
-        async.until (
+        async.until(
             () -> # test condition
-                i >= providers.count or stormdata?
-            (repeat) -> # repeat function
+                i >= providers.length or stormdata?
+
+            (repeat) => # repeat function
                 @check providers[i++], (match) ->
                     stormdata = match if match?
-                    repeat
+                    setTimeout repeat, 1000
+
             (err) -> # finally
                 if err or not stormdata?
                     util.log "unable to discover the running provider environment!"
