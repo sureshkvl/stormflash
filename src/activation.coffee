@@ -2,17 +2,15 @@ util=require('util')
 EventEmitter=require('events').EventEmitter
 filename= "/etc/bolt/bolt.json"
 fileops = require 'fileops'
-http = require("http")
+
 openssl=require('openssl-wrapper')
 fs=require('fs')
 
 boltConfigfile = '/etc/stormstack/stormbolt.conf'
 
-
-
 class activation extends EventEmitter
     constructor:(@config)->
-        util.log "activation consturctor called with "+ JSON.stringify @config
+        util.log "activation constructor called with "+ JSON.stringify @config
 
         #certificate locations
         @keyfile = "#{@config.datadir}/certs/snap.key"
@@ -63,7 +61,7 @@ class activation extends EventEmitter
 
     #discover the type of CPE -  VCG/SOFTCPE/HARDCPE
     discoverEnv: (callback)=>
-        #default VCG 
+        #default VCG
         # query openstackurl, if success then VCG. if failed check the next environment mode (HW CPE).
         util.log "inside discoverEnv function"
         @isitVCG (res)=>
@@ -101,7 +99,7 @@ class activation extends EventEmitter
                 status = true
             util.log "connect status " + status
             callback(status)
-   
+
         process.on 'error',(data)=>
             util.log "Ping error" + data
             callback(false)
@@ -109,9 +107,9 @@ class activation extends EventEmitter
             util.log "Ping error " + data
             callback(false)
 
-    register: (callback)=>
+    register: (callback) ->
 
-        options=
+        options =
             host:@STORMTRACKER_URL
             port:80
             path:'/registry/serialkey'
@@ -145,7 +143,7 @@ class activation extends EventEmitter
                     "beaconParams": "#{metadata.stormbolt.beacon.interval}:#{metadata.stormbolt.beacon.retry}"
                 util.log JSON.stringify @boltdata
                 callback(true)
-     
+
         req.on 'error', (err)=>
             util.log 'http request error ',err
             callback(false)
@@ -206,9 +204,9 @@ class activation extends EventEmitter
         #check the certs folder for presence of certs files, bolt config etc.
         return false
 
-    start: ()=>
+    start: =>
         util.log "activation start function called "+ JSON.stringify @config
-        
+
         result= @isItActivated()
         if result is true
             util.log "its already activated..."
@@ -216,8 +214,57 @@ class activation extends EventEmitter
             @boltconfig = JSON.parse boltContent
             this.emit "success",@boltconfig
             return
-            
 
+        activated = false
+
+        activate = (callback) ->
+            async.waterfall [
+                (next) -> # discover environment
+                    env.discover (stormdata) ->
+                        if stormdata?
+                            next null, stormdata
+                        else
+                            next new Error "unable to discover environment!"
+
+                (stormdata, next) -> # register against stormtracker
+                    @register (result) ->
+                        if result
+                            next null, result
+                        else
+                            next new Error "unable to register against stormtracker at #{stormdata.stormtracker}!"
+
+                (result, next) -> # send CSR request
+                    @sendCSRRequest (result) ->
+                        if result
+                            next null
+
+            ], (err, result) -> # finally
+                if result
+                        try
+                            boltContent = fileops.readFileSync boltConfigfile
+                            @boltconfig = JSON.parse boltContent
+                        catch
+                            @boltconfig = @boltdata
+                            fileops.updateFile boltConfigfile, JSON.stringify @boltconfig
+                        finally
+                            this.emit "success",@boltconfig
+
+                callback err, result
+
+        async.until(
+            () -> # test condition
+                activated?
+            (repeat) -> # repeat function
+                activate (err, res) ->
+                    if res
+                        activated = true
+                        repeat
+                    else
+                        util.log "error during activation: #{err}"
+                        setInterval repeat,5000
+            (err) -> # final call
+
+        )
 
         @discoverEnv (result)=>
             util.log "Activation Environment is " + @ENVIRONMENT
@@ -230,10 +277,10 @@ class activation extends EventEmitter
 
             @connect (result)=>
                 util.log " Activation: connectivity to stormtracker, result is " + result
-                    
+
                 #failure event  if result is false
                 if result is false
-                    this.emit "failure", "Failed to Connect the STORMTRACKER" 
+                    this.emit "failure", "Failed to Connect the STORMTRACKER"
                     return result
 
                 @register (result)=>
@@ -248,7 +295,7 @@ class activation extends EventEmitter
                         util.log "CSR signing process over. result " + result
 
                         #failure event  if res is false
-                        if result is false 
+                        if result is false
                             this.emit "failure", "Failed to Get the Signed certificate from STORMTRACKER"
                             return result
 

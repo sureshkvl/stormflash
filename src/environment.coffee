@@ -1,6 +1,7 @@
+###
 #utility functions
 
-#getnpmname funciton parse input line (npm output), 
+#getnpmname funciton parse input line (npm output),
 #and return s the package name and version (only top level package)
 #input line : "npm ls" output line.
 #output : packageobj or null
@@ -24,10 +25,10 @@ getnpmname = (name) ->
                     return packageobj
     #return null if not able to parse
     return null
-		
+
 
 #getpkgname function  parse the input line (dpkg -l output line)
-#and return the package name and version 
+#and return the package name and version
 #input: "dpkg -l" output
 #output: packageobj  or null
 #sample input line : ii  zlib1g-dev:amd64        1:1.2.7.dfsg-13ubuntu2             amd64     library
@@ -105,42 +106,35 @@ runnpm = ((callback)->
             callback(resultarray)
     )
 
-npm_install = (data,callback)->
-    exec = require('child_process').exec
-    console.log "installing nodejs app #{data.name}"
-    exec "npm install #{data.name}@#{data.version}; ls -l ./node_modules/#{data.name} " , (error, stdout, stderr) =>
-        console.log "success fully installed"
-        callback(true)
+###
+os = require('os')
 
+class Environment
 
+    async = require 'async'
+    request = require 'request'
+    util = require 'util'
 
+    providers = [
+        name: "openstack"
+        metaurl: "http://169.254.169.254/openstack/latest/meta_data.json"
+       , # this comma MUST be one column lower
+        name: "gce"
+        metaurl: "http://169.254.169.254/computeMetadata/v1"
+    ]
 
-
-#packageLib class
-class PackageLib
-    # global arrays
-    #linux flavors 
+    #linux flavors
     linuxflavors=['cloudnode','ubuntu','fedora','centos','redhat']
     # pkgmgrapp array stores the  package manager applications supported for the respective OS flavor.
     pkgmgrapp=[]
 
-    #global variables
-    @ostype='Unknown'
-    @osflavor='Unknown'
-    @packageApp='Unknown'
-    @npmpresent=false
-
-    constructor:->
-        console.log 'PackageList constructor called'
+    constructor: ->
+        console.log 'Environment constructor called'
+        ###
         #initialize pkgmgrapp array with cloudnode,ubuntu package manager details
         pkgmgrapp.push(flavor:'cloudnode',pkg:['dpkg'])
         pkgmgrapp.push(flavor:'ubuntu',pkg:['dpkg','apt-get'])
-        @ostype=require('os').type()
-        #check the OS flavor, 
-        #if the /etc/lsb-release file is present  and flavor is matched with linuxflavors array, 
-        #then the new flavor name will be assigned in to @osflavor
-        #else, the default value  'Unknown' still remains. (applicable for non Linux OS also).
-        fs=require('fs')
+        #
         if fs.existsSync('/etc/lsb-release') is true
             contents=fs.readFileSync('/etc/lsb-release','utf8')
             console.log contents
@@ -148,8 +142,8 @@ class PackageLib
                 @osflavor= val if contents.toLowerCase().indexOf(val.toLowerCase()) != -1
 
         console.log "OS: #{@ostype}, Flavor #{@osflavor}"
-        #detect the installed package manager application only if ostype or flavor is detected.		
-        unless @ostype? or @osflavor?
+        #detect the installed package manager application only if ostype or flavor is detected.
+        unless @ostype is 'Unknown' or @osflavor is 'Unknown'
             #identify the package list from the array for a linux flavor.
             for i in pkgmgrapp
                 pkglist= i.pkg if i.flavor.toLowerCase() is @osflavor.toLowerCase()
@@ -162,62 +156,68 @@ class PackageLib
         #check the npm present
         @npmpresent=isInstalled('npm')
         console.log 'npm present',@npmpresent
-    install:(data,callback)->
-        console.log data
-        exec = require('child_process').exec
-        url = require 'url'
-        parsedurl = url.parse data.source, true
-        console.log parsedurl
-        console.log 'the protocol for the package download is ' + parsedurl.protocol
 
-        switch (parsedurl.protocol)
-            when 'npm:'
-                console.log "npm protocol.. we should do nodejs installation"
-                console.log "we dont update repo currently.. installating with default" unless parsedurl.host?
-                npm_install data,(result)=>
-                    console.log result
-                    callback("{installed}")
+        ###
 
-            when 'deb:'
-                console.log "deb protocol.. we should do debian package installation"
-            else
-                console.log "unknown protocol.. dont know what to do..ignoring"
+    check: (provider, callback) ->
+        callback() unless provider? and provider
+        util.log "making a request to #{provider.metaurl}..."
+        request
+            uri: provider.metaurl
+            timeout: 2000
+          , (err, res, body) ->
+            if err
+                util.log "request failed: "+err
+                return callback()
 
-        callback("{install:true}")
+            try
+                util.log "#{provider.name} metadata http response statusCode: " + res.statusCode
+                if res.statusCode == 200
+                    metadata = JSON.parse body
+                    util.log "metadata: "+metadata
+                    stormdata =
+                        provider: provider.name
+                        tracker: metadata.meta.stormtracker
+                        skey: metadata.uuid
 
-    list:(callback)->
-        res=
-            {
-            'os':''
-            'osflavor':''
-            'dpkg':
-                {
-                'enabled':''
-                'installed':[]
-                }
-            'npm':
-                {
-                'enabled':''
-                'installed':[]
-                }
-            }
-        res.os=@ostype
-        res.osflavor=@osflavor
-        res.npm.enabled=@npmpresent
+                    return callback stormdata if stormdata.serialkey
+            catch error
+                util.log "check failed for #{provider.name}: " + error
 
-        try
-            if @packageApp is 'dpkg'
-                res.dpkg.enabled=true
-                #populate the dpkg package results
-                rundpkg (resultarray)=>
-                    res.dpkg.installed=resultarray
-                    callback(res)
-                    
-            else
-            # currently no support to other package managers
-                callback(res)
-        catch err
-            console.log 'Error catched: ',err
-            callback(res)
+            callback()
 
-module.exports = PackageLib
+    discover: (callback) ->
+        i = 0
+        stormdata = null
+        async.until(
+            () -> # test condition
+                i >= providers.length or stormdata?
+
+            (repeat) => # repeat function
+                @check providers[i++], (match) ->
+                    stormdata = match if match?
+                    setTimeout repeat, 1000
+
+            (err) -> # finally
+                if err or not stormdata?
+                    util.log "unable to discover the running provider environment!"
+                callback stormdata
+        )
+
+    os: ->
+        tmpdir: os.tmpdir()
+        endianness: os.endianness()
+        hostname: os.hostname()
+        type: os.type()
+        platform: os.platform()
+        release: os.release()
+        arch: os.arch()
+        uptime: os.uptime()
+        loadavg: os.loadavg()
+        totalmem: os.totalmem()
+        freemem: os.freemem()
+        cpus: os.cpus()
+        networkInterfaces: os.networkInterfaces()
+
+module.exports = new Environment
+

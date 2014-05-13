@@ -17,7 +17,7 @@ schema =
                 items :
                     type : "string"
                     required: true
-                 
+
 
 #service =
 #       uuid : 'uuid'
@@ -28,7 +28,7 @@ schema =
 #	reload : yes
 
 #Managed Service class holds the information of the services (the service JSON structure, forever object handler )
-class ManagedService
+class StormService
 
     constructor:(config)->
         @name = config.name
@@ -58,7 +58,7 @@ class ServiceManager
         result = validate data,schema
         if result.valid is true
             util.log 'valid JSON data'
-            return true 
+            return true
         else
             util.log result
             return false
@@ -67,12 +67,12 @@ class ServiceManager
         # lookup inside @services
         for service in @services
             if service.name  is  name
-                return service 
+                return service
         #error case
         util.log "managed service object for #{name} is not available in the array"
         return new Error "service not available"
 
-   
+
     addService: (service)=>
         # validate service JSON object
         return new Error "Invalid input data" unless @validateServiceData service
@@ -116,7 +116,7 @@ class ServiceManager
         #get the handler check the service/with uuid isrunning already, if it runs no need to start again.
         fi = @getForeverInstance(ms,uuid)
         return false unless fi instanceof Error
-    
+
         binname = null
         #populate the with absolute path for binary.
         binname = "#{ms.binpath}/#{ms.binary}"
@@ -126,7 +126,7 @@ class ServiceManager
         isexists = fs.existsSync(binname)
         util.log "output of is existsin?" + isexists
         unless isexists
-            util.log "The binary is not present in the system, result" 
+            util.log "The binary is not present in the system, result"
             return false
 
         #make it in forever format [prgname,arg1,arg2...]
@@ -177,7 +177,7 @@ class ServiceManager
             fi.restart()
             util.log "restareted"
             return true
-        
+
     reload: (name, uuid) ->
         util.log 'reload is called'
         #Todo : to be implemented.

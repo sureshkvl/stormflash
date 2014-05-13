@@ -3,14 +3,15 @@ Array::unique = ->
   output[@[key]] = @[key] for key in [0...@length]
   value for key, value of output
 
-class StormFlash
+StormAgent = require './stormagent'
+
+class StormFlash extends StormAgent
 
     validate = require('json-schema').validate
     uuid = require('node-uuid')
     exec = require('child_process').exec
     fs = require 'fs'
     path = require 'path'
-    fileops = require 'fileops'
 
 #    packagelist = require('./packagelib')
 #    @pkglist = new packagelist()
@@ -43,19 +44,23 @@ class StormFlash
                     running:     { type: "boolean" }
                     result:      { type: "string"  }
 
-    constructor: (@include) ->
-        console.log 'stormflash constructor called'
+    constructor: (@app) ->
+        console.log 'StormFlash constructor called with app: #{@app}'
+
+        @activated = false
+
+
         packagelist = require('./packagelib')
         @pkglist = new packagelist()
         processlib = require('./processlib')
         @processmgr = new processlib()
-        environmentlist = require('./environmentlib')
-        @environment = new environmentlist()
+        @env = require './environment'
         @db = require('dirty') '/tmp/stormflash.db'
         @db.on 'load', ->
             console.log 'loaded stormflash.db'
             @forEach (key,val) ->
                 console.log 'found ' + key if val
+        super
 
     new: (desc,id) ->
         module = {}
@@ -185,19 +190,89 @@ class StormFlash
     #To remove module-id from DB
     remove: (module, callback) ->
         stormflashModule = []; exists = 0
-        file = fileops.fileExistsSync "/lib/node_modules/#{module.description.name}"
-        unless file instanceof Error
-            # Return 304 status when module already exist
-            return callback({result:304})
-        else
-            @db.forEach (key,val) ->
-                if val && key != module.id
-                    stormflashModule.push val.description.name
-            console.log 'stormflashModule in DEL: '+ stormflashModule
-            @db.rm module.id, =>
-                @includeModules stormflashModule
-                console.log "removed module ID: #{module.id}"
-                callback({result:200})
+        fs.existsSync "/lib/node_modules/#{module.description.name}", (exists) ->
+            if exists
+                # Return 304 status when module already exist
+                return callback({result:304})
+            else
+                @db.forEach (key,val) ->
+                    if val && key != module.id
+                        stormflashModule.push val.description.name
+                console.log 'stormflashModule in DEL: '+ stormflashModule
+                @db.rm module.id, =>
+                    @includeModules stormflashModule
+                    console.log "removed module ID: #{module.id}"
+                    callback({result:200})
+
+    #
+    # activation logic for connecting into stormstack bolt overlay network
+    #
+    activate: (stormdata, callback) ->
+        async.until(
+            () -> # test condition
+                @activated?
+            (repeat) -> # repeat function
+
+                async.waterfall [
+                    # 1. discover environment
+                    (next) ->
+                        if stormdata
+                            next null, stormdata
+                        else
+                            env.discover (stormdata) ->
+                                if stormdata?
+                                    next null, stormdata
+                                else
+                                    next new Error "unable to discover environment!"
+
+                     # 2. register against stormtracker and retrieve agent ID
+                    (stormdata, next) ->
+                        @register stormdata, (agentId) ->
+                            if agentId
+                                next null, agentId
+                            else
+                                next new Error "unable to register against stormtracker at #{stormdata.stormtracker}!"
+
+                     # 3. generate CSR request
+                    (agentId, next) -> # send CSR request
+                        @generateCSR agentId, (csr) ->
+                            if csr
+                                next null, csr
+                            else
+                                next new Error "unable to generate CSR!"
+
+                     # 4. request CSR signed by stormtracker
+                    (csr, next) ->
+                        @sendCSRRequest csr, (result) ->
+                            if result
+                                next null
+
+                ], (err, result) -> # finally
+                    if result
+                            try
+                                boltContent = fs.readFileSync boltConfigfile
+                                @boltconfig = JSON.parse boltContent
+                            catch
+                                @boltconfig = @boltdata
+                                fileops.updateFile boltConfigfile, JSON.stringify @boltconfig
+                            finally
+                                this.emit "success",@boltconfig
+
+                    callback err, result
+
+
+                activate (err, res) ->
+                    if res
+                        activated = true
+                        repeat
+                    else
+                        util.log "error during activation: #{err}"
+                        setInterval repeat,5000
+            (err) -> # final call
+
+        )
+
+
 
     # Garbage collect every 2 sec
     # Run node with --expose-gc
@@ -211,5 +286,5 @@ class StormFlash
 instance = null
 module.exports = (args) ->
     if not instance?
-        instance = new StormFlash args
+        instance = new StormAgent args
     return instance
