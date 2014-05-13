@@ -1,19 +1,24 @@
 # stormflash agent API endpoints
 # when 'imported' from another stormflash agent,
 
+#require './spm'
+
 @include = ->
 
     validate = require('json-schema').validate
+    schema = {}
 
     @get '/': ->
-        res = @storm.env.os()
+        util = require('util')
+        util.log "get / with agent: "+util.inspect @agent
+        res = @agent.env.os()
         console.log res
         @send res
 
 # /environment
 
     @get '/environment': ->
-        res = @storm.env.os()
+        res = @agent.env.os()
         console.log res
         @send res
 
@@ -23,7 +28,6 @@
        @send x
 
 # /packages
-    schema = {}
     schema.packages =
         name: "packages"
         type: "object"
@@ -36,18 +40,18 @@
     @post '/packages': ->
         console.log JSON.stringify @body
         result = validate @body, schema.packages
-        console.log result
-        @storm.install @body, (res) =>
-            console.log res
+        @agent.log result
+        pkg = new StormPackage @body
+        @agent.install pkg, (res) =>
+            @agent.log res
             @send res
 
     @get '/packages': ->
-        @storm.list (res) =>
+        @agent.list (res) =>
             console.log res
             @send res
 
 # /personality
-
     schema.personality =
         name: "personality"
         type: "object"
@@ -104,7 +108,7 @@
     exec = require('child_process').exec
 
     @get '/plugins': ->
-        res = @storm.list()
+        res = @agent.list()
         console.log res
         @send res
 
@@ -113,14 +117,14 @@
     # 2. destructure the inbound object with proper schema
     validateModuleDesc = ->
         console.log @body
-        result = @storm.validate @body
+        result = @agent.validate @body
         console.log result
         return @next new Error "Invalid module posting!: #{result.errors}" unless result.valid
         @next()
 
     # helper routine for retrieving module data from dirty db
     loadModule = ->
-        result = @storm.lookup @params.id
+        result = @agent.lookup @params.id
         unless result instanceof Error
             @request.module = result
             @next()
@@ -128,8 +132,8 @@
             return @next result
 
     @post '/plugins', validateModuleDesc, ->
-        module = @storm.new @body
-        @storm.add module,'', true, (res) =>
+        module = @agent.new @body
+        @agent.add module,'', true, (res) =>
             unless res instanceof Error
                 if res.status == 304
                     @send 304
@@ -177,13 +181,13 @@
         # 1. need to make sure the incoming JSON is well formed
         # 2. destructure the inbound object with proper schema
         # 3. perform 'extend' merge of inbound module data with existing data
-        module = @storm.new @body, @params.id
+        module = @agent.new @body, @params.id
 
         # desc = @body
         # @body = entry
         # @body.description ?= desc if desc?
 
-        @storm.update module, @request.module, (res) =>
+        @agent.update module, @request.module, (res) =>
             unless res instanceof Error
                 if res.status == 304
                     @send 304
@@ -194,7 +198,7 @@
 
     @del '/plugins/:id', loadModule, ->
         # 1. remove the module entry from DB
-        @storm.remove @request.module, (res) =>
+        @agent.remove @request.module, (res) =>
             unless res instanceof Error
                 if res.result == 304
                     @send 304

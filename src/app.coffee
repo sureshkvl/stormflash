@@ -58,24 +58,23 @@ storm =
             retry: 3
 
 # start the stormflash agent instance
-StormAgent = require './stormagent'
-agent = new StormAgent config
+StormFlash = require './stormflash'
+agent = new StormFlash config
 agent.on "ready", ->
-    @log "loading API endpoints"
-    @include './api'
     @log "starting activation..."
     @activate storm, (err, status) =>
-        @log "activation completed with ", JSON.stringify status
+        @log "activation completed with:\n", @inspect status
 
 agent.on "active", (storm) ->
     @log "firing up stormbolt..."
-    stormbolt = require 'stormbolt'
-    bolt = new stormbolt storm
+    #stormbolt = require 'stormbolt'
+    #bolt = new stormbolt storm
     # bolt.on "error", (err) =>
     #     @log "bolt error, force agent re-activation..."
     #     @activate config.storm, (err, status) =>
     #         @log "re-activation completed with #{status}"
     #bolt.start()
+    @monitor storm, (err, status) =>
 
 agent.run()
 
