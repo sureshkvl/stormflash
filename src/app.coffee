@@ -40,7 +40,9 @@ catch error
 
 storm = config.storm
 
+# COMMENT OUT below "storm" object FOR REAL USE
 # test storm data for manual config
+# storm = null <-- should be the default
 storm =
     provider: "openstack"
     tracker: "https://allow@stormtracker.dev.intercloud.net"
@@ -48,14 +50,15 @@ storm =
     id: "testing-uuid"
     cert: ""
     key: ""
-    bolt:
-        remote: "bolt://bolt.dev.intercloud.net"
-        listen: 123
-        local: 8017
-        local_forwarding_ports: [ 8000 ]
-        beacon:
-            interval: 10
-            retry: 3
+    ca: ""
+    uplinks: [ "bolt://stormtower.dev.intercloud.net" ]
+    uplinkStrategy: "round-robin"
+    allowRelay: true
+    relayPort: 8017
+    allowedPorts: [ 5000 ]
+    listenPort: 443
+    beaconInterval: 10
+    beaconRetry: 3
 
 # start the stormflash agent instance
 StormFlash = require './stormflash'
@@ -67,13 +70,13 @@ agent.on "ready", ->
 
 agent.on "active", (storm) ->
     @log "firing up stormbolt..."
-    #stormbolt = require 'stormbolt'
-    #bolt = new stormbolt storm
-    # bolt.on "error", (err) =>
-    #     @log "bolt error, force agent re-activation..."
-    #     @activate config.storm, (err, status) =>
-    #         @log "re-activation completed with #{status}"
-    #bolt.start()
+    stormbolt = require 'stormbolt'
+    bolt = new stormbolt storm
+     bolt.on "error", (err) =>
+         @log "bolt error, force agent re-activation..."
+         @activate config.storm, (err, status) =>
+             @log "re-activation completed with #{status}"
+    bolt.start()
     @monitor storm, (err, status) =>
 
 agent.run()
