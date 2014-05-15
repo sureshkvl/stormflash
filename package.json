@@ -1,7 +1,7 @@
 {
 	"name": "stormflash",
 	"description": "stormflash provides remote application lifecycle management on any arbitrary endpoint",
-	"version": "0.7.1",
+	"version": "0.7.2",
 	"author": "Peter K. Lee",
 	"homepage": "http://stormstack.org",
 	"repository": {
@@ -18,7 +18,7 @@
 		"lazy": "1.0.x",
 		"async": "0.8.x",
 		"node-uuid": "1.3.x",
-		"optimist":"0.6.0",
+		"minimist":"0.1.0",
 		"find-in-path":"0.0.x",
 		"forever-monitor":"1.2.x"
 	},
@@ -34,16 +34,19 @@
 		"port": 8000,
 		"logfile": "/var/log/stormflash.log",
 		"datadir": "/var/stormflash",
-		"functions": [
-            "agent.monitor",
-            "agent.packages.install",
-            "agent.packages.remove",
-            "agent.packages.update",
-            "agent.packages.list",
-            "agent.services.start",
-            "agent.services.stop",
-            "agent.services.reload"
-		]
+		"storm": {
+			"functions": [
+				"agent.monitor",
+				"agent.packages.install",
+				"agent.packages.remove",
+				"agent.packages.update",
+				"agent.packages.list",
+				"agent.services.start",
+				"agent.services.stop",
+				"agent.services.reload"
+			],
+			"plugin": "lib/plugin"
+		}
 	},
 	"scripts": {
 		"prepublish": "find src -name '*.coffee' | xargs coffee -o lib -c",

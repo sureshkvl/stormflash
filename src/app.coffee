@@ -1,42 +1,17 @@
-argv = require('optimist')
-    .usage('Start stormflash agent with a configuration file.\nUsage: $0')
-    .demand('c')
-    .default('c','/etc/stormstack/stormflash.json')
-    .alias('c', 'config')
-    .describe('c', 'location of stormflash configuration file')
-    .argv
+argv = require('minimist')(process.argv.slice(2))
+if argv.h?
+    console.log """
+        -h view this help
+        -p port number
+        -l logfile
+        -d datadir
+    """
+    return
 
-util=require('util')
-
-util.log "stormflash agent brewing up a new storm..."
-# config file processing logic block
-fs = require 'fs'
-config=null
-
-try
-    config = JSON.parse fs.readFileSync argv.config
-catch error
-    util.log error
-    util.log "stormflash agent using default storm parameters..."
-    # whether error with config parsing or not, we will handle using config
-    config=
-        port : 8000, #default port
-        logfile : "/var/log/stormflash.log",
-        datadir : "/var/stormflash",
-        stormtracker : "auto",
-        serialKey : "unknown",
-        autobolt : true
-finally
-    util.log "stormflash agent infused with:\n" + util.inspect config
-
-#check and create the necessary data dirs
-fs=require('fs')
-try
-    fs.mkdirSync("#{config.datadir}") unless fs.existsSync("#{config.datadir}")
-    fs.mkdirSync("#{config.datadir}/db")  unless fs.existsSync("#{config.datadir}/db")
-    fs.mkdirSync("#{config.datadir}/certs") unless fs.existsSync("#{config.datadir}/certs")
-catch error
-    util.log "Error in creating data dirs"
+config = {}
+config.port    = argv.p ? 5000
+config.logfile = argv.l ? "/var/log/stormflash.log"
+config.datadir = argv.d ? "/var/stormstack"
 
 storm = config.storm
 
@@ -63,22 +38,30 @@ storm =
 # start the stormflash agent instance
 StormFlash = require './stormflash'
 agent = new StormFlash config
-agent.on "ready", ->
+agent.on "zappa.ready", ->
     @log "starting activation..."
     @activate storm, (err, status) =>
         @log "activation completed with:\n", @inspect status
 
-agent.on "active", (storm) ->
+agent.on "activated", (storm) ->
     @log "firing up stormbolt..."
-    stormbolt = require 'stormbolt'
-    bolt = new stormbolt storm
-     bolt.on "error", (err) =>
-         @log "bolt error, force agent re-activation..."
-         @activate config.storm, (err, status) =>
-             @log "re-activation completed with #{status}"
-    bolt.start()
+    stormbolt = @import 'stormbolt'
+    try
+        bolt = new stormbolt storm.bolt
+        bolt.on "error", (err) =>
+            @log "bolt error, force agent re-activation..."
+            @activate config.storm, (err, status) =>
+                @log "re-activation completed with #{status}"
+        bolt.run()
+    catch error
+        @log "bolt fizzled... should do something smart here"
     @monitor storm, (err, status) =>
 
 agent.run()
 
-
+# Garbage collect every 2 sec
+# Run node with --expose-gc
+if gc?
+    setInterval (
+        () -> gc()
+    ), 2000

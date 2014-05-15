@@ -47,20 +47,10 @@ class StormFlash extends StormAgent
     constructor: (config) ->
         super config
 
-        extend = require('util')._extend
+        # key routine to import itself into agent base
+        @import module
 
-        pkgconfig = require('../package').config
-        if pkgconfig?
-            @config = extend(@config, pkgconfig)
-            @functions.push pkgconfig.functions... if pkgconfig.functions?
-
-        @log "StormFlash - initialized with:\n"+@inspect @functions
-
-        os = @env.os()
-
-        @on 'ready', (zappa) =>
-            @log "loading API endpoints"
-            @include require './api'
+        @log "initialized with:\n" + @inspect @functions
 
         @on 'installed', (pkg) =>
             if pkg instanceof StormPackage
@@ -81,16 +71,17 @@ class StormFlash extends StormAgent
         processlib = require('./processlib')
         @processmgr = new processlib()
 
-        #@db = require('dirty') "#{@config.datadir}/stormflash.db"
-        @db = require('dirty')()
-        @db.on 'load', (count) =>
-            @log 'loaded stormflash.db'
-            try
-                @db.forEach (key,val) ->
-                    console.log 'found ' + key if val
-                    @emit 'installed', JSON.parse val
-            catch err
-                @log err
+        @newdb "#{@config.datadir}/stormflash.db", (err,@db) =>
+            return unless db
+
+            @db.on 'load', (count) =>
+                @log 'loaded stormflash.db'
+                try
+                    @db.forEach (key,val) ->
+                        console.log 'found ' + key if val
+                        @emit 'installed', JSON.parse val
+                catch err
+                    @log err
 
     new: (desc,id) ->
         module = {}
