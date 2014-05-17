@@ -3,21 +3,15 @@ Array::unique = ->
   output[@[key]] = @[key] for key in [0...@length]
   value for key, value of output
 
-StormAgent = require 'stormagent'
+StormBolt = require 'stormbolt'
 
-class StormFlash extends StormAgent
+class StormFlash extends StormBolt
 
     validate = require('json-schema').validate
     uuid = require('node-uuid')
     exec = require('child_process').exec
     fs = require 'fs'
     path = require 'path'
-
-#    packagelist = require('./packagelib')
-#    @pkglist = new packagelist()
-
-#    processmgr = require('./processlib')
-#    @processmgr = new processmgr()
 
     schema =
         name: "module"
@@ -50,62 +44,115 @@ class StormFlash extends StormAgent
         # key routine to import itself into agent base
         @import module
 
-        @log "initialized with:\n" + @inspect @functions
+        @packages = {}
+        @instances = {}
 
         @on 'installed', (pkg) =>
-            if pkg instanceof StormPackage
-                @packages.push pkg
-                unless pkg.saved
-                    pkg.saved = true
+            if pkg? and pkg instanceof StormPackage
+                unless pkg.id?
+                    pkg.id = uuid.v4()
                     @db.set pkg.id, JSON.stringify pkg, =>
                         @emit 'changed'
-
-                @functions.push pkg.functions... if pkg.functions?
+                @import pkg.name if pkg.npm
+                @packages[pkg.id] = pkg
+                @log "[#{pkg.name}] is currently installed as:", pkg
 
         @on 'removed', (pkg) =>
-            # find the pkg in packages and remove it
-            @packages
+            if pkg? and pkg instanceof StormPackage
+                delete @packages[pkg.id] if pkg.id?
+                @emit 'changed'
 
-        #@spm = require('./spm')
+        @spm = require('./spm')
+        @spm.on 'installed', (pkg) =>
+
 
         processlib = require('./processlib')
         @processmgr = new processlib()
 
-        @newdb "#{@config.datadir}/stormflash.db", (err,@db) =>
-            return unless db
+        @newdb "#{@config.datadir}/stormflash.db", (err,@pkgdb) =>
+            return unless pkgdb
 
-            @db.on 'load', (count) =>
+            @pkgdb.on 'load', (count) =>
                 @log 'loaded stormflash.db'
                 try
-                    @db.forEach (key,val) ->
+                    @pkgdb.forEach (key,val) =>
                         console.log 'found ' + key if val
                         @emit 'installed', JSON.parse val
                 catch err
                     @log err
 
-    new: (desc,id) ->
-        module = {}
-        if id
-            module.id = id
-        else
-            module.id = uuid.v4()
-        module.description = desc
-        return module
+    status: ->
+        state = super
+        state.packages = @packages
+        state.instances = @pmgr.instances()
+        state
 
-    lookup: (id) ->
-        console.log "looking up module ID: #{id}"
-        entry = @db.get id
-        if entry
+    run: (config) ->
 
-            if schema?
-                console.log 'performing schema validation on retrieved module entry'
-                result = validate entry, schema
-                console.log result
-                return new Error "Invalid module retrieved: #{result.errors}" unless result.valid
+        if config?
+            @log 'run called with:', config
+            res = validate config, schema
+            @log 'run - validation of runtime config:', res
+            @config = extend(@config, config) if res.valid
 
-            return entry
-        else
-            return new Error "No such module ID: #{id}"
+        # start the parent bolt and agent web api instance...
+        super config
+
+        # start monitoring the packages and processes
+
+        async.whilst(
+            () ->
+                @state.running
+
+            (repeat) =>
+                # inspect all packages retrieved from SPM and discover newly 'installed' packages
+                for pkg in @spm.packages()
+                    do (pkg) => # issue all checks in parallel
+                        unless @check pkg
+                            @emit 'installed', pkg
+
+                # inspect all packages currently known to agent and discover newly 'removed' packages
+                for key, pkg of @packages
+                    unless @spm.exists pkg
+                        @emit 'removed', pkg
+
+                setTimeout repeat, @repeatDelay
+
+            (err) =>
+                @log "package monitoring stopped..."
+
+    install: (pinfo, callback) ->
+        # 1. check if component already installed according to DB, if so, we skip including...
+
+        # check if already exists
+        pkg = @spm.packages pinfo
+        if pkg?
+            return callback pkg
+
+        @spm.install pinfo, (pkg) =>
+            # should return something other than 500...
+            return callback 500 if pkg instanceof Error
+            if pkg.npm
+                @import pkg.name
+            @emit 'installed', pkg
+            callback pkg
+
+    remove: (pinfo, callback) ->
+        stormflashModule = []; exists = 0
+        fs.existsSync "/lib/node_modules/#{module.description.name}", (exists) ->
+            if exists
+                # Return 304 status when module already exist
+                return callback({result:304})
+            else
+                @db.forEach (key,val) ->
+                    if val && key != module.id
+                        stormflashModule.push val.description.name
+                console.log 'stormflashModule in DEL: '+ stormflashModule
+                @db.rm module.id, =>
+                    @includeModules stormflashModule
+                    console.log "removed module ID: #{module.id}"
+                    callback({result:200})
+
 
     getCommand: (installer, command, target, version) ->
         append = ''
@@ -116,13 +163,6 @@ class StormFlash extends StormAgent
             else
                 console.log new Error "invalid command #{installer}.#{command} for #{target}!"
                 return null
-
-    list: ->
-        res = { 'modules': [] }
-        @db.forEach (key,val) ->
-            res.modules.push val if val
-        console.log 'listing...'
-        return res
 
     validate: (module) ->
         console.log 'performing schema validation on module description'
@@ -139,52 +179,6 @@ class StormFlash extends StormAgent
             else
                 callback error
 
-    ## To include modules in DB to zappa server
-    includeModules: (stormflashModule) ->
-        stormflashModule = stormflashModule.unique()
-        if stormflashModule.length > 0
-            for module in stormflashModule
-                console.log "include /lib/node_modules/#{module}"
-                @include require "/lib/node_modules/#{module}"
-
-    ##
-    # For POST/PUT module endpoints
-    # check module installed in /lib/node_modules directory with version.
-    # For PUT if no change in version gives error
-    # Entry added to DB is success.
-
-    install: (pkg, callback) ->
-        # 1. check if component already installed according to DB, if so, we skip including...
-        exists = 0; stormflashModule = []; exists = {}
-
-        @db.forEach (key,val) ->
-            if val && type == true && val.description.name == module.description.name then exists = 1
-            stormflashModule.push val.description.name if val
-
-        console.log 'stormflashModule: '+ stormflashModule
-        if type == true && exists == 1
-            # Return 304 status when module already exist
-            return callback({"status": 304})
-
-        if type == false
-            if module.description.version && entry.description.version
-                if module.description.version == entry.description.version
-                    # Return 304 status when module and version already exist
-                    return callback({"status": 304})
-
-
-        @check module.description, (error) =>
-            unless error instanceof Error
-                stormflashModule.push module.description.name
-                @includeModules stormflashModule
-                # 2. add module into stormflash
-                module.status = { installed: true }
-                @db.set module.id, module, ->
-                    callback(module)
-            else
-                console.log 'module check: '+ error
-                return callback new Error "#{module.description.name} module not installed!"
-
     update: (module,entry, callback) ->
         if module.id
             @add module,entry, false, (res) =>
@@ -197,25 +191,6 @@ class StormFlash extends StormAgent
 
     ## check for module in /lib/node_modules/module-name directory
     #To remove module-id from DB
-    remove: (module, callback) ->
-        stormflashModule = []; exists = 0
-        fs.existsSync "/lib/node_modules/#{module.description.name}", (exists) ->
-            if exists
-                # Return 304 status when module already exist
-                return callback({result:304})
-            else
-                @db.forEach (key,val) ->
-                    if val && key != module.id
-                        stormflashModule.push val.description.name
-                console.log 'stormflashModule in DEL: '+ stormflashModule
-                @db.rm module.id, =>
-                    @includeModules stormflashModule
-                    console.log "removed module ID: #{module.id}"
-                    callback({result:200})
-
-    # actively monitor the current environment for changes in packages
-    monitor: (storm, callback) ->
-        console.log "monitoring"
 
 
 ##

@@ -1,31 +1,13 @@
 # stormflash agent API endpoints
 # when 'imported' from another stormflash agent,
 
-#require './spm'
+spm = require './spm'
 
 @include = ->
 
     validate = require('json-schema').validate
+    agent = @settings.agent
     schema = {}
-
-    @get '/': ->
-        util = require('util')
-        util.log "get / with agent: "+util.inspect @agent
-        res = @agent.env.os()
-        console.log res
-        @send res
-
-# /environment
-
-    @get '/environment': ->
-        res = @agent.env.os()
-        console.log res
-        @send res
-
-    @get '/bolt': ->
-       x= require('./activation').getBoltData()
-       console.log x
-       @send x
 
 # /packages
     schema.packages =
@@ -40,67 +22,14 @@
     @post '/packages': ->
         console.log JSON.stringify @body
         result = validate @body, schema.packages
-        @agent.log result
-        pkg = new StormPackage @body
-        @agent.install pkg, (res) =>
-            @agent.log res
+        agent.log "validation:", result
+        agent.install @body, (res) =>
             @send res
 
     @get '/packages': ->
-        @agent.list (res) =>
+        agent.list (res) =>
             console.log res
             @send res
-
-# /personality
-    schema.personality =
-        name: "personality"
-        type: "object"
-        items:
-            type: "object"
-            additionalProperties: false
-            properties:
-                path:     { type: "string", required: true }
-                contents: { type: "string", required: true }
-                postxfer: { type: "string" }
-
-    @post '/personality': ->
-        console.log 'performing schema validation on incoming service JSON'
-
-        #console.log @body
-
-        result = validate @body, schema.personality
-        console.log result
-        return @next new Error "Invalid personality posting!: #{result.errors}" unless result.valid
-
-        fs = require 'fs'
-        exec = require('child_process').exec
-        path = require 'path'
-
-        for p in @body.personality
-            #console.log p
-            do (p) ->
-                console.log "writing personality to #{p.path}..."
-                # debug /tmp
-                # p.path = '/tmp'+p.path
-                dir = path.dirname p.path
-                unless path.existsSync dir
-                    exec "mkdir -p #{dir}", (error, stdout, stderr) =>
-                        unless error
-                            fs.writeFile p.path, new Buffer(p.contents || '',"base64"), ->
-                                # this feature currently disabled DO NOT re-enable!
-                                if p.postxfer?
-                                    exec "#{p.postxfer}", (error, stdout, stderr) ->
-                                        console.log "issuing '#{p.postxfer}'... stderr: #{stderr}" if error
-                                        console.log "issuing '#{p.postxfer}'... stdout: #{stdout}" unless error
-                else
-                    fs.writeFile p.path, new Buffer(p.contents || '',"base64"), ->
-                        # this feature currently disabled DO NOT re-enable!
-                        if p.postxfer?
-                            exec "#{p.postxfer}", (error, stdout, stderr) ->
-                                console.log "issuing '#{p.postxfer}'... stderr: #{stderr}" if error
-                                console.log "issuing '#{p.postxfer}'... stdout: #{stdout}" unless error
-
-        @send { result: 'success' }
 
 # /plugins
 
@@ -108,7 +37,7 @@
     exec = require('child_process').exec
 
     @get '/plugins': ->
-        res = @agent.list()
+        res = agent.list()
         console.log res
         @send res
 
@@ -117,14 +46,14 @@
     # 2. destructure the inbound object with proper schema
     validateModuleDesc = ->
         console.log @body
-        result = @agent.validate @body
+        result = agent.validate @body
         console.log result
         return @next new Error "Invalid module posting!: #{result.errors}" unless result.valid
         @next()
 
     # helper routine for retrieving module data from dirty db
     loadModule = ->
-        result = @agent.lookup @params.id
+        result = agent.lookup @params.id
         unless result instanceof Error
             @request.module = result
             @next()
@@ -132,8 +61,8 @@
             return @next result
 
     @post '/plugins', validateModuleDesc, ->
-        module = @agent.new @body
-        @agent.add module,'', true, (res) =>
+        module = agent.new @body
+        agent.add module,'', true, (res) =>
             unless res instanceof Error
                 if res.status == 304
                     @send 304
@@ -181,13 +110,13 @@
         # 1. need to make sure the incoming JSON is well formed
         # 2. destructure the inbound object with proper schema
         # 3. perform 'extend' merge of inbound module data with existing data
-        module = @agent.new @body, @params.id
+        module = agent.new @body, @params.id
 
         # desc = @body
         # @body = entry
         # @body.description ?= desc if desc?
 
-        @agent.update module, @request.module, (res) =>
+        agent.update module, @request.module, (res) =>
             unless res instanceof Error
                 if res.status == 304
                     @send 304
@@ -198,7 +127,7 @@
 
     @del '/plugins/:id', loadModule, ->
         # 1. remove the module entry from DB
-        @agent.remove @request.module, (res) =>
+        agent.remove @request.module, (res) =>
             unless res instanceof Error
                 if res.result == 304
                     @send 304

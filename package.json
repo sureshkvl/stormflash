@@ -1,7 +1,7 @@
 {
 	"name": "stormflash",
 	"description": "stormflash provides remote application lifecycle management on any arbitrary endpoint",
-	"version": "0.7.2",
+	"version": "0.7.3",
 	"author": "Peter K. Lee",
 	"homepage": "http://stormstack.org",
 	"repository": {
@@ -9,10 +9,7 @@
 		"url": "git://github.com/stormstack/stormflash.git"
 	},
 	"dependencies": {
-		"stormagent": "0.1.x",
 		"stormbolt": "0.1.x",
-       	"zappajs": "0.3.x",
-		"dirty": "0.9.x",
 		"request": "2.34.x",
 		"json-schema": "0.2.0",
 		"lazy": "1.0.x",
@@ -33,19 +30,19 @@
 	"config": {
 		"port": 8000,
 		"logfile": "/var/log/stormflash.log",
-		"datadir": "/var/stormflash",
 		"storm": {
 			"functions": [
-				"agent.monitor",
-				"agent.packages.install",
-				"agent.packages.remove",
-				"agent.packages.update",
-				"agent.packages.list",
-				"agent.services.start",
-				"agent.services.stop",
-				"agent.services.reload"
+				"agent.install",
+				"agent.remove",
+				"agent.upgrade",
+				"agent.list",
+				"agent.start",
+				"agent.stop",
+				"agent.reload"
 			],
-			"plugin": "lib/plugin"
+			"plugins": [
+				"lib/plugin"
+			]
 		}
 	},
 	"scripts": {
