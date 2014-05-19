@@ -1,37 +1,43 @@
 # stormflash agent API endpoints
 # when 'imported' from another stormflash agent,
 
-spm = require './spm'
+StormFlash = require './stormflash'
 
 @include = ->
 
-    validate = require('json-schema').validate
     agent = @settings.agent
-    schema = {}
-
-# /packages
-    schema.packages =
-        name: "packages"
-        type: "object"
-        required: true
-        properties:
-            name : { type: "string", "required": true }
-            version : { type: "string", "required": true }
-            source : { type: "string", "required": true }
 
     @post '/packages': ->
-        console.log JSON.stringify @body
-        result = validate @body, schema.packages
-        agent.log "validation:", result
-        agent.install @body, (res) =>
-            @send res
+        @send agent.install new StormFlash.StormPackage null,@body
 
     @get '/packages': ->
-        agent.list (res) =>
-            console.log res
-            @send res
+        @send agent.packages.list()
 
-# /plugins
+    @get '/packages/:id': ->
+        match = agent.tokens.get @params.id
+        if match?
+            match.rule = agent.rules.get match.data.ruleId
+            @send match
+        else
+            @send 404
+
+    @put '/packages/:id': ->
+        @send new Error "updating package currently not supported!"
+        ###
+        match = agent.packages.get @params.id
+        if match?
+            @send agent.upgrade match, @body
+        else
+            @send 404
+        ###
+
+    @del '/packages/:id': ->
+        match = agent.packages.get @params.id
+        if match?
+            @send agent.remove match
+        else
+            @send 404
+
 
     fs = require 'fs'
     exec = require('child_process').exec
