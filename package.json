@@ -28,7 +28,6 @@
 	},
 	"main": "./lib/stormflash",
 	"config": {
-		"port": 8000,
 		"logfile": "/var/log/stormflash.log",
 		"storm": {
 			"functions": [
@@ -39,6 +38,9 @@
 				"agent.start",
 				"agent.stop",
 				"agent.reload"
+			],
+			"events": [
+
 			],
 			"plugins": [
 				"lib/plugin"

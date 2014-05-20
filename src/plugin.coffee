@@ -1,14 +1,14 @@
 # stormflash agent API endpoints
 # when 'imported' from another stormflash agent,
 
-StormFlash = require './stormflash'
+StormPackage = require('./spm').StormPackage
 
 @include = ->
 
     agent = @settings.agent
 
     @post '/packages': ->
-        @send agent.install new StormFlash.StormPackage null,@body
+        @send agent.install new StormPackage null,@body
 
     @get '/packages': ->
         @send agent.packages.list()

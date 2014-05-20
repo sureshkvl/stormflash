@@ -5,25 +5,6 @@ Array::unique = ->
 
 StormData = require('stormagent').StormData
 
-class StormPackage extends StormData
-
-    schema =
-        name: "package"
-        type: "object"
-        required: true
-        properties:
-            name : { type: "string", "required": true }
-            version : { type: "string", "required": true }
-            source : { type: "string", "required": true }
-
-    constructor: (id, data) ->
-        super id, data, schema
-        # process source and find out type
-
-    install: ->
-        # do some type of check if installed in the system
-
-
 class StormInstance extends StormData
 
     schema =
@@ -40,70 +21,9 @@ class StormInstance extends StormData
 
 #-----------------------------------------------------------------
 
-StormRepository = require('stormagent').StormRepository
+StormRegistry = require('stormagent').StormRegistry
 
-class StormPackages extends StormRepository
-
-    async = require 'async'
-
-    constructor: (filename) ->
-        @on 'load', (key,val) ->
-            entry = new StormPackage key,val
-            if entry?
-                entry.saved = true
-                @add key, entry
-
-        @on 'added', (pkg) ->
-            if pkg.npm
-                @import pkg.name
-
-        @on 'removed', (pkg) ->
-            pkg.remove() if pkg.remove?
-
-        #spm is the repository of system installed packages
-        @spm = require('./spm')
-
-        super filename
-
-    get: (key) ->
-        entry = super key
-
-    add: (key, pkg) ->
-        entry = super key, pkg
-
-    match: (pdata) ->
-        for key, pkg of @entries
-            if pkg.data.name is pdata.name and pkg.data.version is pdata.version and pkg.data.source is pdata.source
-                return key
-        false
-
-    monitor: (interval) ->
-        async.whilst(
-            () =>
-                @running
-            (repeat) =>
-                # inspect all packages retrieved from SPM and discover newly 'installed' packages
-                for pdata in @spm.list()
-                    do (pdata) => # issue all checks in parallel
-                        unless @match pdata
-                            @add null, new StormPackage null, pkg
-
-                # inspect all packages currently known to agent and discover newly 'removed' packages
-                for key, pkg of @entries
-                    unless pkg.installed()
-                        @remove key
-                    ###
-                    unless @spm.exists pkg.data
-                        @remove key
-                    ###
-
-                setTimeout repeat, interval
-
-            (err) =>
-                @log "package monitoring stopped..."
-        )
-
-class StormInstances extends StormRepository
+class StormInstances extends StormRegistry
     constructor: (filename) ->
         @on 'load', (key,val) ->
             entry = new StormInstance key,val
@@ -113,6 +33,9 @@ class StormInstances extends StormRepository
 
         @on 'removed', (token) ->
             token.destroy() if token.destroy?
+
+        processlib = require('./processlib')
+        @processmgr = new processlib()
 
         super filename
 
@@ -139,13 +62,6 @@ class StormFlash extends StormBolt
         @packages  = new StormPackages  "#{@config.datadir}/packages.db"
         @instances = new StormInstances "#{@config.datadir}/instances.db"
 
-        @on 'removed', (pkg) =>
-            if pkg? and pkg instanceof StormPackage
-                delete @packages[pkg.id] if pkg.id?
-                @emit 'changed'
-
-        processlib = require('./processlib')
-        @processmgr = new processlib()
 
     status: ->
         state = super
@@ -167,9 +83,10 @@ class StormFlash extends StormBolt
         super config
 
         # start monitoring the packages and processes
-        @spm.monitor @config.repeatdelay
+        @packages.monitor  @config.repeatdelay
+        @instances.monitor @config.repeatdelay
 
-    install: (pkg, callback) ->
+    install: (pinfo, callback) ->
         # 1. check if component already installed according to DB, if so, we skip including...
 
         # check if already exists
@@ -185,7 +102,7 @@ class StormFlash extends StormBolt
             @emit 'installed', pkg
             callback pkg
 
-    remove: (pinfo, callback) ->
+    uninstall: (pinfo, callback) ->
         stormflashModule = []; exists = 0
         fs.existsSync "/lib/node_modules/#{module.description.name}", (exists) ->
             if exists
@@ -200,7 +117,6 @@ class StormFlash extends StormBolt
                     @includeModules stormflashModule
                     console.log "removed module ID: #{module.id}"
                     callback({result:200})
-
 
     getCommand: (installer, command, target, version) ->
         append = ''
