@@ -48,8 +48,8 @@
 		}
 	},
 	"scripts": {
-		"prepublish": "find src -name '*.coffee' | xargs coffee -o lib -c",
-		"start": "node lib/app.js"
+		"prepublish": "mkdir -p lib; coffee -o lib -c src",
+		"start": "node lib/app"
 	},
 	"contributors": [
 		"Suresh Kumar",
