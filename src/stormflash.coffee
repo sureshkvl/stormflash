@@ -13,11 +13,20 @@ class StormInstance extends StormData
         required: true
         properties:
             name : { type: "string", "required": true }
-            version : { type: "string", "required": true }
-            source : { type: "string", "required": true }
+            path : { type: "string", "required": true }
+            pid  : { type: "integer", "required" : false }
+            monitor: { type: "boolean", "required" : false}
+            args:
+                type: "array"
+                required: false
+                items:
+                    type: "string"
+                    required: false
+                
 
     constructor: (id, data) ->
         super id, data, schema
+
 
 #-----------------------------------------------------------------
 
@@ -31,19 +40,135 @@ class StormInstances extends StormRegistry
                 entry.saved = true
                 @add key, entry
 
-        @on 'removed', (token) ->
-            token.destroy() if token.destroy?
+        @on 'removed', (key) ->
+            # an entry is removed in Registry
 
-        processlib = require('./processlib')
-        @processmgr = new processlib()
+        processmgr = require('./processmgr').ProcessManager
+        @processmgr = new processmgr()
+        @processmgr.on "started", (key, pid) ->
+            entry = @entries[key]
+            return unless entry?
+            entry.data.pid = pid
+            entry.status = "running"
+            @update key, entry.data
+            @processmgr.attach pid
+
+        @processmgr.on "error", (error, key, pid) ->
+            #when a process failed to start, what should be done?
+            @log "Error while starting the process", error
+            entry.status = "error"
+
+        @processmgr.on "signal", (signal, pid, key) ->
+            switch signal
+                when "stopped", "killed", "exited"
+                    entry = @entries[key]
+                    if entry isnt null and entry.data.monitor is true
+                        # process sent signal 
+                        @processmgr.sendisgnal pid, SIGKILL
+                        @processmgr.start
+
+        @processmgr.on "attachError", (err, pid, key) ->
+            entry = @entries[key]
+            if entry isnt null
+                entry.status = "error"
+                @log "Failed to attach for pid " , pid , "Reason is ", err
+
+        @processmgr.on "detachError", (err, pid, key) ->
+            entry = @entries[key]
+            if entry isnt null
+                entry.status = "error"
+                @log "Failed to detach for pid " , pid , "Reason is ", err
+
+        @processmgr.on "stopped", (signal, key, pid) ->
+            # restart the process if entry has monitor option set
+            # if stopped gracefully dont start it again
+            entry = @entries[key]
+            @log "process stopped due to signal ", signal
+            if signal is not "graceful"
+                @processmgr.start  entry.name, entry.path, entry.args, entry.pid, key if entry isnt null
+
+        @processmgr.on "attached", (err, pid, key, result) ->
+            return if err?
+            entry = @entries[key]
+            if entry isnt null
+                entry.status = "running|monitored"
+                # Now start monitoring it
+                @emit "monitor", pid, key
+
+        @processmgr.on "monitor", (pid, key) ->
+            @processmgr.monitor pid, key
+
+        @processmgr.on "detached", (pid) ->
+            entry = @entries[key]
+            if entry isnt null
+                entry.status = "running"
+
 
         super filename
 
+    # get storminstance details
     get: (key) ->
         entry = super key
+        return unless entry?
+        entry.data.id = entry.id
+        entry.data
+
+
+    add: (key, val) ->
+        if key isnt null  and val isnt null
+            super key, val
+            # Start the instance with provided arguments
+            @processmgr.start entry.name, entry.path, entry.args, entry.pid, key  if entry isnt null
+
+
+    remove: (key) ->
+        # Set monitoring to false and stop from the process
+        entry = @entries[key]
+        if entry isnt null
+            entry.monitor = false
+            @processmgr.stop entry.pid, key
+            super key
+
+    monitor: ->
+        # Monitor all the instances 
+        @entries.forEach (key, value) ->
+            @processmgr.attach value.data.pid  if value.data.monitor is true
+
+        #Now run the process manager
+        @processmgr.run()
 
 #-----------------------------------------------------------------
 
+class StormPackage  extends StormData
+    schema =
+        name: "package"
+        type: "object"
+        required: true
+        properties:
+            name : { type: "string", "required": true }
+            version : { type: "string", "required": true }
+            source : { type: "string", "required": true }
+
+    constructor: (id, data) ->
+        super id, data, schema
+        @installer = undefined
+
+#--------------------------------------------------------------------
+
+class StormPackages extends StormRegistry
+    constructor: (filename) ->
+        @on 'load', (key,val) ->
+            entry = new StormInstance key,val
+            if entry?
+                entry.saved = true
+                @add key, entry
+
+        @on 'removed', (key) ->
+            # an entry is removed in Registry
+
+        
+
+#--------------------------------------------------------------------
 StormBolt = require 'stormbolt'
 
 class StormFlash extends StormBolt
@@ -83,8 +208,8 @@ class StormFlash extends StormBolt
         super config
 
         # start monitoring the packages and processes
-        @packages.monitor  @config.repeatdelay
-        @instances.monitor @config.repeatdelay
+        #@packages.monitor  @config.repeatdelay
+        #@instances.monitor @config.repeatdelay
 
     install: (pinfo, callback) ->
         # 1. check if component already installed according to DB, if so, we skip including...

@@ -1,7 +1,7 @@
 # stormflash agent API endpoints
 # when 'imported' from another stormflash agent,
 
-StormPackage = require('./spm').StormPackage
+StormPackage = require('./stormflash').StormPackage
 
 @include = ->
 
