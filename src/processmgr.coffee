@@ -1,4 +1,5 @@
 ptrace = require('node-ptrace')
+spawn = require('child_process').spawn
 EventEmitter = require('events').EventEmitter
 
 
@@ -11,37 +12,41 @@ class ProcessManager extends EventEmitter
 
 
     attachCb = (err, pid, cookie, result) ->
-        if err is null
-            @emit "attached", result, pid, cookie
-            @pids.push pid
+        key = cookie.toString() if cookie?
+        if err and key isnt undefined
+            @emit "attached", result, pid, key
         else
-            @emit "attachError", err, pid, cookie
+            @emit "attachError", err, pid, key
 
     detachCb = (err, pid, cookie, result) ->
-        if err is null
-            @pids.remove pid
-            @emit "detached", result, pid, cookie
+        key = cookie.toString() if cookie?
+        if err and key isnt undefined
+            @emit "detached", result, pid, key
         else
-            @emit "detachError", err, pid, cookie
+            @emit "detachError", err, pid, key
 
     signalCb = (err, pid, cookie, signal) ->
+        key = cookie.toString() if cookie?
+        if err and key isnt undefined
+            @emit "stopped", "", pid, key
         switch signal
             when "stopped", "killed", "exited"
-                @emit "signal", signal, pid, cookie
+                @emit "signal", signal, pid, key
+
 
 
 
     constructor: (@monitorInterval, @options) ->
-        @pids = []
-        if @monitorInterval is null
+        unless @monitorInterval?
             @monitorInterval = _defaultMonitorInterval
-        if @options is null
+        unless @options?
             @options = _defaultSpawnOptions
+        console.log "Monitor interval is ", @monitorInterval, " options for spawn are ", @options
 
         #Register the callbacks with ptrace module
-        aCbPtr = ptrace.getcbptr attachCb
-        dCbPtr = ptrace.getcbptr detachCb
-        sCbPtr = ptrace.getcbptr signalCb
+        @aCbPtr = ptrace.getcbptr attachCb
+        @dCbPtr = ptrace.getcbptr detachCb
+        @sCbPtr = ptrace.getcbptr signalCb
 
     setMonitorInterval: (interval) ->
         @monitorInterval = interval
@@ -56,25 +61,27 @@ class ProcessManager extends EventEmitter
             if code is null
                 @emit "signal", signal, child.pid, cookie
 
-        @emit "started", key, child.pid if child.pid?
+        return child.pid
 
     stop: (pid, key) ->
-        #signal the child. Remove from list of pids
+        #signal the child.
         result = ptrace.sendsignal pid, SIGHUP
-        if result is true
-            pids.remove pid
-            @emit "stopped", "graceful", key, pid
+        return new Error "Failed to stop the process" if result isnt 1
+        return result
 
-    attach: (pid) ->
-        # add to the list of pids and attach to the process
-        ptrace.add pid, @retries, cookie, aCbPtr
+    attach: (pid, cookie) ->
+        # attach to the process
+        buf = new Buffer(cookie)
+        ptrace.add pid, buf, @retries, @aCbPtr
 
-    detach: (pid) ->
-        # detach from the process and delete from the pids list
-        ptrace.detach pid, @retries, cookie,  dCbPtr
+    detach: (pid, cookie) ->
+        # detach from the process 
+        buf = new Buffer(cookie)
+        ptrace.detach pid, buf, @retries,  @dCbPtr
 
-    monitor: (pid, key) ->
-        ptrace.getsignal(pid, cookie, sCbPtr)
+    monitor: (pid, cookie) ->
+        buf = new Buffer(cookie)
+        ptrace.getsignal(pid, buf, @sCbPtr)
 
                     
 

@@ -15,8 +15,7 @@ StormPackage = require('./stormflash').StormPackage
 
     @get '/packages/:id': ->
         match = agent.tokens.get @params.id
-        if match?
-            match.rule = agent.rules.get match.data.ruleId
+        unless match is undefined
             @send match
         else
             @send 404
@@ -34,11 +33,13 @@ StormPackage = require('./stormflash').StormPackage
     @del '/packages/:id': ->
         match = agent.packages.get @params.id
         if match?
-            @send agent.remove match
+            result = agent.remove match
+            @send 204 if result is undefined
+            @send 500
         else
             @send 404
 
-
+###
     fs = require 'fs'
     exec = require('child_process').exec
 
@@ -166,5 +167,4 @@ StormPackage = require('./stormflash').StormPackage
                 console.log 'module: ' + module
                 res.push module
         @send res
-
-
+###
