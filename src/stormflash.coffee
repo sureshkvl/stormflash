@@ -24,7 +24,7 @@ class StormInstance extends StormData
                 items:
                     type: "string"
                     required: false
-                
+
 
     constructor: (id, data) ->
         super id, data, schema
@@ -56,7 +56,7 @@ class StormInstances extends StormRegistry
 
 #-----------------------------------------------------------------
 
-class StormPackage  extends StormData
+class StormPackage extends StormData
     schema =
         name: "package"
         type: "object"
@@ -99,7 +99,7 @@ class StormPackages extends StormRegistry
                 @log "Matching entry found ", entry.data
                 entry.data.id = entry.id
                 return entry.data
-                
+
 
     find: (name, version) ->
         for key of @entries
@@ -129,6 +129,7 @@ class StormFlash extends StormBolt
         @packages  = new StormPackages  "#{@config.datadir}/packages.db"
         @instances = new StormInstances "#{@config.datadir}/instances.db"
 
+        @log 'loading spm...'
         spm = require('./spm').StormPackageManager
         @spm = new spm()
         @spm.on 'discover', (pinfo) ->
@@ -153,7 +154,7 @@ class StormFlash extends StormBolt
                     entry = @instances.entries[key]
                     if entry? and entry.monitorOn is true
                         @log "Starting the process with #{entry.name}"
-                        # process sent signal 
+                        # process sent signal
                         @log "Sending stop signal to pid #{pid}"
                         @processmgr.stop pid, key
                         @start key, (key, pid) =>
@@ -246,7 +247,7 @@ class StormFlash extends StormBolt
 
         pkg = @packages.match pinfo
         return 404 if pkg instanceof Error
-        
+
         # Kill the instances and clean up StormInstance Registry
         instance = @instances.match pkg.name
 
@@ -312,7 +313,8 @@ class StormFlash extends StormBolt
 ###
 # SINGLETON CLASS OBJECT
 ###
-module.exports.StormFlash = StormFlash
+module.exports = StormFlash
+module.exports.StormPackage = StormPackage
 
 # instance = null
 # module.exports = (args) ->
