@@ -44,8 +44,10 @@ createInstance = ->
         monitor: true
 
     console.log agent.instances.add "server", instance
-    agent.start "server", (result) ->
-        console.log result
+    agent.start "server", (result, error) ->
+        console.log result, error
+
+    agent.stop "server"
 
 #setTimeout getListofPackages, 500
 setTimeout ()->

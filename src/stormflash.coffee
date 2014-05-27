@@ -17,7 +17,7 @@ class StormInstance extends StormData
             id   : { type: "string", "required": false}
             path : { type: "string", "required": true }
             pid  : { type: "integer", "required" : false }
-            monitor: { type: "boolean", "required" : false}
+            monitorOn: { type: "boolean", "required" : false}
             args:
                 type: "array"
                 required: false
@@ -53,26 +53,6 @@ class StormInstances extends StormRegistry
     get: (key) ->
         entry = super key
         entry
-
-    update: (key, val) ->
-        @emit 'update', key, val.data.pid, val.data.path, val.data.args
-        super key, val
-
-    add: (key, val) ->
-        entry = super key, val
-        # Trigger monitor event if pid exists else start the instance with provided arguments
-        if entry? and entry.data? and entry.data.pid?
-            @emit "monitor", entry.data.pid, key
-        entry
-
-
-    remove: (key) ->
-        # Set monitoring to false and stop from the process
-        entry = @entries[key]
-        if entry isnt null
-            entry.monitor = false
-            @emit 'remove', key, entry.data.pid
-            super key
 
 #-----------------------------------------------------------------
 
@@ -160,46 +140,65 @@ class StormFlash extends StormBolt
         processmgr = require('./processmgr').ProcessManager
         @processmgr = new processmgr()
 
-        @processmgr.on "error", (error, key, pid) ->
+        @processmgr.on "error", (error, key, pid) =>
             #when a process failed to start, what should be done?
             @log "Error while starting the process for key #{key} ", error
             entry.status = "error"
 
-        @processmgr.on "signal", (signal, pid, key) ->
+        @processmgr.on "signal", (signal, pid, key) =>
+            @log "recieved signal #{signal} from pid #{pid} with key #{key}"
             switch signal
                 when "stopped", "killed", "exited"
-                    entry = @entries[key]
-                    if entry isnt null and entry.data.monitorOn is true
+                    return if signal is null
+                    entry = @instances.entries[key]
+                    if entry? and entry.monitorOn is true
+                        @log "Starting the process with #{entry.name}"
                         # process sent signal 
-                        @processmgr.start entry.name, entry.path, entry.args, entry.pid, key
+                        @log "Sending stop signal to pid #{pid}"
+                        @processmgr.stop pid, key
+                        @start key, (key, pid) =>
+                            if key instanceof Error
+                                @log key
+                                return
 
-        @processmgr.on "attachError", (err, pid, key) ->
-            entry = @entries[key]
-            if entry isnt null
+                when "error"
+                    @log "Error in getting signals from process"
+
+        @processmgr.on "attachError", (err, pid, key) =>
+            console.log 'attach error ', err, pid, key
+
+            entry = @instances.entries[key]
+            if entry isnt undefined and entry?
                 entry.status = "error"
                 @log "Failed to attach for pid " , pid , "Reason is ", err
 
-        @processmgr.on "detachError", (err, pid, key) ->
-            entry = @entries[key]
-            if entry isnt null
+        @processmgr.on "detachError", (err, pid, key) =>
+            entry = @instances.entries[key]
+            if entry isnt undefined and entry?
                 entry.status = "error"
                 @log "Failed to detach for pid " , pid , "Reason is ", err
 
-        @processmgr.on "stopped", (signal, pid, key) ->
+        @processmgr.on "stopped", (signal, pid, key) =>
             # restart the process if entry has monitor option set
             # if stopped gracefully dont start it again
             @log "process stopped due to signal ", signal if signal?
-            entry = @entries[key] if key?
+            entry = @instances.entries[key] if key?
             if entry?
                 @log "process was not running. pid expected is  ", pid , "binary name is ", entry.name if entry?
-                @processmgr.start  entry.name, entry.path, entry.args, entry.pid, key if entry? and entry.data.monitrOn is true
+                #@processmgr.start  entry.name, entry.path, entry.args, entry.pid, key if entry? and entry.monitrOn is true
+                @start  key, (key, pid) =>
+                    if key instanceof Error
+                        @log key
+                        return
 
-        @processmgr.on "attached", (result, pid, key) ->
-            entry = @entries[key]
-            if entry isnt null
+        @processmgr.on "attached", (result, pid, key) =>
+            entry = @instances.entries[key]
+            if entry?
                 entry.status = "running|monitored"
+                @log "process #{pid} with key #{key}  is attached"
 
-        @processmgr.on "monitor", (pid, key) ->
+        @processmgr.on "monitor", (pid, key) =>
+            @log "Starting monitor on pid #{pid} with key #{key}"
             @processmgr.monitor pid, key
 
 
@@ -255,7 +254,7 @@ class StormFlash extends StormBolt
             # one time event registration to stop the process
             @processmgr.once 'stop', (key, pid) ->
                 #signal the process to stop
-                @processmgr.sendsignal pid, SIGHUP
+                @processmgr.stop pid, key
                 @instances.remove key
 
             # Generate event to process Manager to stop the process
@@ -286,12 +285,14 @@ class StormFlash extends StormBolt
         entry.monitorOn = true  if entry.monitor is true
 
         @processmgr.attach pid, key
-        callback key, pid
+        callback key, pid if callback?
+        @processmgr.emit "monitor", pid, key if entry.monitorOn is true
 
 
     stop: (key, callback) ->
         entry = @instances.get key
         return callback new Error "No running process" unless entry? and entry.pid?
+        @log "Stopping the process with pid #{entry.pid}"
         entry.monitorOn = false
         return @processmgr.stop entry.pid, key
 
