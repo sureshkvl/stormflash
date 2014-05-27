@@ -42,7 +42,7 @@ class StormPackageManager extends EventEmitter
 
 
     monitor: ->
-        @log "hello"
+        console.log "hello"
 
 
     getCommand: (installer, command, component, filename)  ->
