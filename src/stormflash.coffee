@@ -220,7 +220,7 @@ class StormFlash extends StormBolt
 
 
     status: ->
-        state = {}
+        state = super
         state.packages  = @packages.list()
         state.instances = @instances.list()
         state
