@@ -42,7 +42,7 @@ class StormPackageManager extends EventEmitter
 
 
     monitor: ->
-
+        console.log "hello"
 
 
     getCommand: (installer, command, component, filename)  ->
@@ -67,7 +67,7 @@ class StormPackageManager extends EventEmitter
 
     check: (installer, component, callback) ->
         console.log "checking if the component '#{component.name}' has already been installed using #{installer}..."
-       
+
         switch installer
             when "npm:"
                 command = @getCommand 'npm', 'check', component
@@ -96,7 +96,7 @@ class StormPackageManager extends EventEmitter
         return new Error "Invalid parameters" unless pinfo.name? and pinfo.version? and pinfo.source?
         # dpkg://cpn.intercloud.net:443/path/package.dpkg
         # Proceed with package installationa
-        
+
         url = require 'url'
         if pinfo.source?
             parsedurl = url.parse pinfo.source, true
@@ -147,7 +147,7 @@ class StormPackageManager extends EventEmitter
         try
             @execute cmd, (result) =>
                 return callback result
-        catch
+        catch err
             return callback new Error "Failed to install"
 
     uninstall: (pinfo, callback) ->
@@ -165,16 +165,9 @@ class StormPackageManager extends EventEmitter
                     cmd = @getCommand "dpkg", "uninstall", pinfo
                 else
                     return callback new Error "Unsupported uninstall protocol"
-                       
+
             @execute cmd, (result) =>
                 return callback result if result instanceof Error
                 return callback "Success"
-        
 
 module.exports.StormPackageManager = StormPackageManager
-        
-
-                            
-
-
-

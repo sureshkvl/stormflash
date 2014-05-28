@@ -14,7 +14,7 @@ StormPackage = require('./stormflash').StormPackage
         @send agent.packages.list()
 
     @get '/packages/:id': ->
-        match = agent.tokens.get @params.id
+        match = agent.packages.get @params.id
         unless match is undefined
             @send match
         else

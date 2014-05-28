@@ -24,7 +24,7 @@ class StormInstance extends StormData
                 items:
                     type: "string"
                     required: false
-                
+
 
     constructor: (id, data) ->
         super id, data, schema
@@ -63,7 +63,7 @@ class StormInstances extends StormRegistry
 
 #-----------------------------------------------------------------
 
-class StormPackage  extends StormData
+class StormPackage extends StormData
     schema =
         name: "package"
         type: "object"
@@ -106,7 +106,7 @@ class StormPackages extends StormRegistry
                 @log "Matching entry found ", entry.data
                 entry.data.id = entry.id
                 return entry.data
-                
+
 
     find: (name, version) ->
         for key of @entries
@@ -136,6 +136,7 @@ class StormFlash extends StormBolt
         @packages  = new StormPackages  "#{@config.datadir}/packages.db"
         @instances = new StormInstances "#{@config.datadir}/instances.db"
 
+        @log 'loading spm...'
         spm = require('./spm').StormPackageManager
         @spm = new spm()
         @spm.on 'discover', (pinfo) ->
@@ -161,7 +162,7 @@ class StormFlash extends StormBolt
                     entry = @instances.entries[key]
                     if entry? and entry.monitorOn is true
                         @log "Starting the process with #{entry.name}"
-                        # process sent signal 
+                        # process sent signal
                         @log "Sending stop signal to pid #{pid}"
                         @processmgr.stop pid, key
                         @start key, (key, pid) =>
@@ -261,7 +262,7 @@ class StormFlash extends StormBolt
 
         pkg = @packages.match pinfo
         return 404 if pkg instanceof Error
-        
+
         # Kill the instances and clean up StormInstance Registry
         instance = @instances.match pkg.name
 
@@ -300,7 +301,6 @@ class StormFlash extends StormBolt
         entry.monitorOn = true  if entry.data.monitor is true
         entry.saved = false
         @instances.add key, entry
-        @log "Debug: after adding saved is ", entry.saved
         @processmgr.attach pid, key
         callback key, pid if callback?
         @processmgr.emit "monitor", pid, key if entry.monitorOn is true
@@ -308,7 +308,6 @@ class StormFlash extends StormBolt
 
     stop: (key, callback) ->
         entry = @instances.entries[key]
-        @log "Debug: ", entry
         return callback new Error "No running process" unless entry? and entry.data? and entry.data.pid?
         @log "Stopping the process with pid #{entry.data.pid}"
         entry.monitorOn = false
@@ -336,9 +335,65 @@ class StormFlash extends StormBolt
 ###
 module.exports.StormFlash = StormFlash
 module.exports.StormInstance = StormInstance
+module.exports.StormPackage = StormPackage
 
 # instance = null
 # module.exports = (args) ->
 #     if not instance?
 #         instance = new StormAgent args
 #     return instance
+
+#-------------------------------------------------------------------------------------------
+
+if require.main is module
+
+    ### 
+    argv = require('minimist')(process.argv.slice(2))
+    if argv.h?
+        console.log """ 
+            -h view this help
+            -p port number
+            -l logfile
+            -d datadir
+        """ 
+        return
+
+    config = {}
+    config.port    = argv.p ? 5000
+    config.logfile = argv.l ? "/var/log/stormflash.log"
+    config.datadir = argv.d ? "/var/stormstack"
+
+    storm = config.storm
+
+    # COMMENT OUT below "storm" object FOR REAL USE 
+    # test storm data for manual config
+    # storm = null <-- should be the default
+    storm =
+        provider: "openstack"
+        tracker: "https://allow@stormtracker.dev.intercloud.net"
+        skey: "some-secure-serial-key"
+        id: "testing-uuid"
+        bolt:
+            cert: ""
+            key: ""
+            ca: ""
+            uplinks: [ "bolt://stormtower.dev.intercloud.net" ]
+            uplinkStrategy: "round-robin"
+            allowRelay: true
+            relayPort: 8017
+            allowedPorts: [ 5000 ]
+            listenPort: 443 
+            beaconInterval: 10
+            beaconRetry: 3
+    ###
+
+    config = null
+    storm = null # override during dev 
+    agent = new StormFlash config
+    agent.run storm
+
+    # Garbage collect every 2 sec 
+    # Run node with --expose-gc
+    setInterval (
+        () -> gc()
+    ), 2000 if gc?
