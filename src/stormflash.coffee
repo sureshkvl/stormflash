@@ -42,7 +42,8 @@ class StormInstances extends StormRegistry
                 entry.saved = true
                 @add key, entry
 
-
+        @on 'updated', (entry) ->
+            @log "Updated entry with key #{entry.key} with pid #{entry.data.pid}"
 
         super filename
 
@@ -58,6 +59,7 @@ class StormInstances extends StormRegistry
             if entry? and entry.data? and entry.data.pid?
                 if entry.data.monitor is true
                     @log "Emitting monitor for discovered pid #{entry.data.pid}"
+                    entry.monitorOn = true
                     @emit "attachnMonitor", entry.data.pid, key
         
 
@@ -158,7 +160,7 @@ class StormFlash extends StormBolt
             @log "recieved signal #{signal} from pid #{pid} with key #{key}"
             switch signal
                 when "stopped", "killed", "exited"
-                    return if signal is null
+                    #return if signal is null
                     entry = @instances.entries[key]
                     if entry? and entry.monitorOn is true
                         @log "Starting the process with #{entry.name}"
@@ -300,7 +302,7 @@ class StormFlash extends StormBolt
         entry.data.pid = pid
         entry.monitorOn = true  if entry.data.monitor is true
         entry.saved = false
-        @instances.add key, entry
+        @instances.update key, entry
         @processmgr.attach pid, key
         callback key, pid if callback?
         @processmgr.emit "monitor", pid, key if entry.monitorOn is true
@@ -312,7 +314,7 @@ class StormFlash extends StormBolt
         @log "Stopping the process with pid #{entry.data.pid}"
         entry.monitorOn = false
         entry.saved = false
-        @instances.add key, entry
+        @instances.update key, entry
         return @processmgr.stop entry.data.pid, key
 
     restart: (key, callback) ->
@@ -324,7 +326,7 @@ class StormFlash extends StormBolt
             entry.data.pid = pid
             entry.saved = false
             entry.monitorOn = true if entry.data.monitor is true
-            @instances.add key, entry
+            @instances.update key, entry
 
 
 
