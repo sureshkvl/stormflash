@@ -1,6 +1,7 @@
 sf = require('../src/stormflash').StormFlash
 agent = new sf()
 StormPackage = require('../src/stormflash').StormPackage
+StormInstance = require('../src/stormflash').StormInstance
 
 packages = [
     #            "name": "test",
@@ -39,19 +40,35 @@ testPackageInstall = ->
 
 createInstance = ->
     instance =
-        name: "server"
-        path: "/home/rchunduru/workspace/coffee"
-        monitor: true
+            name: "server"
+            path: "/home/rchunduru/workspace/coffee"
+            monitor: true
 
-    console.log agent.instances.add "server", instance
-    agent.start "server", (result, error) ->
-        console.log result, error
+    sinstance = new StormInstance "testserver", instance
+    res = agent.instances.add "testserver", sinstance
+    console.log "result to add instance", res
+    agent.instances.get "testserver", (instance) =>
+        console.log "response to get ", instance
+        return  if instance instanceof Error
 
-    agent.stop "server"
+    console.log agent.instances.list()
+    agent.start "testserver", (result, error) =>
+        console.log "result of starting procesS", result, error
+        agent.stop "testserver", (result) =>
+
+getInstances = ->
+    console.log "Get List of Instances.................................."
+    console.log agent.instances.list()
+
+
+discoverInstances = ->
+    agent.instances.discover()
 
 #setTimeout getListofPackages, 500
 setTimeout ()->
-    createInstance()
+    discoverInstances()
+    getInstances()
+    #createInstance()
 #    testPackageInstall()
 #    getSpecificPackage()
 #    getListofpackages()

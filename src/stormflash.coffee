@@ -41,10 +41,7 @@ class StormInstances extends StormRegistry
             if entry?
                 entry.saved = true
                 @add key, entry
-                @emit 'instanceloaded', key, val
 
-        @on 'removed', (key) ->
-            # an entry is removed in Registry
 
 
         super filename
@@ -53,6 +50,16 @@ class StormInstances extends StormRegistry
     get: (key) ->
         entry = super key
         entry
+
+    discover: ->
+        for key of @entries
+            entry = @entries[key]
+            @log "discovered entry" , entry if entry?
+            if entry? and entry.data? and entry.data.pid?
+                if entry.data.monitor is true
+                    @log "Emitting monitor for discovered pid #{entry.data.pid}"
+                    @emit "attachnMonitor", entry.data.pid, key
+        
 
 #-----------------------------------------------------------------
 
@@ -94,7 +101,7 @@ class StormPackages extends StormRegistry
         #@log "Dumping all entries", @entries
         for key of @entries
             entry = @entries[key]
-            @log "Dumping entry",entry.key, entry.value
+            @log "Dumping entry",entry.key, entry.data
             if (entry.data.name is pinfo.name) and (entry.data.version is pinfo.version) and (entry.data.source is pinfo.source)
                 @log "Matching entry found ", entry.data
                 entry.data.id = entry.id
@@ -139,6 +146,7 @@ class StormFlash extends StormBolt
 
         processmgr = require('./processmgr').ProcessManager
         @processmgr = new processmgr()
+
 
         @processmgr.on "error", (error, key, pid) =>
             #when a process failed to start, what should be done?
@@ -197,6 +205,12 @@ class StormFlash extends StormBolt
                 entry.status = "running|monitored"
                 @log "process #{pid} with key #{key}  is attached"
 
+        @instances.on "attachnMonitor", (pid, key) =>
+            # need to attach and monitor it
+            @log "Starting monitor on discovered pid #{pid} with key #{key}"
+            @processmgr.attach pid, key
+            @processmgr.monitor pid, key
+
         @processmgr.on "monitor", (pid, key) =>
             @log "Starting monitor on pid #{pid} with key #{key}"
             @processmgr.monitor pid, key
@@ -223,6 +237,7 @@ class StormFlash extends StormBolt
 
         # start monitoring the packages and processes
         @spm.monitor  @config.repeatdelay
+        @instances.discover()
 
     install: (pinfo, callback) ->
         # check if already exists
@@ -277,33 +292,40 @@ class StormFlash extends StormBolt
             callback new Error "Could not find ID! #{id}"
 
     start: (key, callback) ->
-        entry = @instances.get key
-        return callback new Error "Key #{key} does not exist in DB" unless entry?
-        pid = @processmgr.start entry.name, entry.path, entry.args, key
+        entry = @instances.entries[key]
+        return callback new Error "Key #{key} does not exist in DB" unless entry? and entry.data?
+        pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, key
         callback new Error "Not able to start the binary" unless pid?
-        entry.pid = pid
-        entry.monitorOn = true  if entry.monitor is true
-
+        entry.data.pid = pid
+        entry.monitorOn = true  if entry.data.monitor is true
+        entry.saved = false
+        @instances.add key, entry
+        @log "Debug: after adding saved is ", entry.saved
         @processmgr.attach pid, key
         callback key, pid if callback?
         @processmgr.emit "monitor", pid, key if entry.monitorOn is true
 
 
     stop: (key, callback) ->
-        entry = @instances.get key
-        return callback new Error "No running process" unless entry? and entry.pid?
-        @log "Stopping the process with pid #{entry.pid}"
+        entry = @instances.entries[key]
+        @log "Debug: ", entry
+        return callback new Error "No running process" unless entry? and entry.data? and entry.data.pid?
+        @log "Stopping the process with pid #{entry.data.pid}"
         entry.monitorOn = false
-        return @processmgr.stop entry.pid, key
+        entry.saved = false
+        @instances.add key, entry
+        return @processmgr.stop entry.data.pid, key
 
     restart: (key, callback) ->
-        entry = @instances.get key
+        entry = @instances.entries[key]
         entry.monitorOn = false
-        status = @processmgr.stop entry.pid, key
+        status = @processmgr.stop entry.data.pid, key
         unless status instanceof Error
-            pid = @processmgr.start entry.name, entry.path, entry.args, key
-            entry.pid = pid
-            entry.monitorOn = true if entry.monitor is true
+            pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, key
+            entry.data.pid = pid
+            entry.saved = false
+            entry.monitorOn = true if entry.data.monitor is true
+            @instances.add key, entry
 
 
 
@@ -313,6 +335,7 @@ class StormFlash extends StormBolt
 # SINGLETON CLASS OBJECT
 ###
 module.exports.StormFlash = StormFlash
+module.exports.StormInstance = StormInstance
 
 # instance = null
 # module.exports = (args) ->
