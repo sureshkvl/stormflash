@@ -1,6 +1,8 @@
 EventEmitter = require('events').EventEmitter
 os = require 'os'
 fs = require 'fs'
+async = require 'async'
+exec = require('child_process').exec
 
 class StormPackageManager extends EventEmitter
     _defaultInstaller = 'dpkg'
@@ -30,19 +32,78 @@ class StormPackageManager extends EventEmitter
                 console.log "unsupported platform"
                 return new Error "Unsupported Platform " + process.platform
 
-
-    constructor: ->
+    constructor: (@repeatInterval) ->
         @installer = undefined
         @pkgmgr = undefined
         @env = {}
+        @packages = []
         _discoverEnvironment  (env) =>
             @env = env
             throw env if env instanceof Error
             console.log 'discovered environment', @env
 
+        if not @repeatInterval?
+            @repeatInterval = 5000
 
-    monitor: ->
-        console.log "hello"
+
+    monitorDebPkgs: ->
+        # Find installed debain pacakages
+        console.log "searching for debian packages"
+        exec "dpkg -l | tail -n+6 > /tmp/deb.txt", (error, stdout, stderr) =>
+            unless error?
+                # Got the list of debain packages in the file
+                # they are of the format ii <packagename> <package version> <description>
+                filecontent = fs.readFileSync "/tmp/deb.txt"
+                contents = filecontent.toString().split(/[ ,]+/).join(',').split('ii')
+                for pkg in contents
+                    content = pkg.split(',')
+                    result =
+                        name:content[1]
+                        version: content[2]
+                        source: undefined
+                    if content[1]?
+                        console.log 'emitting discovered event'
+                        @emit 'discovered', "deb", result
+
+    monitorNpmModules: ->
+        console.log "Searching for NPM modules"
+        exec "npm ls --json", (error, stdout, stderr) =>
+            return unless stdout?
+            modules = JSON.parse stdout
+            for entry of modules.dependencies
+                result =
+                    name: entry
+                    version: modules.dependencies[entry].version?="*"
+                    source: 'builtin'
+                @emit "discovered", "npm", result
+                if typeof modules.dependencies[entry].dependencies is 'object'
+                    curobject = modules.dependencies[entry].dependencies
+                    for content of curobject
+                        result =
+                            name: content
+                            version: curobject[content].version?="*"
+                            source: 'dependency'
+                        @emit "discovered", "npm", result
+             
+
+
+    monitor: (repeatInterval) ->
+        repeatInterval = @repeatInterval unless repeatInterval?
+        console.log "Discovering installed packages"
+        @monitorDebPkgs()
+        @monitorNpmModules()
+        ###
+        async.whilst(
+            ()=>
+                i = 0
+            (repeat) =>
+                console.log "test"
+                @monitorDebpkgs()
+                @monitorNpmModules()
+                setTimeout(repeat, repeatInterval)
+            ()=>
+        )
+        ###
 
 
     getCommand: (installer, command, component, filename)  ->

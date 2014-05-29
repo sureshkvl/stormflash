@@ -19,16 +19,17 @@ packages = [
     
        
 getListofpackages = ->
-    console.log "RAVIRAVIRAVIRAVIRAVIRAVIRAVIRAVI"
-    console.log agent.packages.list()
+    console.log "List of Packages .........................................................."
+    agent.packages.list()
 
 
 getSpecificPackage = ->
-    console.log agent.packages.get "db597ddd-758a-4314-817e-5006ea99b1ed"
+    console.log agent.packages.get "mypkg"
 
 
 deletePackage = ->
-    console.log agent.packages.remove "db597ddd-758a-4314-817e-5006ea99b1ed"
+    console.log agent.packages.remove "mypkg"
+
 
 testPackageInstall = ->
     for pkg in packages
@@ -65,12 +66,15 @@ discoverInstances = ->
     agent.instances.discover()
 
 #setTimeout getListofPackages, 500
+agent.spm.monitor  10
+#agent.spm.monitorNpmModules()
 setTimeout ()->
-    discoverInstances()
-    getInstances()
-    #createInstance()
+    #discoverInstances()
+    #getInstances()
+    #    createInstance()
 #    testPackageInstall()
 #    getSpecificPackage()
-#    getListofpackages()
+    ()->
+    #    getListofpackages()
 #    deletePackage()
-, 1000
+, 10000

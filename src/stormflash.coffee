@@ -103,16 +103,16 @@ class StormPackages extends StormRegistry
         #@log "Dumping all entries", @entries
         for key of @entries
             entry = @entries[key]
-            @log "Dumping entry",entry.key, entry.data
+            return unless entry? and entry.data?
             if (entry.data.name is pinfo.name) and (entry.data.version is pinfo.version) and (entry.data.source is pinfo.source)
-                @log "Matching entry found ", entry.data
-                entry.data.id = entry.id
-                return entry.data
+               entry.data.id = entry.id
+               return entry.data
 
 
     find: (name, version) ->
         for key of @entries
             entry = @entries[key]
+            return unless entry? and entry.data?
             if (entry.data.name is name) and (entry.data.version is version)
                 entry.data.id = entry.id
                 entry.data
@@ -141,10 +141,14 @@ class StormFlash extends StormBolt
         @log 'loading spm...'
         spm = require('./spm').StormPackageManager
         @spm = new spm()
-        @spm.on 'discover', (pinfo) ->
-            pkg = @packages.find pinfo.name pinfo.version
+        @spm.on 'discovered', (pkgType, pinfo) =>
+            @log "Discovered pacakge ", pinfo if pkgType is "npm"
+            pkg = @packages.find pinfo.name, pinfo.version
             unless pkg?
-                @packages.add uuid.v4(), pinfo
+                pinfo.source = "builtin" unless pinfo.source?
+                @log "No matching entry found for package #{pinfo.name}"
+                spkg = new StormPackage null, pinfo
+                @packages.add uuid.v4(), spkg
 
 
         processmgr = require('./processmgr').ProcessManager
