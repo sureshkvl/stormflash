@@ -55,7 +55,6 @@ class StormInstances extends StormRegistry
     discover: ->
         for key of @entries
             entry = @entries[key]
-            @log "discovered entry" , entry if entry?
             if entry? and entry.data? and entry.data.pid?
                 if entry.data.monitor is true
                     @log "Emitting monitor for discovered pid #{entry.data.pid}"
@@ -104,18 +103,22 @@ class StormPackages extends StormRegistry
         for key of @entries
             entry = @entries[key]
             return unless entry? and entry.data?
-            if (entry.data.name is pinfo.name) and (entry.data.version is pinfo.version) and (entry.data.source is pinfo.source)
-               entry.data.id = entry.id
-               return entry.data
+            pkg = entry.data
+            if (pkg.name is pinfo.name) and (pkg.version is pinfo.version) and (pkg.source is pinfo.source)
+               pkg.id = entry.id
+               return pkg
 
 
     find: (name, version) ->
         for key of @entries
             entry = @entries[key]
             return unless entry? and entry.data?
-            if (entry.data.name is name) and (entry.data.version is version)
+            pkg = entry.data
+            if (pkg.name is name) and (pkg.version is version)
+                #@log "Matching found"
                 entry.data.id = entry.id
-                entry.data
+                return entry.data
+                
 
 
 #--------------------------------------------------------------------
@@ -142,11 +145,10 @@ class StormFlash extends StormBolt
         spm = require('./spm').StormPackageManager
         @spm = new spm()
         @spm.on 'discovered', (pkgType, pinfo) =>
-            @log "Discovered pacakge ", pinfo if pkgType is "npm"
             pkg = @packages.find pinfo.name, pinfo.version
             unless pkg?
                 pinfo.source = "builtin" unless pinfo.source?
-                @log "No matching entry found for package #{pinfo.name}"
+                @log "Discovered pacakge ", pinfo
                 spkg = new StormPackage null, pinfo
                 @packages.add uuid.v4(), spkg
 
@@ -230,17 +232,7 @@ class StormFlash extends StormBolt
         state
 
     run: (config) ->
-
-        ###
-        if config?
-            @log 'run called with:', config
-            res = validate config, schema
-            @log 'run - validation of runtime config:', res
-            @config = extend(@config, config) if res.valid
-        ###
-
         super config
-
 
         # start monitoring the packages and processes
         @spm.monitor  @config.repeatdelay

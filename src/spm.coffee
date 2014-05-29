@@ -49,20 +49,19 @@ class StormPackageManager extends EventEmitter
     monitorDebPkgs: ->
         # Find installed debain pacakages
         console.log "searching for debian packages"
-        exec "dpkg -l | tail -n+6 > /tmp/deb.txt", (error, stdout, stderr) =>
-            unless error?
+        exec "dpkg -l | tail -n+6", (error, stdout, stderr) =>
+            if stdout?
                 # Got the list of debain packages in the file
                 # they are of the format ii <packagename> <package version> <description>
-                filecontent = fs.readFileSync "/tmp/deb.txt"
-                contents = filecontent.toString().split(/[ ,]+/).join(',').split('ii')
+                contents = stdout.split(/[ ,]+/).join(',').split('ii')
                 for pkg in contents
                     content = pkg.split(',')
-                    result =
-                        name:content[1]
-                        version: content[2]
-                        source: undefined
-                    if content[1]?
-                        console.log 'emitting discovered event'
+                    if content[1]? and content[2]?
+                        result =
+                            name:content[1]
+                            version: content[2]
+                            source: undefined
+                        #console.log 'emitting discovered event'
                         @emit 'discovered', "deb", result
 
     monitorNpmModules: ->
@@ -88,10 +87,17 @@ class StormPackageManager extends EventEmitter
 
 
     monitor: (repeatInterval) ->
-        repeatInterval = @repeatInterval unless repeatInterval?
-        console.log "Discovering installed packages"
-        @monitorDebPkgs()
-        @monitorNpmModules()
+        emitter = () =>
+            @emit "monitor"
+
+        @.on "monitor", () =>
+            @monitorDebPkgs()
+            @monitorNpmModules()
+            repeatInterval = @repeatInterval unless repeatInterval?
+            setTimeout emitter, repeatInterval
+
+        emitter()
+        
         ###
         async.whilst(
             ()=>
