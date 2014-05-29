@@ -119,7 +119,7 @@ class StormPackageManager extends EventEmitter
             when "dpkg.install"
                 return "dpkg -i #{filename}"
             when "apt-get.install"
-                return "apt-get install #{filename}"
+                return "apt-get -y install #{filename}"
             when "dpkg.uninstall", "apt-get.uninstall"
                 return "dpkg -r #{filename}"
             else
@@ -202,7 +202,7 @@ class StormPackageManager extends EventEmitter
                 .pipe(fs.createWriteStream(filename))
                 return
             when "apt-get:"
-                cmd = @getCommand "apt-get", "install", pinfo, "#{pinfo.name}-#{pinfo.version}"
+                cmd = @getCommand "apt-get", "install", pinfo, "#{pinfo.name}=#{pinfo.version}"
             else
                 return callback new Error "Unsupported package manager"
         try

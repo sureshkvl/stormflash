@@ -8,7 +8,8 @@ StormPackage = require('./stormflash').StormPackage
     agent = @settings.agent
 
     @post '/packages': ->
-        @send agent.install new StormPackage null,@body
+        agent.install (new StormPackage null,@body), (result) =>
+            @send result
 
     @get '/packages': ->
         @send agent.packages.list()

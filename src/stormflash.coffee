@@ -249,19 +249,19 @@ class StormFlash extends StormBolt
     install: (pinfo, callback) ->
         # check if already exists
         console.log pinfo
-        @log "checking for package #{pinfo.name} in DB", pinfo
-        pkg = @packages.match pinfo
+        @log "checking for package #{pinfo.data.name} in DB", pinfo
+        pkg = @packages.match pinfo.data
         console.log "pkg is ", pkg
         if pkg?
             @log "Found matching package name #{pkg.name}"
-            return callback 409
+            callback pkg
 
-        @spm.install pinfo, (pkg) =>
+        @spm.install pinfo.data, (pkg) =>
             # should return something other than 500...
             return callback pkg if pkg instanceof Error
             @packages.add uuid.v4(), pinfo
             @emit 'installed the package ', pinfo.name, pinfo.id
-            callback pkg
+            callback pinfo
 
 
     uninstall: (pinfo, callback) ->
