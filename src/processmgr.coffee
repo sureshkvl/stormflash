@@ -96,7 +96,11 @@ class ProcessManager extends EventEmitter
         ptrace.detach pid, key, @retries,  @dCbPtr
 
     monitor: (pid, key) ->
-        ptrace.getsignal.async pid, key, @sCbPtr, (result) ->
+        getsignal = () =>
+            ptrace.getsignal.async pid, key, @sCbPtr, () ->
+        setTimeout getsignal, @monitorInterval
+
+
 
 
                     

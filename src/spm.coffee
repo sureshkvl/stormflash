@@ -43,10 +43,10 @@ class StormPackageManager extends EventEmitter
             console.log 'discovered environment', @env
 
         if not @repeatInterval?
-            @repeatInterval = 5000
+            @repeatInterval = 8000
 
 
-    monitorDebPkgs: ->
+    monitorDebPkgs: (callback) ->
         # Find installed debain pacakages
         console.log "searching for debian packages"
         exec "dpkg -l | tail -n+6", (error, stdout, stderr) =>
@@ -63,11 +63,12 @@ class StormPackageManager extends EventEmitter
                             source: undefined
                         #console.log 'emitting discovered event'
                         @emit 'discovered', "deb", result
+                callback "success"
 
-    monitorNpmModules: ->
+    monitorNpmModules: (callback)->
         console.log "Searching for NPM modules"
-        exec "npm ls --json", (error, stdout, stderr) =>
-            return unless stdout?
+        exec "npm ls --json --depth=0", (error, stdout, stderr) =>
+            return callback "success"  unless stdout?
             modules = JSON.parse stdout
             for entry of modules.dependencies
                 result =
@@ -83,33 +84,40 @@ class StormPackageManager extends EventEmitter
                             version: curobject[content].version?="*"
                             source: 'dependency'
                         @emit "discovered", "npm", result
+            callback "success"
              
 
 
     monitor: (repeatInterval) ->
+        repeatInterval = @repeatInterval unless repeatInterval?
+
+        ###
         emitter = () =>
-            @emit "monitor"
+            setImmediate @monitorDebPkgs, @
+            setImmediate @monitorNpmModules, @
 
-        @.on "monitor", () =>
-            @monitorDebPkgs()
-            @monitorNpmModules()
-            repeatInterval = @repeatInterval unless repeatInterval?
-            setTimeout emitter, repeatInterval
+        setInterval emitter, repeatInterval
 
-        emitter()
-        
         ###
         async.whilst(
-            ()=>
-                i = 0
-            (repeat) =>
-                console.log "test"
-                @monitorDebpkgs()
-                @monitorNpmModules()
+             ()=>
+                true
+         ,   (repeat) =>
+                async.waterfall [
+                    (callback) =>
+                       @monitorDebPkgs () =>
+                           callback()
+                   ,(callback) =>
+                       @monitorNpmModules () =>
+                           callback()
+                 ]
+                 , (err, result) ->
+
                 setTimeout(repeat, repeatInterval)
-            ()=>
+         ,   (err)=>
+                console.log 'monitoring of packages stopped..'
         )
-        ###
+         
 
 
     getCommand: (installer, command, component, filename)  ->

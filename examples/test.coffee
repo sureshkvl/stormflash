@@ -72,7 +72,7 @@ discoverInstances = ->
 console.log "Matching zappajs with packages.............................."
 setTimeout ()->
     #agent.spm.monitorDebPkgs()
-    #agent.spm.monitor  1000
+    agent.spm.monitor()
     agent.instances.discover()
     #discoverInstances()
     #getInstances()
