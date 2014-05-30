@@ -105,10 +105,10 @@ class StormPackageManager extends EventEmitter
          ,   (repeat) =>
                 async.waterfall [
                     (callback) =>
-                       @monitorDebPkgs () =>
+                       @monitorDebPkgs  =>
                            callback()
                    ,(callback) =>
-                       @monitorNpmModules () =>
+                       @monitorNpmModules  =>
                            callback()
                  ]
                  , (err, result) ->

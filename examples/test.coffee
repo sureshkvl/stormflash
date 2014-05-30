@@ -76,7 +76,7 @@ setTimeout ()->
     agent.instances.discover()
     #discoverInstances()
     #getInstances()
-    #    createInstance()
+    createInstance()
 #    testPackageInstall()
 #    getSpecificPackage()
     ()->

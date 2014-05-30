@@ -1,4 +1,3 @@
-#ptrace = require('node-ptrace')
 ptrace = require('process-trace')
 
 spawn = require('child_process').spawn
