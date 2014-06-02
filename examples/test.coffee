@@ -1,4 +1,6 @@
 sf = require('../src/stormflash').StormFlash
+require('look').start()
+
 agent = new sf()
 StormPackage = require('../src/stormflash').StormPackage
 StormInstance = require('../src/stormflash').StormInstance
@@ -12,7 +14,7 @@ packages = [
     #            "version" : "0.2.2",
     #            "source" : "dpkg://testme.com/testdeb.pkg",
     #          ,
-            "name": "cloudflash-openvpn",
+            "name": "stormkeeper",
             "version" : "*",
             "source" : "npm://",
       ]
@@ -72,12 +74,12 @@ discoverInstances = ->
 console.log "Matching zappajs with packages.............................."
 setTimeout ()->
     #agent.spm.monitorDebPkgs()
-    agent.spm.monitor()
-    agent.instances.discover()
+    #agent.spm.monitor 8000
+    #agent.instances.discover()
     #discoverInstances()
     #getInstances()
-    createInstance()
-#    testPackageInstall()
+    #createInstance()
+    testPackageInstall()
 #    getSpecificPackage()
     ()->
     #    getListofpackages()

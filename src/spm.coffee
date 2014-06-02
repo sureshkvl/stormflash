@@ -8,6 +8,14 @@ class StormPackageManager extends EventEmitter
     _defaultInstaller = 'dpkg'
     _defaultPkgMgr = 'apt-get'
 
+    _discoverNpmModules = (callback) ->
+        exec "npm ls --json --depth=0", (error, stdout, stderr) =>
+            return callback stdout if stdout
+
+    _discoverDebPkgs = (callback) ->
+        exec "dpkg -l | tail -n+6", (error, stdout, stderr) =>
+            return callback stdout if stdout
+
     _discoverEnvironment = (callback)->
         switch (process.platform)
             when "linux"
@@ -29,31 +37,56 @@ class StormPackageManager extends EventEmitter
                         @pkgmgr = 'yum'
                     return callback env
             else
-                console.log "unsupported platform"
+                @log "unsupported platform"
                 return new Error "Unsupported Platform " + process.platform
 
-    constructor: (@repeatInterval) ->
+    constructor: (context) ->
         @installer = undefined
         @pkgmgr = undefined
         @env = {}
-        @packages = []
+        @npmPackages = {}
+        @debPackages = {}
+       
+        if context?
+            @repeatInterval = context.repeatInterval
+            @log = context.log
+            @import = context.import
+       
+        @repeatInterval?= 8000
+        @log ?= console.log
+        @import?= undefined
+
         _discoverEnvironment  (env) =>
             @env = env
             throw env if env instanceof Error
-            console.log 'discovered environment', @env
+            @log 'discovered environment', @env
 
-        if not @repeatInterval?
-            @repeatInterval = 8000
+        
+        ###
+        # Discover and cache npm modules
+        _discoverNpmModules (content) =>
+            @analyzenpm content, 1
+            @log "discovered npm packages", @npmPackages
+
+        _discoverDebPkgs (content) =>
+            @analyzeDeb content, 1
+            @log "discovered Deb packages", @debPackages
+        ###
 
 
     monitorDebPkgs: (callback) ->
         # Find installed debain pacakages
-        console.log "searching for debian packages"
-        exec "dpkg -l | tail -n+6", (error, stdout, stderr) =>
-            if stdout?
+        @log "searching for debian packages"
+        _discoverDebPkgs (content) =>
+            return callback "success"  unless content?
+            @analyzeDeb content, 0
+            callback "success"
+
+    analyzeDeb: (content, firstime) ->
+            if content?
                 # Got the list of debain packages in the file
                 # they are of the format ii <packagename> <package version> <description>
-                contents = stdout.split(/[ ,]+/).join(',').split('ii')
+                contents = content.split(/[ ,]+/).join(',').split('ii')
                 for pkg in contents
                     content = pkg.split(',')
                     if content[1]? and content[2]?
@@ -61,32 +94,47 @@ class StormPackageManager extends EventEmitter
                             name:content[1]
                             version: content[2]
                             source: undefined
-                        #console.log 'emitting discovered event'
-                        @emit 'discovered', "deb", result
-                callback "success"
+                        if firstime
+                            @debPackages[result.name] = result.version
+                        else
+                            @emit 'discovered', "deb", result unless @debPackages[content[1]]?
+                            @debPackages[result.name] = result.version
+
+    analyzenpm: (content, firstime) ->
+        modules = JSON.parse content
+        for entry of modules.dependencies
+            result =
+                name: entry
+                version: modules.dependencies[entry].version?="*"
+                source: 'builtin'
+            if firstime
+                @npmPackages[entry] = result.version
+            else
+                @emit "discovered", "npm", result unless @npmPackages[entry]?
+
+            if typeof modules.dependencies[entry].dependencies is 'object'
+                curobject = modules.dependencies[entry].dependencies
+                for content of curobject
+                    result =
+                        name: content
+                        version: curobject[content].version?="*"
+                        source: 'dependency'
+                    if firstime
+                        @npmPackages[entry] = result.version
+                    else
+                        @emit "discovered", "npm", result unless @npmPackages[entry]?
+                        @npmPackages[result.name] = result.version
+
 
     monitorNpmModules: (callback)->
-        console.log "Searching for NPM modules"
-        exec "npm ls --json --depth=0", (error, stdout, stderr) =>
+        @log "Searching for NPM modules"
+
+
+        _discoverNpmModules (stdout) =>
             return callback "success"  unless stdout?
-            modules = JSON.parse stdout
-            for entry of modules.dependencies
-                result =
-                    name: entry
-                    version: modules.dependencies[entry].version?="*"
-                    source: 'builtin'
-                @emit "discovered", "npm", result
-                if typeof modules.dependencies[entry].dependencies is 'object'
-                    curobject = modules.dependencies[entry].dependencies
-                    for content of curobject
-                        result =
-                            name: content
-                            version: curobject[content].version?="*"
-                            source: 'dependency'
-                        @emit "discovered", "npm", result
+            @analyzenpm stdout, 0
             callback "success"
              
-
 
     monitor: (repeatInterval) ->
         repeatInterval = @repeatInterval unless repeatInterval?
@@ -105,23 +153,23 @@ class StormPackageManager extends EventEmitter
          ,   (repeat) =>
                 async.waterfall [
                     (callback) =>
-                       @monitorDebPkgs  =>
+                       @monitorNpmModules  =>
                            callback()
                    ,(callback) =>
-                       @monitorNpmModules  =>
+                       @monitorDebPkgs  =>
                            callback()
                  ]
                  , (err, result) ->
 
                 setTimeout(repeat, repeatInterval)
          ,   (err)=>
-                console.log 'monitoring of packages stopped..'
+                @log 'monitoring of packages stopped..'
         )
          
 
 
     getCommand: (installer, command, component, filename)  ->
-        console.log "Building command for #{installer}.#{command}"
+        @log "Building command for #{installer}.#{command}"
         switch "#{installer}.#{command}"
             when "dpkg.check"
                 return "dpkg -l | grep -w \"#{component.name} \" | grep -w \"#{component.version} \""
@@ -137,11 +185,11 @@ class StormPackageManager extends EventEmitter
             when "dpkg.uninstall", "apt-get.uninstall"
                 return "dpkg -r #{filename}"
             else
-                console.log new Error "invalid command #{installer}.#{command} for #{component.name}!"
+                @log new Error "invalid command #{installer}.#{command} for #{component.name}!"
                 return null
 
     check: (installer, component, callback) ->
-        console.log "checking if the component '#{component.name}' has already been installed using #{installer}..."
+        @log "checking if the component '#{component.name}' has already been installed using #{installer}..."
 
         switch installer
             when "npm:"
@@ -154,14 +202,14 @@ class StormPackageManager extends EventEmitter
 
         @execute command, (error) =>
             unless error instanceof Error
-                console.log "#{component.name} is already installed"
+                @log "#{component.name} is already installed"
                 callback true
             else
                 callback error
 
     execute: (command, callback) ->
         exec = require('child_process').exec
-        console.log 'executing the command ', command
+        @log 'executing the command ', command
         exec "#{command}", (error, stdout, stderr) =>
             if error?
                 return callback new Error error
@@ -175,11 +223,11 @@ class StormPackageManager extends EventEmitter
         url = require 'url'
         if pinfo.source?
             parsedurl = url.parse pinfo.source, true
-            console.log 'the protocol for the package download is ', parsedurl.protocol
+            @log 'the protocol for the package download is ', parsedurl.protocol
 
         @check parsedurl.protocol, pinfo, (pkg) =>
             unless pkg instanceof Error
-                console.log "Found the component installed ", pinfo.name
+                @log "Found the component installed ", pinfo.name
                 return callback pinfo
 
         switch (parsedurl.protocol)
@@ -221,6 +269,13 @@ class StormPackageManager extends EventEmitter
                 return callback new Error "Unsupported package manager"
         try
             @execute cmd, (result) =>
+                if parsedurl.protocol is "npm:"
+                    @log "Importing the package #{pinfo.name}"
+                    try
+                        @import pinfo.name
+                    catch err
+                        @log "Error in installing npm module #{pinfo.name} is :", err
+                        return callback err
                 return callback result
         catch err
             return callback new Error "Failed to install"

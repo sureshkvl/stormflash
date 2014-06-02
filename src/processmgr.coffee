@@ -14,32 +14,39 @@ class ProcessManager extends EventEmitter
 
 
 
-    constructor: (@monitorInterval, @retries, @options) ->
+    constructor: (context) ->
         super
-        unless @monitorInterval?
-            @monitorInterval = _defaultMonitorInterval
-        unless @options?
-            @options = _defaultSpawnOptions
-        console.log "Monitor interval is ", @monitorInterval, " options for spawn are ", @options
+        if context?
+            @monitorInterval = context.monitorInterval
+            @retries = context.retries
+            @options = context.options
+            @log = context.log
+       
+        @monitorInterval ?= _defaultMonitorInterval
+        @options ?= _defaultSpawnOptions
+        @log ?= console.log
+
+        @log "Monitor interval is ", @monitorInterval, " options for spawn are ", @options
 
         #Register the callbacks with ptrace module
-        if @retries is undefined
+        unless @retries?
             @retries = 5
+
 
         detachCb = (err, pid, key, result) =>
             if err and key isnt undefined
-                console.log "detached from the process with pid #{pid}"
+                @log "detached from the process with pid #{pid}"
                 @emit "detached", result, pid, key
                 result = ptrace.sendsignal pid, 2
-                console.log "sending signal to process with pid #{pid} with result #{result}"
+                @log "sending signal to process with pid #{pid} with result #{result}"
             else
-                console.log "failed to detach from the process with pid #{pid}"
+                @log "failed to detach from the process with pid #{pid}"
                 @emit "detachError", err, pid, key
 
         signalCb = (err, pid, key, signal) =>
-            console.log "Signal recieved with err #{err} pid #{pid} key #{key} and signal #{signal}"
+            @log "Signal recieved with err #{err} pid #{pid} key #{key} and signal #{signal}"
             if err isnt null and signal is null
-                console.log "Unexpected error"
+                @log "Unexpected error"
                 @emit "stopped", signal, pid, key
             switch signal
                 when "exited", "killed" , "stopped"
@@ -54,22 +61,22 @@ class ProcessManager extends EventEmitter
 
     start: (binary, path, args, key) ->
         #Spawn a child . optionally can kill the existing process if any
-        console.log "starting the process #{path}/#{binary} with args ", args, "and options ", @options
+        @log "starting the process #{path}/#{binary} with args ", args, "and options ", @options
         child = spawn "#{path}" + "/#{binary}", args, @options
         child.unref()
         ###
         child.on "error", (err) =>
-            console.log "Error in starting the process. Reason is ", err
+            @log "Error in starting the process. Reason is ", err
             @emit "error", err, child.pid, key
 
         child.on "exit", (code, signal) =>
-            console.log "Process Exit. Reason is ", code, signal
+            @log "Process Exit. Reason is ", code, signal
             if code isnt 0
                 @emit "signal", "stopped" , child.pid,key
             else
                 ptrace.sendsignal child.pid, 1
         ###
-        console.log "Process started with pid #{child.pid}"
+        @log "Process started with pid #{child.pid}"
         return child.pid
 
     stop: (pid, key) ->
@@ -79,8 +86,8 @@ class ProcessManager extends EventEmitter
 
     attach: (pid, key) ->
         attachCb = (err, pid, key, result) =>
-            console.log "type of result is ", typeof result
-            console.log "Response to attach ", err, pid, key, result
+            @log "type of result is ", typeof result
+            @log "Response to attach ", err, pid, key, result
             if err is null
                 @emit "attached", result, pid, key
             else

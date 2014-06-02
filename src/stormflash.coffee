@@ -143,7 +143,7 @@ class StormFlash extends StormBolt
 
         @log 'loading spm...'
         spm = require('./spm').StormPackageManager
-        @spm = new spm()
+        @spm = new spm log:@log, repatInterval:@config.repeatInterval, import:@import
         @spm.on 'discovered', (pkgType, pinfo) =>
             pkg = @packages.find pinfo.name, pinfo.version
             unless pkg?
@@ -241,14 +241,12 @@ class StormFlash extends StormBolt
     install: (pinfo, callback) ->
         # check if already exists
         console.log pinfo
-        @log "checking for package #{pinfo.data.name} in DB", pinfo
-        pkg = @packages.match pinfo.data
-        console.log "pkg is ", pkg
+        pkg = @packages.match pinfo
         if pkg?
             @log "Found matching package name #{pkg.name}"
             callback pkg
 
-        @spm.install pinfo.data, (pkg) =>
+        @spm.install pinfo, (pkg) =>
             # should return something other than 500...
             return callback pkg if pkg instanceof Error
             @packages.add uuid.v4(), pinfo
