@@ -111,6 +111,7 @@ class StormPackageManager extends EventEmitter
                 @npmPackages[entry] = result.version
             else
                 @emit "discovered", "npm", result unless @npmPackages[entry]?
+                @npmPackages[result.name] = result.version
 
             if typeof modules.dependencies[entry].dependencies is 'object'
                 curobject = modules.dependencies[entry].dependencies
