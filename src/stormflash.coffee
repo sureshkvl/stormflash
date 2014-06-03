@@ -114,8 +114,8 @@ class StormPackages extends StormRegistry
             entry = @entries[key]
             return unless entry? and entry.data?
             pkg = entry.data
-            if (pkg.name is name) and (pkg.version is version)
-                #@log "Matching found"
+            if (pkg.name is name) and ((pkg.version is version) or (pkg.version is "*"))
+                #@log "find - Matching found for #{pkg.name} and #{pkg.version}"
                 entry.data.id = entry.id
                 return entry.data
                 
@@ -153,7 +153,7 @@ class StormFlash extends StormBolt
                 pkg = @packages.find pinfo.name, pinfo.version
                 unless pkg?
                     pinfo.source = "builtin" unless pinfo.source?
-                    @log "Discovered package ", pinfo
+                    #@log "Discovered package ", pinfo
                     spkg = new StormPackage null, pinfo
                     @packages.add uuid.v4(), spkg
                 else
@@ -164,12 +164,14 @@ class StormFlash extends StormBolt
                         @spm.emit "npminclude", pinfo.name
 
             @spm.on "npminclude", (name) =>
+                #@log "Including the npm module #{name}"
                 return unless name?
                 try
                     pkgconfig = require("#{name}/package.json").config
                     storm = pkgconfig.storm
                     for plugfile in storm.plugins
                         do (plugfile) =>
+                            #@log "plugin file is ", plugfile
                             plugin = require("#{name}/#{plugfile}")
                             if plugin?
                                 @log "include - [#{name}] found valid plugin at #{plugfile}"
