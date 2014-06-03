@@ -120,9 +120,9 @@ class StormPackageManager extends EventEmitter
                         version: curobject[content].version?="*"
                         source: 'dependency'
                     if firstime
-                        @npmPackages[entry] = result.version
+                        @npmPackages[result.name] = result.version
                     else
-                        @emit "discovered", "npm", result unless @npmPackages[entry]?
+                        @emit "discovered", "npm", result unless @npmPackages[result.name]?
                         @npmPackages[result.name] = result.version
 
 
