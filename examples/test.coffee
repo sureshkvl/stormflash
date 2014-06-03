@@ -14,8 +14,8 @@ packages = [
     #            "version" : "0.2.2",
     #            "source" : "dpkg://testme.com/testdeb.pkg",
     #          ,
-            "name": "corenova",
-            "version" : "54",
+            "name": "corenova-storm",
+            "version" : "*",
             "source" : "npm://",
       ]
     
@@ -73,11 +73,12 @@ discoverInstances = ->
 setTimeout ()->
     #agent.spm.monitorDebPkgs()
     #agent.spm.monitor 8000
+    agent.run()
     #agent.instances.discover()
     #discoverInstances()
     #getInstances()
     #createInstance()
-    testPackageInstall()
+    #testPackageInstall()
 #    getSpecificPackage()
     ()->
     #    getListofpackages()
@@ -85,7 +86,6 @@ setTimeout ()->
 , 100
 
 setTimeout () ->
-    console.log agent
     console.log "Matching zappajs with packages.............................."
     agent.packages.find "zappajs", "*"
 , 2000

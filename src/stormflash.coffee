@@ -137,93 +137,123 @@ class StormFlash extends StormBolt
 
         # key routine to import itself into agent base
         @import module
+        fs.mkdir "#{@config.datadir}", () ->
+        fs.mkdir "#{@config.datadir}/plugins", () ->
 
-        @packages  = new StormPackages  "#{@config.datadir}/packages.db"
-        @instances = new StormInstances "#{@config.datadir}/instances.db"
+        #Defer packages and instances as zappa is started on agent.run
+        @.on 'ready', () =>
+            @packages  = new StormPackages  "#{@config.datadir}/packages.db"
+            @instances = new StormInstances "#{@config.datadir}/instances.db"
 
-        @log 'loading spm...'
-        spm = require('./spm').StormPackageManager
-        @spm = new spm log:@log, repatInterval:@config.repeatInterval, import:@import
-        @spm.on 'discovered', (pkgType, pinfo) =>
-            pkg = @packages.find pinfo.name, pinfo.version
-            unless pkg?
-                pinfo.source = "builtin" unless pinfo.source?
-                @log "Discovered package ", pinfo
-                spkg = new StormPackage null, pinfo
-                @packages.add uuid.v4(), spkg
+            @log 'loading spm...'
+            spm = require('./spm').StormPackageManager
+            @spm = new spm log:@log, repatInterval:@config.repeatInterval, import:@import
+
+            @spm.on 'discovered', (pkgType, pinfo) =>
+                pkg = @packages.find pinfo.name, pinfo.version
+                unless pkg?
+                    pinfo.source = "builtin" unless pinfo.source?
+                    @log "Discovered package ", pinfo
+                    spkg = new StormPackage null, pinfo
+                    @packages.add uuid.v4(), spkg
+                else
+                    # Package is discovered and present in DB, include the plugin if its not builtin
+                    if pkgType is "npm"
+                        @log "test: discovered package that existed in Db #{pkg.name} is having source ", pkg.source
+                        #return if pkg.source is "builtin" or pkg.source is "dependency"
+                        @spm.emit "npminclude", pinfo.name
+
+            @spm.on "npminclude", (name) =>
+                return unless name?
+                try
+                    pkgconfig = require("#{name}/package.json").config
+                    storm = pkgconfig.storm
+                    for plugfile in storm.plugins
+                        do (plugfile) =>
+                            plugin = require("#{name}/#{plugfile}")
+                            if plugin?
+                                @log "include - [#{name}] found valid plugin at #{plugfile}"
+                                fs.open "#{@config.datadir}/plugins/#{name}.db", 'a', (result) =>
+                                    @include plugin
+
+                catch err
+                    @log "Error in including the npm module #{name}", err
 
 
-        processmgr = require('./processmgr').ProcessManager
-        @processmgr = new processmgr()
+            processmgr = require('./processmgr').ProcessManager
+            @processmgr = new processmgr()
 
 
-        @processmgr.on "error", (error, key, pid) =>
-            #when a process failed to start, what should be done?
-            @log "Error while starting the process for key #{key} ", error
-            entry.status = "error"
-
-        @processmgr.on "signal", (signal, pid, key) =>
-            @log "recieved signal #{signal} from pid #{pid} with key #{key}"
-            switch signal
-                when "stopped", "killed", "exited"
-                    #return if signal is null
-                    entry = @instances.entries[key]
-                    if entry? and entry.monitorOn is true
-                        @log "Starting the process with #{entry.name}"
-                        # process sent signal
-                        @log "Sending stop signal to pid #{pid}"
-                        @processmgr.stop pid, key
-                        @start key, (key, pid) =>
-                            if key instanceof Error
-                                @log key
-                                return
-
-                when "error"
-                    @log "Error in getting signals from process"
-
-        @processmgr.on "attachError", (err, pid, key) =>
-            @log 'attach error ', err, pid, key
-
-            entry = @instances.entries[key]
-            if entry isnt undefined and entry?
+            @processmgr.on "error", (error, key, pid) =>
+                #when a process failed to start, what should be done?
+                @log "Error while starting the process for key #{key} ", error
                 entry.status = "error"
-                @log "Failed to attach for pid " , pid , "Reason is ", err
 
-        @processmgr.on "detachError", (err, pid, key) =>
-            entry = @instances.entries[key]
-            if entry isnt undefined and entry?
-                entry.status = "error"
-                @log "Failed to detach for pid " , pid , "Reason is ", err
+            @processmgr.on "signal", (signal, pid, key) =>
+                @log "recieved signal #{signal} from pid #{pid} with key #{key}"
+                switch signal
+                    when "stopped", "killed", "exited"
+                        #return if signal is null
+                        entry = @instances.entries[key]
+                        if entry? and entry.monitorOn is true
+                            @log "Starting the process with #{entry.name}"
+                            # process sent signal
+                            @log "Sending stop signal to pid #{pid}"
+                            @processmgr.stop pid, key
+                            @start key, (key, pid) =>
+                                if key instanceof Error
+                                    @log key
+                                    return
 
-        @processmgr.on "stopped", (signal, pid, key) =>
-            # restart the process if entry has monitor option set
-            # if stopped gracefully dont start it again
-            @log "process stopped due to signal ", signal if signal?
-            entry = @instances.entries[key] if key?
-            if entry?
-                @log "process was not running. pid expected is  ", pid , "binary name is ", entry.name if entry?
-                #@processmgr.start  entry.name, entry.path, entry.args, entry.pid, key if entry? and entry.monitrOn is true
-                @start  key, (key, pid) =>
-                    if key instanceof Error
-                        @log key
-                        return
+                    when "error"
+                        @log "Error in getting signals from process"
 
-        @processmgr.on "attached", (result, pid, key) =>
-            entry = @instances.entries[key]
-            if entry?
-                entry.status = "running|monitored"
-                @log "process #{pid} with key #{key}  is attached"
+            @processmgr.on "attachError", (err, pid, key) =>
+                @log 'attach error ', err, pid, key
 
-        @instances.on "attachnMonitor", (pid, key) =>
-            # need to attach and monitor it
-            @log "Starting monitor on discovered pid #{pid} with key #{key}"
-            @processmgr.attach pid, key
-            @processmgr.monitor pid, key
+                entry = @instances.entries[key]
+                if entry isnt undefined and entry?
+                    entry.status = "error"
+                    @log "Failed to attach for pid " , pid , "Reason is ", err
 
-        @processmgr.on "monitor", (pid, key) =>
-            @log "Starting monitor on pid #{pid} with key #{key}"
-            @processmgr.monitor pid, key
+            @processmgr.on "detachError", (err, pid, key) =>
+                entry = @instances.entries[key]
+                if entry isnt undefined and entry?
+                    entry.status = "error"
+                    @log "Failed to detach for pid " , pid , "Reason is ", err
 
+            @processmgr.on "stopped", (signal, pid, key) =>
+                # restart the process if entry has monitor option set
+                # if stopped gracefully dont start it again
+                @log "process stopped due to signal ", signal if signal?
+                entry = @instances.entries[key] if key?
+                if entry?
+                    @log "process was not running. pid expected is  ", pid , "binary name is ", entry.name if entry?
+                    #@processmgr.start  entry.name, entry.path, entry.args, entry.pid, key if entry? and entry.monitrOn is true
+                    @start  key, (key, pid) =>
+                        if key instanceof Error
+                            @log key
+                            return
+
+            @processmgr.on "attached", (result, pid, key) =>
+                entry = @instances.entries[key]
+                if entry?
+                    entry.status = "running|monitored"
+                    @log "process #{pid} with key #{key}  is attached"
+
+            @instances.on "attachnMonitor", (pid, key) =>
+                # need to attach and monitor it
+                @log "Starting monitor on discovered pid #{pid} with key #{key}"
+                @processmgr.attach pid, key
+                @processmgr.monitor pid, key
+
+            @processmgr.on "monitor", (pid, key) =>
+                @log "Starting monitor on pid #{pid} with key #{key}"
+                @processmgr.monitor pid, key
+
+            # start monitoring the packages and processes
+            @spm.monitor  @config.repeatInterval
+            @instances.discover()
 
     status: ->
         state = super
@@ -234,9 +264,7 @@ class StormFlash extends StormBolt
     run: (config) ->
         super config
 
-        # start monitoring the packages and processes
-        @spm.monitor  @config.repeatInterval
-        @instances.discover()
+        @emit 'ready'
 
     install: (pinfo, callback) ->
         # check if already exists
@@ -245,7 +273,7 @@ class StormFlash extends StormBolt
             @log "Found matching package name #{pkg.name}"
             callback pkg
 
-        @spm.install pinfo, @include, (pkg) =>
+        @spm.install pinfo, (pkg) =>
             # should return something other than 500...
             return callback pkg if pkg instanceof Error
             @packages.add uuid.v4(), pinfo
@@ -332,63 +360,15 @@ module.exports.StormFlash = StormFlash
 module.exports.StormInstance = StormInstance
 module.exports.StormPackage = StormPackage
 
-# instance = null
-# module.exports = (args) ->
-#     if not instance?
-#         instance = new StormAgent args
-#     return instance
 
 #-------------------------------------------------------------------------------------------
 
 if require.main is module
 
-    ### 
-    argv = require('minimist')(process.argv.slice(2))
-    if argv.h?
-        console.log """ 
-            -h view this help
-            -p port number
-            -l logfile
-            -d datadir
-        """ 
-        return
-
-    config = {}
-    config.port    = argv.p ? 5000
-    config.logfile = argv.l ? "/var/log/stormflash.log"
-    config.datadir = argv.d ? "/var/stormstack"
-
-    storm = config.storm
-
-    # COMMENT OUT below "storm" object FOR REAL USE 
-    # test storm data for manual config
-    # storm = null <-- should be the default
-    storm =
-        provider: "openstack"
-        tracker: "https://allow@stormtracker.dev.intercloud.net"
-        skey: "some-secure-serial-key"
-        id: "testing-uuid"
-        bolt:
-            cert: ""
-            key: ""
-            ca: ""
-            uplinks: [ "bolt://stormtower.dev.intercloud.net" ]
-            uplinkStrategy: "round-robin"
-            allowRelay: true
-            relayPort: 8017
-            allowedPorts: [ 5000 ]
-            listenPort: 443 
-            beaconInterval: 10
-            beaconRetry: 3
-    ###
-
     config = null
     storm = null # override during dev 
     agent = new StormFlash config
 
-    agent.on "running", (include) =>
-        console.log "running returned ", include
-        agent.include = include
     agent.run storm
 
     # Garbage collect every 2 sec 

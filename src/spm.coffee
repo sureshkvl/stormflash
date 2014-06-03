@@ -210,7 +210,7 @@ class StormPackageManager extends EventEmitter
                 return callback new Error error
             return callback stdout
 
-    install: (pinfo, ainclude, callback) ->
+    install: (pinfo, callback) ->
         return new Error "Invalid parameters" unless pinfo.name? and pinfo.version? and pinfo.source?
         # dpkg://cpn.intercloud.net:443/path/package.dpkg
         # Proceed with package installationa
@@ -266,23 +266,8 @@ class StormPackageManager extends EventEmitter
             @execute cmd, (result) =>
                 return callback new Error result if result instanceof Error
                 if parsedurl.protocol is "npm:"
-                    try
-                        pkgconfig = require("#{pinfo.name}/package.json").config
-                        storm = pkgconfig.storm
-                        @log "install - [#{pinfo.name}] processing storm compatible module...", pkgconfig, storm
-                        return callback new Error "Not a storm compatible module" unless storm.plugins?
-                        @log "install - [#{pinfo.name}] available plugins:", storm.plugins
-                        for plugfile in storm.plugins
-                            do (plugfile) =>
-                                plugin = require("#{pinfo.name}/#{plugfile}")
-                                return unless plugin
-                                @log "include - [#{pinfo.name}] found valid plugin at #{plugfile}"
-                                ainclude plugin
-                        return callback pinfo
-
-                    catch err
-                        return callback new Error err
-                return callback result
+                    @emit "npminclude", pinfo.name
+                callback result
         catch err
             return callback new Error "Failed to install"
 

@@ -29,6 +29,7 @@
 	},
 	"main": "./lib/stormflash",
 	"config": {
+        "datadir" : "/var/stormflash",
         "repeatInterval" : 25000,
 		"logfile": "/var/log/stormflash.log",
 		"storm": {
