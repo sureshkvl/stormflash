@@ -8,8 +8,12 @@ StormPackage = require('./stormflash').StormPackage
     agent = @settings.agent
 
     @post '/packages': ->
+        console.log agent
         agent.install @body, (result) =>
-            @send result
+            if result instanceof Error
+                @send 500
+            else
+                @send 200
 
     @get '/packages': ->
         @send agent.packages.list()

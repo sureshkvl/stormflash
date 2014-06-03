@@ -205,8 +205,8 @@ class StormPackageManager extends EventEmitter
 
     execute: (command, callback) ->
         exec = require('child_process').exec
-        @log 'executing the command ', command
         exec "#{command}", (error, stdout, stderr) =>
+            @log "execution result for #{command} ", error, stdout, stderr
             if error?
                 return callback new Error error
             return callback stdout
@@ -225,52 +225,55 @@ class StormPackageManager extends EventEmitter
             unless pkg instanceof Error
                 @log "Found the component installed ", pinfo.name
                 return callback pinfo
+            cmd = undefined
+            switch (parsedurl.protocol)
+                when 'npm:'
+                    if parsedurl.path
+                        #XXX assuming http to download the package
+                        parsedurl.protocol = "http"
+                        filename = url.format(parsedurl)
+                        cmd = @getCommand "npm", "install", pinfo, filename
+                    else
+                        cmd = @getCommand "npm", "install", pinfo
 
-        switch (parsedurl.protocol)
-            when 'npm:'
-                if parsedurl.path
+                when "dpkg:"
+                    return callback new Error "Must specify source" unless pinfo.source?
                     #XXX assuming http to download the package
                     parsedurl.protocol = "http"
-                    filename = url.format(parsedurl)
-                    cmd = @getCommand "npm", "install", pinfo, filename
+                    webreq = require 'request'
+                    fs = require 'fs'
+                    filename = "/tmp/#{pinfo.name}.pkg"
+                    source = url.format(parsedurl)
+                    webreq source,
+                        (error, response, body) =>
+
+                            return new Error "unable to download file" if error?
+                            if fs.existsSync filename
+                                cmd = @getCommand "dpkg", "install", pinfo, filename
+
+                                return callback new Error "Unable to install package install" unless cmd?
+                                @execute  cmd, (result) =>
+                                    return callback new Error result if result instanceof Error
+                                    callback pinfo
+                            else
+                                return callback new Error "unable to download package"
+
+                    .pipe(fs.createWriteStream(filename))
+                    return
+                when "apt-get:"
+                    append = ""
+                    append = "=#{pinfo.version}" if pinfo.version isnt "*"
+                    cmd = @getCommand "apt-get", "install", pinfo, "#{pinfo.name}#{append}"
                 else
-                    cmd = @getCommand "npm", "install", pinfo
-
-            when "dpkg:"
-                return callback new Error "Must specify source" unless pinfo.source?
-                #XXX assuming http to download the package
-                parsedurl.protocol = "http"
-                webreq = require 'request'
-                fs = require 'fs'
-                filename = "/tmp/#{pinfo.name}.pkg"
-                source = url.format(parsedurl)
-                webreq source,
-                   (error, response, body) =>
-                    return new Error "unable to download file" if error?
-                    if fs.existsSync filename
-                        cmd = @getCommand "dpkg", "install", pinfo, filename
-
-                        return callback new Error "Unable to install package install" unless cmd?
-                        @execute  cmd, (result) =>
-                            return callback new Error result if result instanceof Error
-                            callback pinfo
-                    else
-                        return callback new Error "unable to download package"
-
-                .pipe(fs.createWriteStream(filename))
-                return
-            when "apt-get:"
-                cmd = @getCommand "apt-get", "install", pinfo, "#{pinfo.name}=#{pinfo.version}"
-            else
-                return callback new Error "Unsupported package manager"
-        try
-            @execute cmd, (result) =>
-                return callback new Error result if result instanceof Error
-                if parsedurl.protocol is "npm:"
-                    @emit "npminclude", pinfo.name
-                callback result
-        catch err
-            return callback new Error "Failed to install"
+                    return callback new Error "Unsupported package manager"
+            try
+                @execute cmd, (result) =>
+                    return callback new Error result if result instanceof Error
+                    if parsedurl.protocol is "npm:"
+                        @emit "npminclude", pinfo.name
+                    callback result
+            catch err
+                return callback new Error "Failed to install"
 
     uninstall: (pinfo, callback) ->
         return callback new Error "Should not uninstall built in package" if pinfo.source is "builtin"?

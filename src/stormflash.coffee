@@ -104,7 +104,7 @@ class StormPackages extends StormRegistry
             entry = @entries[key]
             return unless entry? and entry.data?
             pkg = entry.data
-            if (pkg.name is pinfo.name) and (pkg.version is pinfo.version) and (pkg.source is pinfo.source)
+            if (pkg.name is pinfo.name) and ((pkg.version is pinfo.version) or (pinfo.version is "*")) and ((pkg.source is pinfo.source) or (pkg.source is "builtin" ) or (pkg.source is "dependency"))
                pkg.id = entry.id
                return pkg
 
@@ -273,11 +273,13 @@ class StormFlash extends StormBolt
         pkg = @packages.match pinfo
         if pkg?
             @log "Found matching package name #{pkg.name}"
-            callback pkg
+            return callback pkg
 
         @spm.install pinfo, (pkg) =>
+            if pkg instanceof Error
+                @log "Error.. send error"
+                return callback new Error pkg
             # should return something other than 500...
-            return callback pkg if pkg instanceof Error
             @packages.add uuid.v4(), pinfo
             @emit 'installed the package ', pinfo.name, pinfo.id
             callback pinfo
