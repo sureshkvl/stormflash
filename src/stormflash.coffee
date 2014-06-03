@@ -160,7 +160,7 @@ class StormFlash extends StormBolt
                     # Package is discovered and present in DB, include the plugin if its not builtin
                     if pkgType is "npm"
                         @log "test: discovered package that existed in Db #{pkg.name} is having source ", pkg.source
-                        #return if pkg.source is "builtin" or pkg.source is "dependency"
+                        return if pkg.source is "builtin" or pkg.source is "dependency"
                         @spm.emit "npminclude", pinfo.name
 
             @spm.on "npminclude", (name) =>
