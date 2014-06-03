@@ -148,7 +148,7 @@ class StormFlash extends StormBolt
             pkg = @packages.find pinfo.name, pinfo.version
             unless pkg?
                 pinfo.source = "builtin" unless pinfo.source?
-                @log "Discovered pacakge ", pinfo
+                @log "Discovered package ", pinfo
                 spkg = new StormPackage null, pinfo
                 @packages.add uuid.v4(), spkg
 
@@ -182,7 +182,7 @@ class StormFlash extends StormBolt
                     @log "Error in getting signals from process"
 
         @processmgr.on "attachError", (err, pid, key) =>
-            console.log 'attach error ', err, pid, key
+            @log 'attach error ', err, pid, key
 
             entry = @instances.entries[key]
             if entry isnt undefined and entry?
@@ -235,18 +235,17 @@ class StormFlash extends StormBolt
         super config
 
         # start monitoring the packages and processes
-        @spm.monitor  @config.repeatdelay
+        @spm.monitor  @config.repeatInterval
         @instances.discover()
 
     install: (pinfo, callback) ->
         # check if already exists
-        console.log pinfo
         pkg = @packages.match pinfo
         if pkg?
             @log "Found matching package name #{pkg.name}"
             callback pkg
 
-        @spm.install pinfo, (pkg) =>
+        @spm.install pinfo, @include, (pkg) =>
             # should return something other than 500...
             return callback pkg if pkg instanceof Error
             @packages.add uuid.v4(), pinfo
@@ -386,6 +385,10 @@ if require.main is module
     config = null
     storm = null # override during dev 
     agent = new StormFlash config
+
+    agent.on "running", (include) =>
+        console.log "running returned ", include
+        agent.include = include
     agent.run storm
 
     # Garbage collect every 2 sec 

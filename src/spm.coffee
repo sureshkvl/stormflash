@@ -137,16 +137,9 @@ class StormPackageManager extends EventEmitter
              
 
     monitor: (repeatInterval) ->
-        repeatInterval = @repeatInterval unless repeatInterval?
+        repeatInterval ?= @repeatInterval
+        @log "repeat Interval now is ", repeatInterval
 
-        ###
-        emitter = () =>
-            setImmediate @monitorDebPkgs, @
-            setImmediate @monitorNpmModules, @
-
-        setInterval emitter, repeatInterval
-
-        ###
         async.whilst(
              ()=>
                 true
@@ -170,11 +163,13 @@ class StormPackageManager extends EventEmitter
 
     getCommand: (installer, command, component, filename)  ->
         @log "Building command for #{installer}.#{command}"
+        append = component.version
+        append = "" if component.version is "*"
         switch "#{installer}.#{command}"
             when "dpkg.check"
-                return "dpkg -l | grep -w \"#{component.name} \" | grep -w \"#{component.version} \""
+                return "dpkg -l | grep -w \"#{component.name} \" | grep -w \"#{append} \""
             when "npm.check"
-                return "cd /lib; npm ls 2>/dev/null | grep #{component.name}@#{component.version}"
+                return "cd /lib; npm ls 2>/dev/null | grep \"#{component.name}@#{append}\""
             when "npm.install"
                 return "npm install #{component.name}@#{component.version}" unless filename
                 return "npm install #{filename}"
@@ -215,7 +210,7 @@ class StormPackageManager extends EventEmitter
                 return callback new Error error
             return callback stdout
 
-    install: (pinfo, callback) ->
+    install: (pinfo, ainclude, callback) ->
         return new Error "Invalid parameters" unless pinfo.name? and pinfo.version? and pinfo.source?
         # dpkg://cpn.intercloud.net:443/path/package.dpkg
         # Proceed with package installationa
@@ -256,7 +251,7 @@ class StormPackageManager extends EventEmitter
 
                         return callback new Error "Unable to install package install" unless cmd?
                         @execute  cmd, (result) =>
-                            return callback result if result instanceof Error
+                            return callback new Error result if result instanceof Error
                             callback pinfo
                     else
                         return callback new Error "unable to download package"
@@ -269,13 +264,24 @@ class StormPackageManager extends EventEmitter
                 return callback new Error "Unsupported package manager"
         try
             @execute cmd, (result) =>
+                return callback new Error result if result instanceof Error
                 if parsedurl.protocol is "npm:"
-                    @log "Importing the package #{pinfo.name}"
                     try
-                        @import pinfo.name
+                        pkgconfig = require("#{pinfo.name}/package.json").config
+                        storm = pkgconfig.storm
+                        @log "install - [#{pinfo.name}] processing storm compatible module...", pkgconfig, storm
+                        return callback new Error "Not a storm compatible module" unless storm.plugins?
+                        @log "install - [#{pinfo.name}] available plugins:", storm.plugins
+                        for plugfile in storm.plugins
+                            do (plugfile) =>
+                                plugin = require("#{pinfo.name}/#{plugfile}")
+                                return unless plugin
+                                @log "include - [#{pinfo.name}] found valid plugin at #{plugfile}"
+                                ainclude plugin
+                        return callback pinfo
+
                     catch err
-                        @log "Error in installing npm module #{pinfo.name} is :", err
-                        return callback err
+                        return callback new Error err
                 return callback result
         catch err
             return callback new Error "Failed to install"

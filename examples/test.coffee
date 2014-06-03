@@ -14,8 +14,8 @@ packages = [
     #            "version" : "0.2.2",
     #            "source" : "dpkg://testme.com/testdeb.pkg",
     #          ,
-            "name": "stormkeeper",
-            "version" : "*",
+            "name": "corenova",
+            "version" : "54",
             "source" : "npm://",
       ]
     
@@ -70,8 +70,6 @@ discoverInstances = ->
 #setTimeout getListofPackages, 500
 #agent.spm.monitorNpmModules()
 #
-#
-console.log "Matching zappajs with packages.............................."
 setTimeout ()->
     #agent.spm.monitorDebPkgs()
     #agent.spm.monitor 8000
@@ -86,7 +84,8 @@ setTimeout ()->
 #    deletePackage()
 , 100
 
-
 setTimeout () ->
+    console.log agent
+    console.log "Matching zappajs with packages.............................."
     agent.packages.find "zappajs", "*"
 , 2000
