@@ -61,6 +61,16 @@ class StormInstances extends StormRegistry
                     entry.monitorOn = true
                     @emit "attachnMonitor", entry.data.pid, key
         
+    match: (name) ->
+        #@log "Dumping all entries", @entries
+        for key of @entries
+            entry = @entries[key]
+            return unless entry? and entry.data?
+            instance  = entry.data
+            if (instance.name is name)
+               instance.id = entry.id
+               return instance
+
 
 #-----------------------------------------------------------------
 
@@ -277,18 +287,17 @@ class StormFlash extends StormBolt
 
         @spm.install pinfo, (pkg) =>
             if pkg instanceof Error
-                @log "Error.. send error"
                 return callback new Error pkg
             # should return something other than 500...
-            @packages.add uuid.v4(), pinfo
-            @emit 'installed the package ', pinfo.name, pinfo.id
-            callback pinfo
+            result = @packages.add uuid.v4(), pinfo
+            @emit 'installed the package ', result
+            callback result
 
 
     uninstall: (pinfo, callback) ->
 
         pkg = @packages.match pinfo
-        return 404 if pkg instanceof Error
+        return undefined unless pkg?
 
         # Kill the instances and clean up StormInstance Registry
         instance = @instances.match pkg.name
@@ -304,9 +313,9 @@ class StormFlash extends StormBolt
             @processmgr.emit 'stop', instance.key, instance.pid
 
         @spm.uninstall pinfo, (result) =>
-            return callback 500 if result instanceof Error
-            @packages.remove pkg.id
+            return callback new Error result if result instanceof Error
             @emit 'uinstalled', pkg.name, pkg.id
+            @packages.remove pkg.id
             callback result
 
     update: (module,entry, callback) ->

@@ -177,7 +177,7 @@ class StormPackageManager extends EventEmitter
             when "dpkg.install"
                 return "dpkg -i #{filename}"
             when "apt-get.install"
-                return "apt-get -y install #{filename}"
+                return "apt-get -y --force-yes install #{filename}"
             when "dpkg.uninstall", "apt-get.uninstall"
                 return "dpkg -r #{filename}"
             else
@@ -213,8 +213,8 @@ class StormPackageManager extends EventEmitter
 
     install: (pinfo, callback) ->
         return new Error "Invalid parameters" unless pinfo.name? and pinfo.version? and pinfo.source?
-        # dpkg://cpn.intercloud.net:443/path/package.dpkg
-        # Proceed with package installationa
+
+        @log "Installing package #{pinfo.name}"
 
         url = require 'url'
         if pinfo.source?

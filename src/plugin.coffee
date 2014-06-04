@@ -8,12 +8,11 @@ StormPackage = require('./stormflash').StormPackage
     agent = @settings.agent
 
     @post '/packages': ->
-        console.log agent
         agent.install @body, (result) =>
-            if result instanceof Error
-                @send 500
+            unless result instanceof Error
+                @send result
             else
-                @send 200
+                @next new Error result
 
     @get '/packages': ->
         @send agent.packages.list()
@@ -38,8 +37,10 @@ StormPackage = require('./stormflash').StormPackage
     @del '/packages/:id': ->
         match = agent.packages.get @params.id
         if match?
-            result = agent.remove match
-            @send 204 if result is undefined
-            @send 500
+            result = agent.uninstall match
+            if result is undefined
+                @send 204
+            else
+                @next 500
         else
             @send 404
