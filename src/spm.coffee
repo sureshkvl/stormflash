@@ -1,223 +1,296 @@
-#utility functions
+EventEmitter = require('events').EventEmitter
+os = require 'os'
+fs = require 'fs'
+async = require 'async'
+exec = require('child_process').exec
 
-#getnpmname funciton parse input line (npm output),
-#and return s the package name and version (only top level package)
-#input line : "npm ls" output line.
-#output : packageobj or null
-getnpmname = (name) ->
-    packageobj=
-        {
-            'name':''
-            'version':''
-        }
-    temparr=name.split(/\s+/)
-    # when parsing top packages- array length will be only 2.
-    # so we have to process only if array length is 2
-    if temparr.length == 2
-        for i in temparr
-            #example line : cloudflash-bolt@0.3.4
-                if i.indexOf('@') != -1
-                    val=i.split('@')
-                    #val[0] is name, val[1] is version
-                    packageobj.name=val[0]
-                    packageobj.version=val[1]
-                    return packageobj
-    #return null if not able to parse
-    return null
-
-
-#getpkgname function  parse the input line (dpkg -l output line)
-#and return the package name and version
-#input: "dpkg -l" output
-#output: packageobj  or null
-#sample input line : ii  zlib1g-dev:amd64        1:1.2.7.dfsg-13ubuntu2             amd64     library
-getpkgname = (name) ->
-
-    packageobj=
-        {
-            'name':''
-            'version':''
-        }
-    temparr=name.split(/\s+/)
-    # for headers(dpkg -l output headers) array length will be less than 4
-    if temparr.length > 4
-        if temparr[1]?
-            packageobj.name=temparr[1]
-            packageobj.version=temparr[2]
-            return packageobj
-    return null
-
-#isInstalled function : Check the given tool is present in the filesystem
-isInstalled = (toolname)->
-    mod = require('find-in-path')
-    #console.log toolname
-    present=false
-    mod(toolname,(err,path)->
-        console.log "isInstalled Error #{err} occured, when we find toolname #{toolname}" if err?
-        if path?
-            present=true
-            console.log  "#{toolname} present in the system"
-    )
-    return present
-
-
-#rundpkg function:
-# executes the dpkg -l command and parse the output and populate the resultarray with packagename and version number
-rundpkg = ((callback)->
-    cs=require('child_process')
-    myoutput=''
-    resultarray=[]
-    pg=cs.spawn('dpkg',['-l'])
-    pg.stdout.on 'data',(data)->
-        myoutput=myoutput.concat(data)
-    pg.stderr.on 'data',(data)->
-        console.log 'rundpkg:recvd error '+data
-    pg.on 'close',(code)->
-        console.log 'rundpkg: exits with code ',code
-        myout=myoutput.split("\n")
-        i=0
-        for k in myout
-            #In dpkg output,initial 5 lines are headers.. so no need to process it.
-            #i++
-            #if i>4
-            op=getpkgname(k)
-            resultarray.push op unless op is null
-        callback(resultarray)
-    )
-
-#runnpm function:
-#executes the 'npm ls command' , and parse the output and populate the resultarray with only top level npm packages.
-runnpm = ((callback)->
-    cs=require('child_process')
-    myoutput=''
-    resultarray=[]
-    pg=cs.spawn('npm',['ls'])
-    pg.stdout.on 'data',(data)->
-        myoutput=myoutput.concat(data)
-    pg.stderr.on 'data',(data)->
-        console.log 'runnpm : recvd error' +data
-    pg.on 'close',(code)->
-        console.log 'runnpm: exits with code',code
-        myout=myoutput.split("\n")
-        for k in myout
-            op= getnpmname(k)
-            resultarray.push op unless op is null
-            callback(resultarray)
-    )
-
-_install_npm = (data,callback)->
-    exec = require('child_process').exec
-    console.log "installing nodejs app #{data.name}"
-    exec "npm install #{data.name}@#{data.version}; ls -l ./node_modules/#{data.name} " , (error, stdout, stderr) =>
-        console.log "success fully installed"
-        callback(true)
-
-
-#
-# StormPackageManager - meta overlay package management system (npm/apt/dpkg/rpm/yum/...)
-#
 class StormPackageManager extends EventEmitter
-    # global arrays
-    #linux flavors
-    linuxflavors=['cloudnode','ubuntu','fedora','centos','redhat']
-    # pkgmgrapp array stores the  package manager applications supported for the respective OS flavor.
-    pkgmgrapp=[]
+    _defaultInstaller = 'dpkg'
+    _defaultPkgMgr = 'apt-get'
 
-    #global variables
-    @ostype='Unknown'
-    @osflavor='Unknown'
-    @packageApp='Unknown'
-    @npmpresent=false
+    _discoverNpmModules = (callback) ->
+        exec "npm ls --json --depth=0", (error, stdout, stderr) =>
+            return callback stdout if stdout
 
-    constructor:->
-        console.log 'storm package manager constructor called'
-        #initialize pkgmgrapp array with cloudnode,ubuntu package manager details
-        pkgmgrapp.push(flavor:'cloudnode',pkg:['dpkg'])
-        pkgmgrapp.push(flavor:'ubuntu',pkg:['dpkg','apt-get'])
-        @ostype=require('os').type()
-        #check the OS flavor,
-        #if the /etc/lsb-release file is present  and flavor is matched with linuxflavors array,
-        #then the new flavor name will be assigned in to @osflavor
-        #else, the default value  'Unknown' still remains. (applicable for non Linux OS also).
-        fs=require('fs')
-        if fs.existsSync('/etc/lsb-release') is true
-            contents=fs.readFileSync('/etc/lsb-release','utf8')
-            console.log contents
-            for val in linuxflavors
-                @osflavor= val if contents.toLowerCase().indexOf(val.toLowerCase()) != -1
+    _discoverDebPkgs = (callback) ->
+        exec "dpkg -l | tail -n+6", (error, stdout, stderr) =>
+            return callback stdout if stdout
 
-        console.log "OS: #{@ostype}, Flavor #{@osflavor}"
-        #detect the installed package manager application only if ostype or flavor is detected.
-        unless @ostype? or @osflavor?
-            #identify the package list from the array for a linux flavor.
-            for i in pkgmgrapp
-                pkglist= i.pkg if i.flavor.toLowerCase() is @osflavor.toLowerCase()
-            #detect the package installed in the system and break on first occurence.
-            for i in pkglist
-                if isInstalled(i) is true
-                    @packageApp=i
-                    break
-        console.log 'packageapp ',@packageApp
-        #check the npm present
-        @npmpresent=isInstalled('npm')
-        console.log 'npm present',@npmpresent
+    _discoverEnvironment = (callback)->
+        switch (process.platform)
+            when "linux"
+                env =
+                    type: os.type()
+                    platform: os.platform()
+                    arch:   os.arch()
+                    nodeVersion: process.version
 
-    install: (pkg, callback)->
-        console.log pkg
+                fs.readFile "/proc/version", (err, data) =>
+                    throw err if err?
+                    match = /ubuntu/i.test(data)
+                    if match?
+                        @installer = 'dpkg'
+                        @pkgmgr = 'apt-get'
+                    else
+                        # For now non ubuntu is redhat
+                        @installer = 'rpm'
+                        @pkgmgr = 'yum'
+                    return callback env
+            else
+                @log "unsupported platform"
+                return new Error "Unsupported Platform " + process.platform
+
+    constructor: (context) ->
+        @installer = undefined
+        @pkgmgr = undefined
+        @env = {}
+        @npmPackages = {}
+        @debPackages = {}
+
+        if context?
+            @repeatInterval = context.repeatInterval
+            @log = context.log
+
+        @repeatInterval?= 8000
+        @log ?= console.log
+
+        _discoverEnvironment  (env) =>
+            @env = env
+            throw env if env instanceof Error
+            @log 'discovered environment', @env
+
+
+        ###
+        # Discover and cache npm modules
+        _discoverNpmModules (content) =>
+            @analyzenpm content, 1
+            @log "discovered npm packages", @npmPackages
+
+        _discoverDebPkgs (content) =>
+            @analyzeDeb content, 1
+            @log "discovered Deb packages", @debPackages
+        ###
+
+
+    monitorDebPkgs: (callback) ->
+        # Find installed debain pacakages
+        @log "searching for debian packages"
+        _discoverDebPkgs (content) =>
+            return callback "success"  unless content?
+            @analyzeDeb content, 0
+            callback "success"
+
+    analyzeDeb: (content, firstime) ->
+            if content?
+                # Got the list of debain packages in the file
+                # they are of the format ii <packagename> <package version> <description>
+                contents = content.split(/[ ,]+/).join(',').split('ii')
+                for pkg in contents
+                    content = pkg.split(',')
+                    if content[1]? and content[2]?
+                        result =
+                            name:content[1]
+                            version: content[2]
+                            source: undefined
+                        if firstime
+                            @debPackages[result.name] = result.version
+                        else
+                            @emit 'discovered', "deb", result unless @debPackages[content[1]]?
+                            @debPackages[result.name] = result.version
+
+    analyzenpm: (content, firstime) ->
+        modules = JSON.parse content
+        for entry of modules.dependencies
+            result =
+                name: entry
+                version: modules.dependencies[entry].version?="*"
+                source: 'builtin'
+            if firstime
+                @npmPackages[entry] = result.version
+            else
+                @emit "discovered", "npm", result unless @npmPackages[entry]?
+                @npmPackages[result.name] = result.version
+
+            if typeof modules.dependencies[entry].dependencies is 'object'
+                curobject = modules.dependencies[entry].dependencies
+                for content of curobject
+                    result =
+                        name: content
+                        version: curobject[content].version?="*"
+                        source: 'dependency'
+                    if firstime
+                        @npmPackages[result.name] = result.version
+                    else
+                        @emit "discovered", "npm", result unless @npmPackages[result.name]?
+                        @npmPackages[result.name] = result.version
+
+
+    monitorNpmModules: (callback)->
+        @log "Searching for NPM modules"
+
+
+        _discoverNpmModules (stdout) =>
+            return callback "success"  unless stdout?
+            @analyzenpm stdout, 0
+            callback "success"
+
+
+    monitor: (repeatInterval) ->
+        repeatInterval ?= @repeatInterval
+        @log "repeat Interval now is ", repeatInterval
+
+        async.whilst(
+             ()=>
+                true
+         ,   (repeat) =>
+                async.waterfall [
+                    (callback) =>
+                       @monitorNpmModules  =>
+                           callback()
+                   ,(callback) =>
+                       @monitorDebPkgs  =>
+                           callback()
+                 ]
+                 , (err, result) ->
+
+                setTimeout(repeat, repeatInterval)
+         ,   (err)=>
+                @log 'monitoring of packages stopped..'
+        )
+
+
+
+    getCommand: (installer, command, component, filename)  ->
+        @log "Building command for #{installer}.#{command}"
+        append = component.version
+        append = "" if component.version is "*"
+        switch "#{installer}.#{command}"
+            when "dpkg.check"
+                return "dpkg -l | grep -w \"#{component.name} \" | grep -w \"#{append} \""
+            when "npm.check"
+                return "cd /lib; npm ls 2>/dev/null | grep \"#{component.name}@#{append}\""
+            when "npm.install"
+                return "npm install #{component.name}@#{component.version}" unless filename
+                return "npm install #{filename}"
+            when "dpkg.install"
+                return "dpkg -i #{filename}"
+            when "apt-get.install"
+                return "apt-get -y --force-yes install #{filename}"
+            when "dpkg.uninstall", "apt-get.uninstall"
+                return "dpkg -r #{filename}"
+            else
+                @log new Error "invalid command #{installer}.#{command} for #{component.name}!"
+                return null
+
+    check: (installer, component, callback) ->
+        @log "checking if the component '#{component.name}' has already been installed using #{installer}..."
+
+        switch installer
+            when "npm:"
+                command = @getCommand 'npm', 'check', component
+            when "dpkg:", "apt-get:"
+                command = @getCommand 'dpkg', 'check', component
+
+            else
+                return callback new Error "Unsupported installer #{installer}"
+
+        @execute command, (error) =>
+            unless error instanceof Error
+                @log "#{component.name} is already installed"
+                callback true
+            else
+                callback error
+
+    execute: (command, callback) ->
         exec = require('child_process').exec
+        exec "#{command}", (error, stdout, stderr) =>
+            @log "execution result for #{command} ", error, stdout, stderr
+            if error?
+                return callback new Error error
+            return callback stdout
+
+    install: (pinfo, callback) ->
+        return new Error "Invalid parameters" unless pinfo.name? and pinfo.version? and pinfo.source?
+
+        @log "Installing package #{pinfo.name}"
+
         url = require 'url'
-        parsedurl = url.parse pkg.source, true
-        console.log parsedurl
-        console.log 'the protocol for the package download is ' + parsedurl.protocol
+        if pinfo.source?
+            parsedurl = url.parse pinfo.source, true
+            @log 'the protocol for the package download is ', parsedurl.protocol
 
-        switch (parsedurl.protocol)
-            when 'npm:'
-                console.log "npm protocol.. we should do nodejs installation"
-                console.log "we dont update repo currently.. installating with default" unless parsedurl.host?
-                _install_npm pkg,(result)=>
-                    console.log result
-                    callback("{installed}")
+        @check parsedurl.protocol, pinfo, (pkg) =>
+            unless pkg instanceof Error
+                @log "Found the component installed ", pinfo.name
+                return callback pinfo
+            cmd = undefined
+            switch (parsedurl.protocol)
+                when 'npm:'
+                    if parsedurl.path
+                        #XXX assuming http to download the package
+                        parsedurl.protocol = "http"
+                        filename = url.format(parsedurl)
+                        cmd = @getCommand "npm", "install", pinfo, filename
+                    else
+                        cmd = @getCommand "npm", "install", pinfo
 
-            when 'deb:'
-                console.log "deb protocol.. we should do debian package installation"
-            else
-                console.log "unknown protocol.. dont know what to do..ignoring"
+                when "dpkg:"
+                    return callback new Error "Must specify source" unless pinfo.source?
+                    #XXX assuming http to download the package
+                    parsedurl.protocol = "http"
+                    webreq = require 'request'
+                    fs = require 'fs'
+                    filename = "/tmp/#{pinfo.name}.pkg"
+                    source = url.format(parsedurl)
+                    webreq source,
+                        (error, response, body) =>
 
-        callback("{install:true}")
+                            return new Error "unable to download file" if error?
+                            if fs.existsSync filename
+                                cmd = @getCommand "dpkg", "install", pinfo, filename
 
-    list:(callback)->
-        res=
-            {
-            'os':''
-            'osflavor':''
-            'dpkg':
-                {
-                'enabled':''
-                'installed':[]
-                }
-            'npm':
-                {
-                'enabled':''
-                'installed':[]
-                }
-            }
-        res.os=@ostype
-        res.osflavor=@osflavor
-        res.npm.enabled=@npmpresent
+                                return callback new Error "Unable to install package install" unless cmd?
+                                @execute  cmd, (result) =>
+                                    return callback new Error result if result instanceof Error
+                                    callback pinfo
+                            else
+                                return callback new Error "unable to download package"
 
-        try
-            if @packageApp is 'dpkg'
-                res.dpkg.enabled=true
-                #populate the dpkg package results
-                rundpkg (resultarray)=>
-                    res.dpkg.installed=resultarray
-                    callback(res)
+                    .pipe(fs.createWriteStream(filename))
+                    return
+                when "apt-get:"
+                    append = ""
+                    append = "=#{pinfo.version}" if pinfo.version isnt "*"
+                    cmd = @getCommand "apt-get", "install", pinfo, "#{pinfo.name}#{append}"
+                else
+                    return callback new Error "Unsupported package manager"
+            try
+                @execute cmd, (result) =>
+                    return callback new Error result if result instanceof Error
+                    if parsedurl.protocol is "npm:"
+                        @emit "npminclude", pinfo.name
+                    callback result
+            catch err
+                return callback new Error "Failed to install"
 
-            else
-            # currently no support to other package managers
-                callback(res)
-        catch err
-            console.log 'Error catched: ',err
-            callback(res)
+    uninstall: (pinfo, callback) ->
+        return callback new Error "Should not uninstall built in package" if pinfo.source is "builtin"?
+        url = require 'url'
+        if pinfo.source?
+            parsedurl = url.parse pinfo.source, true
 
-module.exports = StormPackage
+            return callback new Error "Cannot parse the package source" unless parsedurl?
+            switch (parsedurl.protocol)
+                when "npm:"
+                    cmd = @getCommand "npm", "uninstall", pinfo
+                when "dpkg:", "apt-get:"
+                    #XXX apt-get remove is dangerous. Ignore installed dependencies
+                    cmd = @getCommand "dpkg", "uninstall", pinfo
+                else
+                    return callback new Error "Unsupported uninstall protocol"
+
+            @execute cmd, (result) =>
+                return callback result if result instanceof Error
+                return callback "Success"
+
+module.exports = StormPackageManager

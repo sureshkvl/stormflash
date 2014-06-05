@@ -3,178 +3,307 @@ Array::unique = ->
   output[@[key]] = @[key] for key in [0...@length]
   value for key, value of output
 
-StormAgent = require './stormagent'
+StormData = require('stormagent').StormData
+StormRegistry = require('stormagent').StormRegistry
 
-class StormFlash extends StormAgent
+class StormInstance extends StormData
+
+    schema =
+        name: "instance"
+        type: "object"
+        required: true
+        properties:
+            name : { type: "string", "required": true }
+            id   : { type: "string", "required": false}
+            path : { type: "string", "required": true }
+            pid  : { type: "integer", "required" : false }
+            monitor: { type: "boolean", "required" : false}
+            args:
+                type: "array"
+                required: false
+                items:
+                    type: "string"
+                    required: false
+
+
+    constructor: (data) ->
+        super null, data, schema
+
+#-----------------------------------------------------------------
+
+
+class StormInstances extends StormRegistry
+    constructor: (filename) ->
+        @on 'load', (key,val) ->
+            entry = new StormInstance key,val
+            if entry?
+                entry.saved = true
+                @add key, entry
+
+        @on 'updated', (entry) ->
+            @log "Updated entry with key #{entry.key} with pid #{entry.data.pid}"
+
+        super filename
+
+    # get storminstance details
+    get: (key) ->
+        entry = super key
+        return unless entry?
+        if entry.data? and entry.data instanceof StormInstance
+            entry.data.id = entry.id
+            entry.data
+        else
+            entry
+
+    discover: ->
+        for key of @entries
+            entry = @entries[key]
+            if entry? and entry.data? and entry.data.pid?
+                if entry.data.monitor is true
+                    @log "Emitting monitor for discovered pid #{entry.data.pid}"
+                    entry.monitorOn = true
+                    @emit "attachnMonitor", entry.data.pid, key
+
+    match: (name) ->
+        #@log "Dumping all entries", @entries
+        for key of @entries
+            entry = @entries[key]
+            return unless entry? and entry.data?
+            instance  = entry.data
+            if (instance.name is name)
+               instance.id = entry.id
+               return instance
+
+
+#-----------------------------------------------------------------
+
+class StormPackage extends StormData
+    schema =
+        name: "package"
+        type: "object"
+        required: true
+        properties:
+            name : { type: "string", "required": true }
+            id   : { type: "string", "required": false}
+            version : { type: "string", "required": true }
+            source : { type: "string", "required": true }
+            status: { type: "string", "required": false}
+
+    constructor: (id, data) ->
+        super id, data, schema
+
+#--------------------------------------------------------------------
+
+class StormPackages extends StormRegistry
+    constructor: (filename) ->
+        @on 'load', (key,val) ->
+            entry = new StormPackage key,val
+            if entry?
+                entry.saved = true
+                @add key, entry
+
+        @on 'removed', (key) ->
+            # an entry is removed in Registry
+            #
+        super filename
+
+    get: (key) ->
+        entry = super key
+        return unless entry?
+        if entry.data? and entry.data instanceof StormInstance
+            entry.data.id = entry.id
+            entry.data
+        else
+            entry
+
+
+    match: (pinfo) ->
+        #@log "Dumping all entries", @entries
+        for key of @entries
+            entry = @entries[key]
+            return unless entry? and entry.data?
+            pkg = entry.data
+            if (pkg.name is pinfo.name) and ((pkg.version is pinfo.version) or (pinfo.version is "*")) and ((pkg.source is pinfo.source) or (pkg.source is "builtin" ) or (pkg.source is "dependency"))
+               pkg.id = entry.id
+               return pkg
+
+
+    find: (name, version) ->
+        for key of @entries
+            entry = @entries[key]
+            return unless entry? and entry.data?
+            pkg = entry.data
+            if (pkg.name is name) and ((pkg.version is version) or (pkg.version is "*"))
+                @log "find - Matching found for #{pkg.name} and #{pkg.version}"
+                entry.data.id = entry.id
+                return entry.data
+
+
+
+#--------------------------------------------------------------------
+StormBolt = require 'stormbolt'
+
+class StormFlash extends StormBolt
 
     validate = require('json-schema').validate
-    uuid = require('node-uuid')
     exec = require('child_process').exec
     fs = require 'fs'
     path = require 'path'
+    uuid = require('node-uuid')
+    spm = require './spm'
+    processmgr = require('./processmgr')
 
-#    packagelist = require('./packagelib')
-#    @pkglist = new packagelist()
+    constructor: (config) ->
+        super config
 
-#    processmgr = require('./processlib')
-#    @processmgr = new processmgr()
+        # key routine to import itself into agent base
+        @import module
+        fs.mkdir "#{@config.datadir}", () ->
+        fs.mkdir "#{@config.datadir}/plugins", () ->
 
-    schema =
-        name: "module"
-        type: "object"
-        additionalProperties: false
-        properties:
-            class:    { type: "string" }
-            id:       { type: "string" }
-            description:
-                type: "object"
-                required: true
-                additionalProperties: false
-                properties:
-                    name:      { type: "string", "required": true }
-                    version:   { type: "string", "required": true }
-            status:
-                type: "object"
-                required: false
-                additionalProperties: false
-                properties:
-                    installed:   { type: "boolean" }
-                    initialized: { type: "boolean" }
-                    enabled:     { type: "boolean" }
-                    running:     { type: "boolean" }
-                    result:      { type: "string"  }
+        @packages  = new StormPackages  "#{@config.datadir}/packages.db"
+        @instances = new StormInstances "#{@config.datadir}/instances.db"
+        @instances.discover()
 
-    constructor: (@app) ->
-        console.log 'StormFlash constructor called with app: #{@app}'
+    status: ->
+        state = super
+        state.packages  = @packages.list()
+        state.instances = @instances.list()
+        state
 
-        @activated = false
+    run: (config) ->
+        super config
 
+        @log 'loading Storm Package Manager...'
+        @spm = new spm log:@log, repeatInterval:@config.repeatInterval
 
-        packagelist = require('./packagelib')
-        @pkglist = new packagelist()
-        processlib = require('./processlib')
-        @processmgr = new processlib()
-        @env = require './environment'
-        @db = require('dirty') '/tmp/stormflash.db'
-        @db.on 'load', ->
-            console.log 'loaded stormflash.db'
-            @forEach (key,val) ->
-                console.log 'found ' + key if val
-        super
-
-    new: (desc,id) ->
-        module = {}
-        if id
-            module.id = id
-        else
-            module.id = uuid.v4()
-        module.description = desc
-        return module
-
-    lookup: (id) ->
-        console.log "looking up module ID: #{id}"
-        entry = @db.get id
-        if entry
-
-            if schema?
-                console.log 'performing schema validation on retrieved module entry'
-                result = validate entry, schema
-                console.log result
-                return new Error "Invalid module retrieved: #{result.errors}" unless result.valid
-
-            return entry
-        else
-            return new Error "No such module ID: #{id}"
-
-    getCommand: (installer, command, target, version) ->
-        append = ''
-        switch "#{installer}.#{command}"
-            when "npm.check"
-                append = "@#{version}" if version?
-                return "cd /lib; npm ls 2>/dev/null | grep #{target}#{append}"
+        @spm.on 'discovered', (pkgType, pinfo) =>
+            pkg = @packages.find pinfo.name, pinfo.version
+            unless pkg?
+                pinfo.source = "builtin" unless pinfo.source?
+                @log "Discovered package ", pinfo
+                spkg = new StormPackage null, pinfo
+                @packages.add spkg.id, spkg.data
             else
-                console.log new Error "invalid command #{installer}.#{command} for #{target}!"
-                return null
+                # Package is discovered and present in DB, include the plugin if its not builtin
+                if pkgType is "npm"
+                    @log "test: discovered package that existed in Db #{pkg.name} is having source ", pkg.source
+                    return if pkg.source is "builtin" or pkg.source is "dependency"
+                    @import pinfo.name
 
-    execute: (command, callback) ->
-        unless command
-            return callback new Error "no valid command for execution!"
+        # start monitoring the packages and processes
+        @spm.monitor @config.repeatInterval
 
-        console.log "executing #{command}..."
-        exec = require('child_process').exec
-        exec command, (error, stdout, stderr) =>
-            if error
-                callback error
-            else
-                callback()
+        @log 'loading Storm Instance/Process Manager...'
+        @processmgr = new processmgr()
 
-    list: ->
-        res = { 'modules': [] }
-        @db.forEach (key,val) ->
-            res.modules.push val if val
-        console.log 'listing...'
-        return res
+        @processmgr.on "error", (error, key, pid) =>
+            #when a process failed to start, what should be done?
+            @log "Error while starting the process for key #{key} ", error
+            entry.status = "error"
 
-    validate: (module) ->
-        console.log 'performing schema validation on module description'
-        return validate module, schema.properties.description
+        @processmgr.on "signal", (signal, pid, key) =>
+            @log "recieved signal #{signal} from pid #{pid} with key #{key}"
+            switch signal
+                when "stopped", "killed", "exited"
+                    #return if signal is null
+                    entry = @instances.entries[key]
+                    if entry? and entry.monitorOn is true
+                        @log "Starting the process with #{entry.name}"
+                        # process sent signal
+                        @log "Sending stop signal to pid #{pid}"
+                        @processmgr.stop pid, key
+                        @start key, (key, pid) =>
+                            if key instanceof Error
+                                @log key
+                                return
 
-    check: (component, callback) ->
-        console.log "checking if the component '#{component.name}' has already been installed using npm..."
+                when "error"
+                    @log "Error in getting signals from process"
 
-        command = @getCommand 'npm', "check", component.name, component.version
-        @execute command, (error) =>
-            unless error
-                console.log "#{component.name} is already installed"
-                callback true
-            else
-                callback error
+        @processmgr.on "attachError", (err, pid, key) =>
+            @log 'attach error ', err, pid, key
 
-    ## To include modules in DB to zappa server
-    includeModules: (stormflashModule) ->
-        stormflashModule = stormflashModule.unique()
-        if stormflashModule.length > 0
-            for module in stormflashModule
-                console.log "include /lib/node_modules/#{module}"
-                @include require "/lib/node_modules/#{module}"
+            entry = @instances.entries[key]
+            if entry isnt undefined and entry?
+                entry.status = "error"
+                @log "Failed to attach for pid " , pid , "Reason is ", err
 
-    ##
-    # For POST/PUT module endpoints
-    # check module installed in /lib/node_modules directory with version.
-    # For PUT if no change in version gives error
-    # Entry added to DB is success.
+        @processmgr.on "detachError", (err, pid, key) =>
+            entry = @instances.entries[key]
+            if entry isnt undefined and entry?
+                entry.status = "error"
+                @log "Failed to detach for pid " , pid , "Reason is ", err
 
-    add: (module,entry, type, callback) ->
-        # 1. check if component already included in DB, if so, we skip including...
-        exists = 0; stormflashModule = []; exists = {}
+        @processmgr.on "stopped", (signal, pid, key) =>
+            # restart the process if entry has monitor option set
+            # if stopped gracefully dont start it again
+            @log "process stopped due to signal ", signal if signal?
+            entry = @instances.entries[key] if key?
+            if entry?
+                @log "process was not running. pid expected is  ", pid , "binary name is ", entry.name if entry?
+                #@processmgr.start  entry.name, entry.path, entry.args, entry.pid, key if entry? and entry.monitrOn is true
+                @start  key, (key, pid) =>
+                    if key instanceof Error
+                        @log key
+                        return
 
-        @db.forEach (key,val) ->
-            if val && type == true && val.description.name == module.description.name then exists = 1
-            stormflashModule.push val.description.name if val
+        @processmgr.on "attached", (result, pid, key) =>
+            entry = @instances.entries[key]
+            if entry?
+                entry.status = "running|monitored"
+                @log "process #{pid} with key #{key}  is attached"
 
-        console.log 'stormflashModule: '+ stormflashModule
-        if type == true && exists == 1
-            # Return 304 status when module already exist
-            return callback({"status": 304})
+        @instances.on "attachnMonitor", (pid, key) =>
+            # need to attach and monitor it
+            @log "Starting monitor on discovered pid #{pid} with key #{key}"
+            @processmgr.attach pid, key
+            @processmgr.monitor pid, key
 
-        if type == false
-            if module.description.version && entry.description.version
-                if module.description.version == entry.description.version
-                    # Return 304 status when module and version already exist
-                    return callback({"status": 304})
+        @processmgr.on "monitor", (pid, key) =>
+            @log "Starting monitor on pid #{pid} with key #{key}"
+            @processmgr.monitor pid, key
+
+    install: (pinfo, callback) ->
+        # check if already exists
+        pkg = @packages.match pinfo
+        if pkg?
+            @log "Found matching package name #{pkg.name}"
+            return callback pkg
+
+        @spm.install pinfo, (pkg) =>
+            if pkg instanceof Error
+                return callback new Error pkg
+            # should return something other than 500...
+            spkg = new StormPackage null, pinfo
+            result = @packages.add spkg.id, spkg.data
+            @emit 'installed the package ', result
+            callback result
 
 
-        @check module.description, (error) =>
-            unless error instanceof Error
-                stormflashModule.push module.description.name
-                @includeModules stormflashModule
-                # 2. add module into stormflash
-                module.status = { installed: true }
-                @db.set module.id, module, ->
-                    callback(module)
-            else
-                console.log 'module check: '+ error
-                return callback new Error "#{module.description.name} module not installed!"
+    uninstall: (pinfo, callback) ->
+
+        pkg = @packages.match pinfo
+        return undefined unless pkg?
+
+        # Kill the instances and clean up StormInstance Registry
+        instance = @instances.match pkg.name
+
+        if instance?
+            # one time event registration to stop the process
+            @processmgr.once 'stop', (key, pid) ->
+                #signal the process to stop
+                @processmgr.stop pid, key
+                @instances.remove key
+
+            # Generate event to process Manager to stop the process
+            @processmgr.emit 'stop', instance.key, instance.pid
+
+        @spm.uninstall pinfo, (result) =>
+            return callback new Error result if result instanceof Error
+            @emit 'uinstalled', pkg.name, pkg.id
+            @packages.remove pkg.id
+            callback result
 
     update: (module,entry, callback) ->
         if module.id
@@ -186,105 +315,68 @@ class StormFlash extends StormAgent
         else
             callback new Error "Could not find ID! #{id}"
 
-    ## check for module in /lib/node_modules/module-name directory
-    #To remove module-id from DB
-    remove: (module, callback) ->
-        stormflashModule = []; exists = 0
-        fs.existsSync "/lib/node_modules/#{module.description.name}", (exists) ->
-            if exists
-                # Return 304 status when module already exist
-                return callback({result:304})
-            else
-                @db.forEach (key,val) ->
-                    if val && key != module.id
-                        stormflashModule.push val.description.name
-                console.log 'stormflashModule in DEL: '+ stormflashModule
-                @db.rm module.id, =>
-                    @includeModules stormflashModule
-                    console.log "removed module ID: #{module.id}"
-                    callback({result:200})
-
-    #
-    # activation logic for connecting into stormstack bolt overlay network
-    #
-    activate: (stormdata, callback) ->
-        async.until(
-            () -> # test condition
-                @activated?
-            (repeat) -> # repeat function
-
-                async.waterfall [
-                    # 1. discover environment
-                    (next) ->
-                        if stormdata
-                            next null, stormdata
-                        else
-                            env.discover (stormdata) ->
-                                if stormdata?
-                                    next null, stormdata
-                                else
-                                    next new Error "unable to discover environment!"
-
-                     # 2. register against stormtracker and retrieve agent ID
-                    (stormdata, next) ->
-                        @register stormdata, (agentId) ->
-                            if agentId
-                                next null, agentId
-                            else
-                                next new Error "unable to register against stormtracker at #{stormdata.stormtracker}!"
-
-                     # 3. generate CSR request
-                    (agentId, next) -> # send CSR request
-                        @generateCSR agentId, (csr) ->
-                            if csr
-                                next null, csr
-                            else
-                                next new Error "unable to generate CSR!"
-
-                     # 4. request CSR signed by stormtracker
-                    (csr, next) ->
-                        @sendCSRRequest csr, (result) ->
-                            if result
-                                next null
-
-                ], (err, result) -> # finally
-                    if result
-                            try
-                                boltContent = fs.readFileSync boltConfigfile
-                                @boltconfig = JSON.parse boltContent
-                            catch
-                                @boltconfig = @boltdata
-                                fileops.updateFile boltConfigfile, JSON.stringify @boltconfig
-                            finally
-                                this.emit "success",@boltconfig
-
-                    callback err, result
+    start: (key, callback) ->
+        entry = @instances.entries[key]
+        return callback new Error "Key #{key} does not exist in DB" unless entry? and entry.data?
+        pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, key
+        callback new Error "Not able to start the binary" unless pid?
+        entry.data.pid = pid
+        entry.monitorOn = true  if entry.data.monitor is true
+        entry.saved = false
+        @instances.update key, entry
+        @processmgr.attach pid, key
+        callback key, pid if callback?
+        @processmgr.emit "monitor", pid, key if entry.monitorOn is true
 
 
-                activate (err, res) ->
-                    if res
-                        activated = true
-                        repeat
-                    else
-                        util.log "error during activation: #{err}"
-                        setInterval repeat,5000
-            (err) -> # final call
+    stop: (key, callback) ->
+        entry = @instances.entries[key]
+        return callback new Error "No running process" unless entry? and entry.data? and entry.data.pid?
+        @log "Stopping the process with pid #{entry.data.pid}"
+        entry.monitorOn = false
+        entry.saved = false
+        @instances.update key, entry
+        return @processmgr.stop entry.data.pid, key
 
-        )
+    restart: (key, callback) ->
+        entry = @instances.entries[key]
+        entry.monitorOn = false
+        status = @processmgr.stop entry.data.pid, key
+        unless status instanceof Error
+            pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, key
+            entry.data.pid = pid
+            entry.saved = false
+            entry.monitorOn = true if entry.data.monitor is true
+            @instances.update key, entry
 
 
+    newInstance: (body) ->
+        new StormInstance body
+
+###
+# SINGLETON CLASS OBJECT
+###
+module.exports.StormFlash = StormFlash
+module.exports.StormInstance = StormInstance
+module.exports.StormPackage = StormPackage
+
+
+#-------------------------------------------------------------------------------------------
+
+if require.main is module
+
+    config = null
+    storm = null # override during dev
+    agent = new StormFlash config
+
+    agent.run storm
 
     # Garbage collect every 2 sec
     # Run node with --expose-gc
-    if gc?
-        setInterval (
-            () -> gc()
-        ), 2000
+    setInterval (
+        () -> gc()
+    ), 60000 if gc?
 
-##
-# SINGLETON CLASS OBJECT
-instance = null
-module.exports = (args) ->
-    if not instance?
-        instance = new StormAgent args
-    return instance
+    process.on 'uncaughtException' , (err) =>
+        agent.log "Caught an exception with backtrace", err.stack
+
