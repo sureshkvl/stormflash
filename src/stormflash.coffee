@@ -17,7 +17,7 @@ class StormInstance extends StormData
             id   : { type: "string", "required": false}
             path : { type: "string", "required": true }
             pid  : { type: "integer", "required" : false }
-            monitorOn: { type: "boolean", "required" : false}
+            monitor: { type: "boolean", "required" : false}
             args:
                 type: "array"
                 required: false
@@ -50,7 +50,12 @@ class StormInstances extends StormRegistry
     # get storminstance details
     get: (key) ->
         entry = super key
-        entry
+        return unless entry?
+        if entry.data? and entry.data instanceof StormInstance
+            entry.data.id = entry.id
+            entry.data
+        else
+            entry
 
     discover: ->
         for key of @entries
@@ -106,7 +111,13 @@ class StormPackages extends StormRegistry
 
     get: (key) ->
         entry = super key
-        entry
+        return unless entry?
+        if entry.data? and entry.data instanceof StormInstance
+            entry.data.id = entry.id
+            entry.data
+        else
+            entry
+
 
     match: (pinfo) ->
         #@log "Dumping all entries", @entries
@@ -125,7 +136,7 @@ class StormPackages extends StormRegistry
             return unless entry? and entry.data?
             pkg = entry.data
             if (pkg.name is name) and ((pkg.version is version) or (pkg.version is "*"))
-                #@log "find - Matching found for #{pkg.name} and #{pkg.version}"
+                @log "find - Matching found for #{pkg.name} and #{pkg.version}"
                 entry.data.id = entry.id
                 return entry.data
                 
@@ -150,6 +161,7 @@ class StormFlash extends StormBolt
         fs.mkdir "#{@config.datadir}", () ->
         fs.mkdir "#{@config.datadir}/plugins", () ->
 
+
         #Defer packages and instances as zappa is started on agent.run
         @.on 'ready', () =>
             @packages  = new StormPackages  "#{@config.datadir}/packages.db"
@@ -163,9 +175,9 @@ class StormFlash extends StormBolt
                 pkg = @packages.find pinfo.name, pinfo.version
                 unless pkg?
                     pinfo.source = "builtin" unless pinfo.source?
-                    #@log "Discovered package ", pinfo
+                    @log "Discovered package ", pinfo
                     spkg = new StormPackage null, pinfo
-                    @packages.add uuid.v4(), spkg
+                    @packages.add spkg.id, spkg.data
                 else
                     # Package is discovered and present in DB, include the plugin if its not builtin
                     if pkgType is "npm"
@@ -289,7 +301,8 @@ class StormFlash extends StormBolt
             if pkg instanceof Error
                 return callback new Error pkg
             # should return something other than 500...
-            result = @packages.add uuid.v4(), pinfo
+            spkg = new StormPackage null, pinfo
+            result = @packages.add spkg.id, spkg.data
             @emit 'installed the package ', result
             callback result
 
@@ -363,6 +376,9 @@ class StormFlash extends StormBolt
             @instances.update key, entry
 
 
+    newInstance: (key, body) ->
+        ni = new StormInstance key, body
+        ni
 
 
 
@@ -389,3 +405,7 @@ if require.main is module
     setInterval (
         () -> gc()
     ), 60000 if gc?
+
+    process.on 'uncaughtException' , (err) =>
+        agent.log "Caught an exception with backtrace", err.stack
+        exit()
