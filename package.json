@@ -1,7 +1,7 @@
 {
 	"name": "stormflash",
 	"description": "stormflash provides remote application lifecycle management on any arbitrary endpoint",
-	"version": "0.4.0",
+	"version": "0.4.2",
 	"author": "Peter K. Lee",
 	"homepage": "http://stormstack.org",
 	"license": "MIT",
@@ -10,8 +10,8 @@
 		"url": "git://github.com/stormstack/stormflash.git"
 	},
 	"dependencies": {
-		"stormagent": "0.2.x",
-		"stormbolt": "0.3.x",
+		"stormagent": ">=0.2.11",
+		"stormbolt": ">=0.3.9",
 		"request": "2.34.x",
 		"json-schema": "0.2.0",
 		"lazy": "1.0.x",

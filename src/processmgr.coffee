@@ -21,7 +21,7 @@ class ProcessManager extends EventEmitter
             @retries = context.retries
             @options = context.options
             @log = context.log
-       
+
         @monitorInterval ?= _defaultMonitorInterval
         @options ?= _defaultSpawnOptions
         @log ?= console.log
@@ -98,7 +98,7 @@ class ProcessManager extends EventEmitter
         ptrace.add pid, key , @retries, @aCbPtr
 
     detach: (pid, key) ->
-        # detach from the process 
+        # detach from the process
         ptrace.detach pid, key, @retries,  @dCbPtr
 
     monitor: (pid, key) ->
@@ -106,10 +106,4 @@ class ProcessManager extends EventEmitter
             ptrace.getsignal.async pid, key, @sCbPtr, () ->
         setTimeout getsignal, @monitorInterval
 
-
-
-
-                    
-
-
-module.exports.ProcessManager = ProcessManager
+module.exports = ProcessManager

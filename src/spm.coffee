@@ -46,22 +46,20 @@ class StormPackageManager extends EventEmitter
         @env = {}
         @npmPackages = {}
         @debPackages = {}
-       
+
         if context?
             @repeatInterval = context.repeatInterval
             @log = context.log
-            @import = context.import
-       
+
         @repeatInterval?= 8000
         @log ?= console.log
-        @import?= undefined
 
         _discoverEnvironment  (env) =>
             @env = env
             throw env if env instanceof Error
             @log 'discovered environment', @env
 
-        
+
         ###
         # Discover and cache npm modules
         _discoverNpmModules (content) =>
@@ -135,7 +133,7 @@ class StormPackageManager extends EventEmitter
             return callback "success"  unless stdout?
             @analyzenpm stdout, 0
             callback "success"
-             
+
 
     monitor: (repeatInterval) ->
         repeatInterval ?= @repeatInterval
@@ -159,7 +157,7 @@ class StormPackageManager extends EventEmitter
          ,   (err)=>
                 @log 'monitoring of packages stopped..'
         )
-         
+
 
 
     getCommand: (installer, command, component, filename)  ->
@@ -295,4 +293,4 @@ class StormPackageManager extends EventEmitter
                 return callback result if result instanceof Error
                 return callback "Success"
 
-module.exports.StormPackageManager = StormPackageManager
+module.exports = StormPackageManager
