@@ -408,4 +408,4 @@ if require.main is module
 
     process.on 'uncaughtException' , (err) =>
         agent.log "Caught an exception with backtrace", err.stack
-        exit()
+        
