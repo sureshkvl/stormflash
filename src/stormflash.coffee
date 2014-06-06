@@ -5,6 +5,7 @@ Array::unique = ->
 
 StormData = require('stormagent').StormData
 StormRegistry = require('stormagent').StormRegistry
+query = require('dirty-query').query
 
 class StormInstance extends StormData
 
@@ -49,7 +50,7 @@ class StormInstances extends StormRegistry
     get: (key) ->
         entry = super key
         return unless entry?
-        if entry.data? and entry.data instanceof StormInstance
+        if entry.data?
             entry.data.id = entry.id
             entry.data
         else
@@ -88,6 +89,7 @@ class StormPackage extends StormData
             version : { type: "string", "required": true }
             source : { type: "string", "required": true }
             status: { type: "string", "required": false}
+            type:   { type: "string", "required": false}
 
     constructor: (id, data) ->
         super id, data, schema
@@ -110,33 +112,27 @@ class StormPackages extends StormRegistry
     get: (key) ->
         entry = super key
         return unless entry?
-        if entry.data? and entry.data instanceof StormInstance
+        if entry.data?
             entry.data.id = entry.id
             entry.data
         else
             entry
 
-
     match: (pinfo) ->
-        #@log "Dumping all entries", @entries
-        for key of @entries
-            entry = @entries[key]
-            return unless entry? and entry.data?
-            pkg = entry.data
-            if (pkg.name is pinfo.name) and ((pkg.version is pinfo.version) or (pinfo.version is "*")) and ((pkg.source is pinfo.source) or (pkg.source is "builtin" ) or (pkg.source is "dependency"))
-               pkg.id = entry.id
-               return pkg
+        @log "Matching the package #{pinfo.name} with db"
+        packages = query @db, {name:pinfo.name, version:pinfo.version}
+        unless packages
+            packages = query @db, {name:pinfo.name, version:"*"}
+        @log "Matched Package ", packages[0] if packages[0]?
+        packages[0]
 
 
     find: (name, version) ->
-        for key of @entries
-            entry = @entries[key]
-            return unless entry? and entry.data?
-            pkg = entry.data
-            if (pkg.name is name) and ((pkg.version is version) or (pkg.version is "*"))
-                @log "find - Matching found for #{pkg.name} and #{pkg.version}"
-                entry.data.id = entry.id
-                return entry.data
+        packages = query @db, {name:name, version:version}
+        unless packages?
+            packages = query @db, {name:name, version:"*"}
+        @log "Found Package ", packages[0] if packages[0]?
+        packages[0]
 
 
 
@@ -163,7 +159,8 @@ class StormFlash extends StormBolt
 
         @packages  = new StormPackages  "#{@config.datadir}/packages.db"
         @instances = new StormInstances "#{@config.datadir}/instances.db"
-        @instances.discover()
+        @instances.on 'ready', () =>
+            @instances.discover()
 
     status: ->
         state = super
@@ -180,19 +177,22 @@ class StormFlash extends StormBolt
         @spm.on 'discovered', (pkgType, pinfo) =>
             pkg = @packages.find pinfo.name, pinfo.version
             unless pkg?
-                pinfo.source = "builtin" unless pinfo.source?
-                @log "Discovered package ", pinfo
+                @log "SPM Discovered a new package #{pinfo.name}"
                 spkg = new StormPackage null, pinfo
-                @packages.add spkg.id, spkg.data
-            else
-                # Package is discovered and present in DB, include the plugin if its not builtin
-                if pkgType is "npm"
-                    @log "test: discovered package that existed in Db #{pkg.name} is having source ", pkg.source
-                    return if pkg.source is "builtin" or pkg.source is "dependency"
-                    @import pinfo.name
+                @packages.add spkg.id, spkg
 
-        # start monitoring the packages and processes
-        @spm.monitor @config.repeatInterval
+        @packages.on 'added', (pkginfo) =>
+            return unless pkginfo? or pkginfo.data?
+            pkg = pkginfo.data
+            #@log "Package #{pkg.name} of type #{pkg.type} and source #{pkg.source} just added into Registry"
+            # Package is added into DB, include the plugin if its not builtin
+            return if pkg.source is "builtin" or pkg.source is "dependency"
+            @import pkg.name if pkg.type is "npm"
+
+        # start monitoring the packages and processes after run time table is loaded from DB
+        @packages.on 'ready', () =>
+            @log "SPM started Monitoring the system for packages..."
+            @spm.monitor @config.repeatInterval
 
         @log 'loading Storm Instance/Process Manager...'
         @processmgr = new processmgr()
@@ -272,13 +272,13 @@ class StormFlash extends StormBolt
             return callback pkg
 
         @spm.install pinfo, (pkg) =>
-            if pkg instanceof Error
-                return callback new Error pkg
-            # should return something other than 500...
-            spkg = new StormPackage null, pinfo
-            result = @packages.add spkg.id, spkg.data
+            return callback new Error pkg if pkg instanceof Error
+
+            spkg = new StormPackage null, pkg
+            result = @packages.add spkg.id, spkg
+            result.data.id = result.id
             @emit 'installed the package ', result
-            callback result
+            callback result.data
 
 
     uninstall: (pinfo, callback) ->

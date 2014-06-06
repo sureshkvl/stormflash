@@ -60,18 +60,6 @@ class StormPackageManager extends EventEmitter
             @log 'discovered environment', @env
 
 
-        ###
-        # Discover and cache npm modules
-        _discoverNpmModules (content) =>
-            @analyzenpm content, 1
-            @log "discovered npm packages", @npmPackages
-
-        _discoverDebPkgs (content) =>
-            @analyzeDeb content, 1
-            @log "discovered Deb packages", @debPackages
-        ###
-
-
     monitorDebPkgs: (callback) ->
         # Find installed debain pacakages
         @log "searching for debian packages"
@@ -91,7 +79,8 @@ class StormPackageManager extends EventEmitter
                         result =
                             name:content[1]
                             version: content[2]
-                            source: undefined
+                            source: "builtin"
+                            type: "dpkg"
                         if firstime
                             @debPackages[result.name] = result.version
                         else
@@ -104,7 +93,8 @@ class StormPackageManager extends EventEmitter
             result =
                 name: entry
                 version: modules.dependencies[entry].version?="*"
-                source: 'builtin'
+                source: "builtin"
+                type: "npm"
             if firstime
                 @npmPackages[entry] = result.version
             else
@@ -118,6 +108,7 @@ class StormPackageManager extends EventEmitter
                         name: content
                         version: curobject[content].version?="*"
                         source: 'dependency'
+                        type: "npm"
                     if firstime
                         @npmPackages[result.name] = result.version
                     else
@@ -233,9 +224,11 @@ class StormPackageManager extends EventEmitter
                         cmd = @getCommand "npm", "install", pinfo, filename
                     else
                         cmd = @getCommand "npm", "install", pinfo
+                    pinfo.type = "npm"
 
                 when "dpkg:"
                     return callback new Error "Must specify source" unless pinfo.source?
+                    pinfo.type = "dpkg"
                     #XXX assuming http to download the package
                     parsedurl.protocol = "http"
                     webreq = require 'request'
@@ -259,6 +252,7 @@ class StormPackageManager extends EventEmitter
                     .pipe(fs.createWriteStream(filename))
                     return
                 when "apt-get:"
+                    pinfo.type = "dpkg"
                     append = ""
                     append = "=#{pinfo.version}" if pinfo.version isnt "*"
                     cmd = @getCommand "apt-get", "install", pinfo, "#{pinfo.name}#{append}"
@@ -267,9 +261,7 @@ class StormPackageManager extends EventEmitter
             try
                 @execute cmd, (result) =>
                     return callback new Error result if result instanceof Error
-                    if parsedurl.protocol is "npm:"
-                        @emit "npminclude", pinfo.name
-                    callback result
+                    callback pinfo
             catch err
                 return callback new Error "Failed to install"
 
