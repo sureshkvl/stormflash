@@ -266,15 +266,19 @@ class StormFlash extends StormBolt
 
     install: (pinfo, callback) ->
         # check if already exists
-        pkg = @packages.match pinfo
+        try
+            spkg = new StormPackage null, pinfo
+        catch err
+            return callback new Error err
+
+        pkg = @packages.match spkg.data
         if pkg?
             @log "Found matching package name #{pkg.name}"
             return callback pkg
 
         @spm.install pinfo, (pkg) =>
             return callback new Error pkg if pkg instanceof Error
-
-            spkg = new StormPackage null, pkg
+            spkg.data = pkg
             result = @packages.add spkg.id, spkg
             result.data.id = result.id
             @emit 'installed the package ', result
@@ -351,7 +355,10 @@ class StormFlash extends StormBolt
 
 
     newInstance: (body) ->
-        new StormInstance body
+        try
+            new StormInstance body
+        catch err
+            return new Error err
 
 ###
 # SINGLETON CLASS OBJECT
