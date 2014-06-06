@@ -352,6 +352,7 @@ class StormFlash extends StormBolt
             entry.saved = false
             entry.monitorOn = true if entry.data.monitor is true
             @instances.update key, entry
+            callback key,pid if callback?
 
 
     newInstance: (body) ->
