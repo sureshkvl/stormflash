@@ -1,5 +1,6 @@
 sf = require('../src/stormflash').StormFlash
 require('look').start()
+fs = require 'fs'
 
 agent = new sf()
 StormPackage = require('../src/stormflash').StormPackage
@@ -42,12 +43,21 @@ testPackageInstall = ->
 
 
 createInstance = ->
+    out = fs.openSync './out.log', 'a'
+    err = fs.openSync './err.log', 'a'
+    env = process.env
+    env.MY_PATH = 'ravi'
     instance =
-            name: "server"
-            path: "/home/rchunduru/workspace/coffee"
+            name: "openvpn"
+            path: "/usr/sbin"
             monitor: true
+            args: ["--config", "/config/openvpn/ravi.conf", "--log", "/tmp/openvpn.log"]
+            options:
+                env:env
+            stdio: ['ignore', out, err]
 
-    sinstance = new StormInstance "testserver", instance
+    sinstance = new StormInstance instance
+    sinstance.id = 'testserver'
     res = agent.instances.add "testserver", sinstance
     console.log "result to add instance", res
     agent.instances.get "testserver", (instance) =>
@@ -57,7 +67,7 @@ createInstance = ->
     console.log agent.instances.list()
     agent.start "testserver", (result, error) =>
         console.log "result of starting procesS", result, error
-        agent.stop "testserver", (result) =>
+        #agent.stop "testserver", (result) =>
 
 getInstances = ->
     console.log "Get List of Instances.................................."
@@ -82,8 +92,8 @@ setTimeout ()->
     #agent.instances.discover()
     #discoverInstances()
     #getInstances()
-    #createInstance()
-    testPackageInstall()
+    createInstance()
+    #testPackageInstall()
 #    getSpecificPackage()
     ()->
     #    getListofpackages()

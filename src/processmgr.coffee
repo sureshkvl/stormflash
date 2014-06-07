@@ -59,10 +59,11 @@ class ProcessManager extends EventEmitter
     setMonitorInterval: (interval) ->
         @monitorInterval = interval
 
-    start: (binary, path, args, key) ->
+    start: (binary, path, args, stdio, options, key) ->
         #Spawn a child . optionally can kill the existing process if any
-        @log "starting the process #{path}/#{binary} with args ", args, "and options ", @options
-        child = spawn "#{path}" + "/#{binary}", args, @options
+        options ?= @options
+        @log "starting the process #{path}/#{binary} with args ", args, "and options ", options
+        child = spawn "#{path}" + "/#{binary}", args, stdio:stdio, options
         child.unref()
         ###
         child.on "error", (err) =>
