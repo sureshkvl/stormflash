@@ -36,9 +36,10 @@ class StormInstance extends StormData
 class StormInstances extends StormRegistry
     constructor: (filename) ->
         @on 'load', (key,val) ->
-            entry = new StormInstance key,val
+            entry = new StormInstance val
             if entry?
                 entry.saved = true
+                entry.id = key
                 @add key, entry
 
         @on 'updated', (entry) ->
@@ -326,7 +327,6 @@ class StormFlash extends StormBolt
         callback new Error "Not able to start the binary" unless pid?
         entry.data.pid = pid
         entry.monitorOn = true  if entry.data.monitor is true
-        entry.saved = false
         @instances.update key, entry
         @processmgr.attach pid, key
         callback key, pid if callback?
@@ -338,7 +338,6 @@ class StormFlash extends StormBolt
         return callback new Error "No running process" unless entry? and entry.data? and entry.data.pid?
         @log "Stopping the process with pid #{entry.data.pid}"
         entry.monitorOn = false
-        entry.saved = false
         @instances.update key, entry
         return @processmgr.stop entry.data.pid, key
 
@@ -349,7 +348,6 @@ class StormFlash extends StormBolt
         unless status instanceof Error
             pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, key
             entry.data.pid = pid
-            entry.saved = false
             entry.monitorOn = true if entry.data.monitor is true
             @instances.update key, entry
             callback key,pid if callback?
