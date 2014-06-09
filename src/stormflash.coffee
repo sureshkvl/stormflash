@@ -20,9 +20,6 @@ class StormInstance extends StormData
             path : { type: "string", "required": true }
             pid  : { type: "integer", "required" : false }
             monitor: { type: "boolean", "required" : false}
-            stdio:
-                type: "array"
-                required: true
             options:
                 type: "object"
                 required: false
