@@ -141,7 +141,7 @@ class StormPackageManager extends EventEmitter
                    ,(callback) =>
                        @monitorDebPkgs  =>
                            callback()
-                 ]
+                ]
                  , (err, result) ->
 
                 setTimeout(repeat, repeatInterval)
