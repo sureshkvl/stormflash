@@ -331,9 +331,10 @@ class StormFlash extends StormBolt
         entry = @instances.entries[key]
         return callback new Error "Key #{key} does not exist in DB" unless entry? and entry.data?
         pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.stdio, entry.data.options, key
-        callback new Error "Not able to start the binary" unless pid?
+        return callback new Error "Not able to start the binary" unless pid?
         entry.data.pid = pid
         entry.monitorOn = true  if entry.data.monitor is true
+        entry.saved = false
         @instances.update key, entry
         @processmgr.attach pid, key
         callback key, pid if callback?
@@ -345,6 +346,7 @@ class StormFlash extends StormBolt
         return callback new Error "No running process" unless entry? and entry.data? and entry.data.pid?
         @log "Stopping the process with pid #{entry.data.pid}"
         entry.monitorOn = false
+        entry.saved = false
         @instances.update key, entry
         return @processmgr.stop entry.data.pid, key
 
@@ -356,6 +358,7 @@ class StormFlash extends StormBolt
             pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.stdio, entry.data.options, key
             entry.data.pid = pid
             entry.monitorOn = true if entry.data.monitor is true
+            entry.saved = false
             @instances.update key, entry
             callback key,pid if callback?
 
