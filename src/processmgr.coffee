@@ -47,7 +47,7 @@ class ProcessManager extends EventEmitter
             @log "Signal recieved with err #{err} pid #{pid} key #{key} and signal #{signal}"
             if err isnt null and signal is null
                 @log "Unexpected error"
-                @emit "stopped", signal, pid, key
+                @emit "error", signal, pid, key
             switch signal
                 when "exited", "killed" , "stopped"
                     @emit "signal", signal, pid, key
@@ -59,11 +59,11 @@ class ProcessManager extends EventEmitter
     setMonitorInterval: (interval) ->
         @monitorInterval = interval
 
-    start: (binary, path, args, stdio, options, key) ->
+    start: (binary, path, args, options, key) ->
         #Spawn a child . optionally can kill the existing process if any
         options ?= @options
         @log "starting the process #{path}/#{binary} with args ", args, "and options ", options
-        child = spawn "#{path}" + "/#{binary}", args, stdio:stdio, options
+        child = spawn "#{path}" + "/#{binary}", args, options
         child.unref()
         ###
         child.on "error", (err) =>

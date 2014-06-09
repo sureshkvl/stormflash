@@ -20,9 +20,6 @@ class StormInstance extends StormData
             path : { type: "string", "required": true }
             pid  : { type: "integer", "required" : false }
             monitor: { type: "boolean", "required" : false}
-            stdio:
-                type: "array"
-                required: true
             options:
                 type: "object"
                 required: false
@@ -208,7 +205,14 @@ class StormFlash extends StormBolt
         @processmgr.on "error", (error, key, pid) =>
             #when a process failed to start, what should be done?
             @log "Error while starting the process for key #{key} ", error
-            entry.status = "error"
+            entry = @instances.entries[key]
+            if entry?
+                entry.status = "error"
+                entry.saved = false
+                entry.monitorOn = false
+                entry.data.pid = undefined
+                @instances.update key, entry
+
 
         @processmgr.on "signal", (signal, pid, key) =>
             @log "recieved signal #{signal} from pid #{pid} with key #{key}"
@@ -330,7 +334,7 @@ class StormFlash extends StormBolt
     start: (key, callback) ->
         entry = @instances.entries[key]
         return callback new Error "Key #{key} does not exist in DB" unless entry? and entry.data?
-        pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.stdio, entry.data.options, key
+        pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.options, key
         return callback new Error "Not able to start the binary" unless pid?
         entry.data.pid = pid
         entry.monitorOn = true  if entry.data.monitor is true
@@ -355,7 +359,7 @@ class StormFlash extends StormBolt
         entry.monitorOn = false
         status = @processmgr.stop entry.data.pid, key
         unless status instanceof Error
-            pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.stdio, entry.data.options, key
+            pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.options, key
             entry.data.pid = pid
             entry.monitorOn = true if entry.data.monitor is true
             entry.saved = false

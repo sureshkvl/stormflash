@@ -54,7 +54,7 @@ createInstance = ->
             args: ["--config", "/config/openvpn/ravi.conf", "--log", "/tmp/openvpn.log"]
             options:
                 env:env
-            stdio: ['ignore', out, err]
+                stdio: ['ignore', out, err]
 
     sinstance = new StormInstance instance
     sinstance.id = 'testserver'
