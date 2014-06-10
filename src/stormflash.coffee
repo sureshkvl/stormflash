@@ -340,7 +340,7 @@ class StormFlash extends StormBolt
         entry.monitorOn = true  if entry.data.monitor is true
         entry.saved = false
         @instances.update key, entry
-        @processmgr.attach pid, key
+        @processmgr.attach pid, key if entry.data.monitor is true
         callback key, pid if callback?
         @processmgr.emit "monitor", pid, key if entry.monitorOn is true
 
