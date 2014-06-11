@@ -20,6 +20,7 @@ class StormInstance extends StormData
             path : { type: "string", "required": true }
             pid  : { type: "integer", "required" : false }
             monitor: { type: "boolean", "required" : false}
+            status: { type: "string", "required": false}
             options:
                 type: "object"
                 required: false
@@ -128,7 +129,7 @@ class StormPackages extends StormRegistry
         packages = query @db, {name:pinfo.name, version:pinfo.version}
         unless packages
             packages = query @db, {name:pinfo.name, version:"*"}
-        @log "Matched Package ", packages[0] if packages[0]?
+        @log "Matched Package #{pinfo.name}" if packages[0]?
         packages[0]
 
 
@@ -136,7 +137,7 @@ class StormPackages extends StormRegistry
         packages = query @db, {name:name, version:version}
         unless packages?
             packages = query @db, {name:name, version:"*"}
-        @log "Found Package ", packages[0] if packages[0]?
+        @log "Found Package #{name} " if packages[0]?
         packages[0]
 
 
@@ -191,8 +192,14 @@ class StormFlash extends StormBolt
             pkg = pkginfo.data
             #@log "Package #{pkg.name} of type #{pkg.type} and source #{pkg.source} just added into Registry"
             # Package is added into DB, include the plugin if its not builtin
-            return if pkg.source is "builtin" or pkg.source is "dependency"
-            @import pkg.name if pkg.type is "npm"
+            if pkg.type is "npm" and /npm:/.test(pkg.source)
+                try
+                    @import pkg.name
+                    pkginfo.data.status = "installed|included"
+                catch err
+                    @log "Not able to import the module #{pkg.name}"
+            else
+                pkginfo.data.status = "installed"
 
         # start monitoring the packages and processes after run time table is loaded from DB
         @packages.on 'ready', () =>
@@ -207,7 +214,7 @@ class StormFlash extends StormBolt
             @log "Error while starting the process for key #{key} ", error
             entry = @instances.entries[key]
             if entry?
-                entry.status = "error"
+                entry.data.status = "error"
                 entry.saved = false
                 entry.monitorOn = false
                 entry.data.pid = undefined
@@ -238,13 +245,13 @@ class StormFlash extends StormBolt
 
             entry = @instances.entries[key]
             if entry isnt undefined and entry?
-                entry.status = "error"
+                entry.data.status = "error"
                 @log "Failed to attach for pid " , pid , "Reason is ", err
 
         @processmgr.on "detachError", (err, pid, key) =>
             entry = @instances.entries[key]
             if entry isnt undefined and entry?
-                entry.status = "error"
+                entry.data.status = "error"
                 @log "Failed to detach for pid " , pid , "Reason is ", err
 
         @processmgr.on "stopped", (signal, pid, key) =>
@@ -263,7 +270,7 @@ class StormFlash extends StormBolt
         @processmgr.on "attached", (result, pid, key) =>
             entry = @instances.entries[key]
             if entry?
-                entry.status = "running|monitored"
+                entry.data.status = "running|monitored"
                 @log "process #{pid} with key #{key}  is attached"
 
         @instances.on "attachnMonitor", (pid, key) =>
@@ -291,9 +298,10 @@ class StormFlash extends StormBolt
         @spm.install pinfo, (pkg) =>
             return callback new Error pkg if pkg instanceof Error
             spkg.data = pkg
+            spkg.data.status = "installed"
             result = @packages.add spkg.id, spkg
             result.data.id = result.id
-            @emit 'installed the package ', result
+            @log 'installed the package ', result
             callback result.data
 
 

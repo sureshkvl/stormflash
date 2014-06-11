@@ -46,13 +46,15 @@ createInstance = ->
     out = fs.openSync './out.log', 'a'
     err = fs.openSync './err.log', 'a'
     env = process.env
-    env.MY_PATH = 'ravi'
+    env.NOVAMODULE_PATH= "/usr/local/lib"
+    env.LD_LIBRARY_PATH = "/lib:/usr/local/lib"
     instance =
-            name: "openvpn"
-            path: "/usr/sbin"
+            name: "universal"
+            path: "/usr/local/bin"
             monitor: true
-            args: ["--config", "/config/openvpn/ravi.conf", "--log", "/tmp/openvpn.log"]
+            args: ["--config_file=/config/uproxy/uproxy.ini", "-L", "/tmp/corenova.log"]
             options:
+                detached:true
                 env:env
                 stdio: ['ignore', out, err]
 
