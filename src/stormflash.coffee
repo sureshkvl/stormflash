@@ -20,7 +20,12 @@ class StormInstance extends StormData
             path : { type: "string", "required": true }
             pid  : { type: "integer", "required" : false }
             monitor: { type: "boolean", "required" : false}
-            status: { type: "string", "required": false}
+            status:
+                type: "object"
+                required: false
+                properties:
+                    installed: { type: "boolean", "required": false}
+                    imported:  { type: "boolean", "required" : false}
             options:
                 type: "object"
                 required: false
@@ -185,6 +190,7 @@ class StormFlash extends StormBolt
             unless pkg?
                 @log "SPM Discovered a new package #{pinfo.name}"
                 spkg = new StormPackage null, pinfo
+                spkg.data.status = {}
                 @packages.add spkg.id, spkg
 
         @packages.on 'added', (pkginfo) =>
@@ -195,11 +201,12 @@ class StormFlash extends StormBolt
             if pkg.type is "npm" and /npm:/.test(pkg.source)
                 try
                     @import pkg.name
-                    pkginfo.data.status = "installed|included"
+                    pkginfo.data.status.imported = true
+                    pkginfo.data.status.installed = true
                 catch err
                     @log "Not able to import the module #{pkg.name}"
             else
-                pkginfo.data.status = "installed"
+                pkginfo.data.status.installed = true
 
         # start monitoring the packages and processes after run time table is loaded from DB
         @packages.on 'ready', () =>
@@ -298,7 +305,9 @@ class StormFlash extends StormBolt
         @spm.install pinfo, (pkg) =>
             return callback new Error pkg if pkg instanceof Error
             spkg.data = pkg
-            spkg.data.status = "installed"
+            spkg.data.status = {}
+            spkg.data.status.installed  = true
+            spkg.data.status.imported = false
             result = @packages.add spkg.id, spkg
             result.data.id = result.id
             @log 'installed the package ', result
