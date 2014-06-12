@@ -6,6 +6,7 @@ Array::unique = ->
 StormData = require('stormagent').StormData
 StormRegistry = require('stormagent').StormRegistry
 query = require('dirty-query').query
+async = require('async')
 
 class StormInstance extends StormData
 
@@ -376,12 +377,16 @@ class StormFlash extends StormBolt
         entry.monitorOn = false
         status = @processmgr.stop entry.data.pid, key
         unless status instanceof Error
-            pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.options, key
-            entry.data.pid = pid
-            entry.monitorOn = true if entry.data.monitor is true
-            entry.saved = false
-            @instances.update key, entry
-            callback key,pid if callback?
+            async.series [(next) =>
+                setTimeout next, 5000
+
+            ], () =>
+                pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.options, key
+                entry.data.pid = pid
+                entry.monitorOn = true if entry.data.monitor is true
+                entry.saved = false
+                @instances.update key, entry
+                callback key,pid if callback?
 
 
     newInstance: (body) ->
