@@ -37,7 +37,7 @@ class ProcessManager extends EventEmitter
             if err and key isnt undefined
                 @log "detached from the process with pid #{pid}"
                 @emit "detached", result, pid, key
-                result = ptrace.sendsignal pid, 2
+                result = ptrace.sendsignal pid, 9
                 @log "sending signal to process with pid #{pid} with result #{result}"
             else
                 @log "failed to detach from the process with pid #{pid}"
