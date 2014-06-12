@@ -378,7 +378,7 @@ class StormFlash extends StormBolt
         status = @processmgr.stop entry.data.pid, key
         unless status instanceof Error
             async.series [(next) =>
-                setTimeout next, 5000
+                setTimeout next, 1000
 
             ], () =>
                 pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.options, key
