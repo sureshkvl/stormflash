@@ -415,12 +415,6 @@ if require.main is module
 
     agent.run storm
 
-    # Garbage collect every 2 sec
-    # Run node with --expose-gc
-    setInterval (
-        () -> gc()
-    ), 60000 if gc?
-
     process.on 'uncaughtException' , (err) =>
         agent.log "Caught an exception with backtrace", err.stack
 
