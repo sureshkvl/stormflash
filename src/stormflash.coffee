@@ -229,8 +229,8 @@ class StormFlash extends StormBolt
                 @instances.update key, entry
 
 
-        @processmgr.on "signal", (signal, pid, key) =>
-            @log "recieved signal #{signal} from pid #{pid} with key #{key}"
+        @processmgr.on "signal", (signal, signum, pid, key) =>
+            @log "recieved signal #{signal} with number - #{signum} from pid #{pid} with key #{key}"
             switch signal
                 when "stopped", "killed", "exited"
                     #return if signal is null
@@ -239,7 +239,7 @@ class StormFlash extends StormBolt
                         @log "Starting the process with #{entry.name}"
                         # process sent signal
                         @log "Sending stop signal to pid #{pid}"
-                        @processmgr.stop pid, key
+                        @processmgr.stop signum, pid, key
                         @start key, (key, pid) =>
                             if key instanceof Error
                                 @log key
@@ -270,10 +270,14 @@ class StormFlash extends StormBolt
             if entry?
                 @log "process was not running. pid expected is  ", pid , "binary name is ", entry.name if entry?
                 #@processmgr.start  entry.name, entry.path, entry.args, entry.pid, key if entry? and entry.monitrOn is true
-                @start  key, (key, pid) =>
-                    if key instanceof Error
-                        @log key
-                        return
+                async.series [(startProcess) =>
+                    setTimeout startProcess, 1000
+
+                ], () =>
+                    @start  key, (key, pid) =>
+                        if key instanceof Error
+                            @log key
+                            return
 
         @processmgr.on "attached", (result, pid, key) =>
             entry = @instances.entries[key]
@@ -327,7 +331,7 @@ class StormFlash extends StormBolt
             # one time event registration to stop the process
             @processmgr.once 'stop', (key, pid) ->
                 #signal the process to stop
-                @processmgr.stop pid, key
+                @processmgr.stop 9, pid, key
                 @instances.remove key
 
             # Generate event to process Manager to stop the process
@@ -370,12 +374,12 @@ class StormFlash extends StormBolt
         entry.monitorOn = false
         entry.saved = false
         @instances.update key, entry
-        return @processmgr.stop entry.data.pid, key
+        return @processmgr.stop 9, entry.data.pid, key
 
     restart: (key, callback) ->
         entry = @instances.entries[key]
         entry.monitorOn = false
-        status = @processmgr.stop entry.data.pid, key
+        status = @processmgr.stop 9, entry.data.pid, key
         unless status instanceof Error
             async.series [(next) =>
                 setTimeout next, 1000
@@ -386,9 +390,7 @@ class StormFlash extends StormBolt
                 entry.monitorOn = true if entry.data.monitor is true
                 entry.saved = false
                 @instances.update key, entry
-                @processmgr.attach pid, key if entry.data.monitor is true
                 callback key,pid if callback?
-                @processmgr.emit "monitor", pid, key if entry.monitorOn is true
 
 
     newInstance: (body) ->
