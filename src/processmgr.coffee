@@ -148,7 +148,7 @@ class ProcessManager extends EventEmitter
             @log "Process Exit. Reason is ", code, signal
             @log "going to call mapSignals"
             signum = @mapSignals signal
-            @log "SISISISIS. signal details ", signal, signum
+            @log "Signal details ", signal, signum
             @log "Emitting signals with #{signum}"
             @emit "signal", "stopped", signum, child.pid, key
                 
