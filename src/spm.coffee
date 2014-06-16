@@ -161,8 +161,8 @@ class StormPackageManager extends EventEmitter
             when "npm.check"
                 return "cd /lib; npm ls 2>/dev/null | grep \"#{component.name}@#{append}\""
             when "npm.install"
-                return "npm install #{component.name}@#{component.version}" unless filename
-                return "npm install #{filename}"
+                return "npm install #{component.name}@#{component.version};npm cache clear" unless filename
+                return "npm install #{filename};npm cache clear"
             when "dpkg.install"
                 return "dpkg -i #{filename}"
             when "apt-get.install"
