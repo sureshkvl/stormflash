@@ -69,6 +69,7 @@ class StormInstances extends StormRegistry
             entry
 
     discover: ->
+        @log "Dumping all entries", @entries
         for key of @entries
             entry = @entries[key]
             if entry? and entry.data? and entry.data.pid?
@@ -171,7 +172,9 @@ class StormFlash extends StormBolt
 
         @packages  = new StormPackages  "#{@config.datadir}/packages.db"
         @instances = new StormInstances "#{@config.datadir}/instances.db"
+        @log "Waiting for event ready"
         @instances.on 'ready', () =>
+            @log "Ready event"
             @instances.discover()
 
     status: ->
@@ -239,11 +242,17 @@ class StormFlash extends StormBolt
                         @log "Starting the process with #{entry.name}"
                         # process sent signal
                         @log "Sending stop signal to pid #{pid}"
+                        entry.monitorOn = false
                         @processmgr.stop signum, pid, key
-                        @start key, (key, pid) =>
-                            if key instanceof Error
-                                @log key
-                                return
+
+                        async.series [(startProc) =>
+                            setTimeout startProc, 1000
+
+                        ], () =>
+                            @start key, (key, pid) =>
+                                if key instanceof Error
+                                    @log key
+                                    return
 
                 when "error"
                     @log "Error in getting signals from process"
@@ -255,11 +264,11 @@ class StormFlash extends StormBolt
             if entry isnt undefined and entry?
                 entry.data.status = "error"
                 @log "Failed to attach for pid " , pid , "Reason is ", err
-
+                
         @processmgr.on "detachError", (err, pid, key) =>
             entry = @instances.entries[key]
             if entry isnt undefined and entry?
-                entry.data.status = "error"
+                #entry.data.status = "error"
                 @log "Failed to detach for pid " , pid , "Reason is ", err
 
         @processmgr.on "stopped", (signal, pid, key) =>
@@ -270,14 +279,10 @@ class StormFlash extends StormBolt
             if entry?
                 @log "process was not running. pid expected is  ", pid , "binary name is ", entry.name if entry?
                 #@processmgr.start  entry.name, entry.path, entry.args, entry.pid, key if entry? and entry.monitrOn is true
-                async.series [(startProcess) =>
-                    setTimeout startProcess, 1000
-
-                ], () =>
-                    @start  key, (key, pid) =>
-                        if key instanceof Error
-                            @log key
-                            return
+                @start  key, (key, pid) =>
+                    if key instanceof Error
+                        @log key
+                        return
 
         @processmgr.on "attached", (result, pid, key) =>
             entry = @instances.entries[key]

@@ -32,13 +32,12 @@ class ProcessManager extends EventEmitter
         #Register the callbacks with ptrace module
         unless @retries?
             @retries = 5
-
+            
         detachCb = (err, pid, key, result) =>
             @log "Entering detach callback for the process with pid #{pid}, key #{key}, Error : ", err
             if err is null and key isnt undefined
                 @log "detached from the process with pid #{pid}"
-                @emit "detached", result, pid, key
-                @log "sending signal to process with pid #{pid} with result #{result}"
+                @emit "detached", pid
             else
                 @log "failed to detach from the process with pid #{pid}"
                 @emit "detachError", err, pid, key
@@ -53,7 +52,7 @@ class ProcessManager extends EventEmitter
                     @emit "signal", signal, signum, pid, key
 
         @dCbPtr = ptrace.getcbptr detachCb
-        @sCbPtr = ptrace.getcbptr signalCb
+        @sCbPtr = ptrace.getScbptr signalCb
 
 
     setMonitorInterval: (interval) ->
@@ -129,7 +128,10 @@ class ProcessManager extends EventEmitter
             else
                 signum = -1
         return signum
-
+        
+    sendsignal: (pid, signum) ->
+        ptrace.sendsignal pid, signum
+       
 
     start: (binary, path, args, options, key) ->
         #Spawn a child . optionally can kill the existing process if any
@@ -147,10 +149,8 @@ class ProcessManager extends EventEmitter
             @log "going to call mapSignals"
             signum = @mapSignals signal
             @log "SISISISIS. signal details ", signal, signum
-            switch signum
-                when 11,13
-                    @log "Emitting signals with #{signum}"
-                    @emit "signal", "stopped", signum, child.pid, key
+            @log "Emitting signals with #{signum}"
+            @emit "signal", "stopped", signum, child.pid, key
                 
         @log "Process started with pid #{child.pid}"
         return child.pid
@@ -174,13 +174,13 @@ class ProcessManager extends EventEmitter
         ptrace.add pid, key , @retries, @aCbPtr
 
     detach: (signum, pid, key) ->
-        @log "inside detach", pid
     
-        # Handle 'detach' event here
-        @once 'detached', (result, key, pid) =>
-            ptrace.sendsignal pid, signum
-            
+        @once "detached", (pid) =>
+           @log "sending signal for pid : ", pid, signum
+           @sendsignal pid, signum
+           
         # detach from the process
+        @log "calling ptrace detach for pid : ", pid
         ptrace.detach pid, key, @retries,  @dCbPtr
 
     monitor: (pid, key) ->
