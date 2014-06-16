@@ -1,7 +1,7 @@
 {
 	"name": "stormflash",
 	"description": "stormflash provides remote application lifecycle management on any arbitrary endpoint",
-	"version": "0.5.7",
+	"version": "0.5.8",
 	"author": "Peter K. Lee",
 	"homepage": "http://stormstack.org",
 	"license": "MIT",
@@ -53,7 +53,7 @@
 	},
 	"scripts": {
 		"prepublish": "mkdir -p lib; coffee -o lib -c src",
-		"start": "node --expose-gc lib/stormflash"
+		"start": "node lib/stormflash"
 	},
 	"contributors": [
 		"Ravi Chunduru",
