@@ -1,7 +1,7 @@
 {
 	"name": "stormflash",
 	"description": "stormflash provides remote application lifecycle management on any arbitrary endpoint",
-	"version": "0.5.6",
+	"version": "0.9.2",
 	"author": "Peter K. Lee",
 	"homepage": "http://stormstack.org",
 	"license": "MIT",

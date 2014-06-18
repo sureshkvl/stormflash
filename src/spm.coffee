@@ -161,8 +161,8 @@ class StormPackageManager extends EventEmitter
             when "npm.check"
                 return "cd /lib; npm ls 2>/dev/null | grep \"#{component.name}@#{append}\""
             when "npm.install"
-                return "npm install #{component.name}@#{component.version}" unless filename
-                return "npm install #{filename}"
+                return "npm install #{component.name}@#{component.version};npm cache clear" unless filename
+                return "npm install #{filename};npm cache clear"
             when "dpkg.install"
                 return "dpkg -i #{filename}"
             when "apt-get.install"
@@ -193,8 +193,16 @@ class StormPackageManager extends EventEmitter
                 callback error
 
     execute: (command, callback) ->
+    
         exec = require('child_process').exec
-        exec "#{command}", (error, stdout, stderr) =>
+        
+        cwd = "/"
+        env = process.env
+        env.LD_LIBRARY_PATH= '/lib:/usr/lib'
+        env.PATH= '/bin:/sbin:/usr/bin:/usr/sbin'
+        env.NODE_PATH= '/lib/node_modules'
+            
+        exec "#{command}", {cwd:cwd, env:env}, (error, stdout, stderr) =>
             @log "execution result for #{command} ", error, stdout, stderr
             if error?
                 return callback new Error error
