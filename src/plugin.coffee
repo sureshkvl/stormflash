@@ -10,7 +10,10 @@ StormPackage = require('./stormflash').StormPackage
     @post '/packages': ->
         agent.install @body, (result) =>
             unless result instanceof Error
-                @send result
+                if result
+                    @send result
+                else
+                    @send 202
             else
                 @next new Error result
 

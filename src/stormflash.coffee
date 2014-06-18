@@ -223,7 +223,7 @@ class StormFlash extends StormBolt
             entry = @instances.entries[key]
             if entry?
                 entry.data.status = "error"
-                entry.saved = false
+                entry.saved = true
                 entry.monitorOn = false
                 entry.data.pid = undefined
                 @instances.update key, entry
@@ -298,21 +298,29 @@ class StormFlash extends StormBolt
         catch err
             return callback new Error err
 
+
+
         pkg = @packages.match spkg.data
         if pkg?
             @log "Found matching package name #{pkg.name}"
             return callback pkg
 
+        spkg.data.id = spkg.id
+        spkg.data.status = {}
+        spkg.data.status.installed  = false
+        spkg.data.status.imported = false
+        entry = @packages.add spkg.id, spkg
+
+        callback null
+
         @spm.install pinfo, (pkg) =>
             return callback new Error pkg if pkg instanceof Error
             spkg.data = pkg
-            spkg.data.status = {}
             spkg.data.status.installed  = true
             spkg.data.status.imported = false
-            result = @packages.add spkg.id, spkg
-            result.data.id = result.id
+            entry.saved = true
+            result = @packages.update spkg.id, spkg
             @log 'installed the package ', result
-            callback result.data
 
 
     uninstall: (pinfo, callback) ->
@@ -356,7 +364,7 @@ class StormFlash extends StormBolt
         return callback new Error "Not able to start the binary" unless pid?
         entry.data.pid = pid
         entry.monitorOn = true  if entry.data.monitor is true
-        entry.saved = false
+        entry.saved = true
         @instances.update key, entry
         @processmgr.attach pid, key if entry.data.monitor is true
         callback key, pid if callback?
@@ -368,7 +376,7 @@ class StormFlash extends StormBolt
         return callback new Error "No running process" unless entry? and entry.data? and entry.data.pid?
         @log "Stopping the process with pid #{entry.data.pid}"
         entry.monitorOn = false
-        entry.saved = false
+        entry.saved = true
         @instances.update key, entry
         return @processmgr.stop entry.data.pid, key
 
@@ -384,7 +392,7 @@ class StormFlash extends StormBolt
                 pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.options, key
                 entry.data.pid = pid
                 entry.monitorOn = true if entry.data.monitor is true
-                entry.saved = false
+                entry.saved = true
                 @instances.update key, entry
                 @processmgr.attach pid, key if entry.data.monitor is true
                 callback key,pid if callback?
