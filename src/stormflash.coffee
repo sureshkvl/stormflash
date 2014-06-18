@@ -298,29 +298,21 @@ class StormFlash extends StormBolt
         catch err
             return callback new Error err
 
-
-
         pkg = @packages.match spkg.data
         if pkg?
             @log "Found matching package name #{pkg.name}"
             return callback pkg
 
-        spkg.data.id = spkg.id
-        spkg.data.status = {}
-        spkg.data.status.installed  = false
-        spkg.data.status.imported = false
-        entry = @packages.add spkg.id, spkg
-
-        callback null
-
         @spm.install pinfo, (pkg) =>
             return callback new Error pkg if pkg instanceof Error
             spkg.data = pkg
+            spkg.data.status = {}
             spkg.data.status.installed  = true
             spkg.data.status.imported = false
-            entry.saved = true
-            result = @packages.update spkg.id, spkg
+            result = @packages.add spkg.id, spkg
+            result.data.id = result.id
             @log 'installed the package ', result
+            callback result
 
 
     uninstall: (pinfo, callback) ->
