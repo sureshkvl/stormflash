@@ -352,6 +352,7 @@ class StormFlash extends StormBolt
     start: (key, callback) ->
         entry = @instances.entries[key]
         return callback new Error "Key #{key} does not exist in DB" unless entry? and entry.data?
+        @log "Environment options to start the process : ", entry.data.options
         pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.options, key
         return callback new Error "Not able to start the binary" unless pid?
         entry.data.pid = pid
@@ -381,6 +382,7 @@ class StormFlash extends StormBolt
                 setTimeout next, 1000
 
             ], () =>
+                @log "Environment options to restart the process : ", entry.data.options
                 pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.options, key
                 entry.data.pid = pid
                 entry.monitorOn = true if entry.data.monitor is true
