@@ -382,6 +382,7 @@ class StormFlash extends StormBolt
                 setTimeout next, 1000
 
             ], () =>
+                entry.data.options.env.LD_LIBRARY_PATH = '/lib:/usr/lib'
                 @log "Environment options to restart the process : ", entry.data.options
                 pid = @processmgr.start entry.data.name, entry.data.path, entry.data.args, entry.data.options, key
                 entry.data.pid = pid
