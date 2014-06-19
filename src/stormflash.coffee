@@ -21,12 +21,7 @@ class StormInstance extends StormData
             path : { type: "string", "required": true }
             pid  : { type: "integer", "required" : false }
             monitor: { type: "boolean", "required" : false}
-            status:
-                type: "object"
-                required: false
-                properties:
-                    installed: { type: "boolean", "required": false}
-                    imported:  { type: "boolean", "required" : false}
+            status: { type: "string", "required": false}
             options:
                 type: "object"
                 required: false
@@ -100,7 +95,12 @@ class StormPackage extends StormData
             id   : { type: "string", "required": false}
             version : { type: "string", "required": true }
             source : { type: "string", "required": true }
-            status: { type: "string", "required": false}
+            status:
+                type: "object"
+                required: false
+                properties:
+                    installed: { type: "boolean", "required": false}
+                    imported:  { type: "boolean", "required" : false}
             type:   { type: "string", "required": false}
 
     constructor: (id, data) ->
