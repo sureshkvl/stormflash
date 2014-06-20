@@ -3,6 +3,7 @@ ptrace = require('process-trace')
 spawn = require('child_process').spawn
 EventEmitter = require('events').EventEmitter
 
+async = require 'async'
 
 class ProcessManager extends EventEmitter
     _defaultMonitorInterval = 10
@@ -55,6 +56,54 @@ class ProcessManager extends EventEmitter
         @dCbPtr = ptrace.getcbptr detachCb
         @sCbPtr = ptrace.getcbptr signalCb
 
+    #----------------------------------------------------------------------------------------
+    # New waitpid function to handle different pid check conditions
+    #----------------------------------------------------------------------------------------
+    #
+    # Examples:
+    #
+    # test=false timeout=1000
+    #
+    #   this will check for upto 1 second for PID to STOP.  If PID is
+    #   not running, it will retun immediately. If PID continues to
+    #   run upto 1 second, it will return with err set.
+    #
+    #   This is useful test to see if process stays running for X
+    #   duration and also to see if process actually stops within a
+    #   given duration.
+    #
+    # test=true timeout=1000
+    #
+    #   this will check for upto 1 second for PID to START.  If PID is
+    #   running, it will return immediately.  If PID continues to stay
+    #   NOT running for upto 1 second, it will return with err set.
+    #
+    #   This is useful to test how long it takes for a process to
+    #   START. Also, useful to get an indication of load on the system
+    #   if spawn event takes a long time to transact.
+    #
+    waitpid: (pid,opts,callback) ->
+        unless pid? and opts? and opts.test?
+            callback new Error "must pass in proper options for waitpid!"
+
+        test     = opts.test
+        timeout  = opts.timeout  ? 0
+        interval = opts.interval ? 100
+
+        counter  = 0
+        async.until(
+            () ->
+                try
+                    process.kill pid, 0
+                    return test
+                catch err
+                    return not test
+            (wait) ->
+                throw new Error "timeout reached while waiting on PID" if (counter * interval) > timeout
+                counter++;
+                setTimeout wait, interval
+            (err) -> callback err, (counter * interval)
+        )
 
     setMonitorInterval: (interval) ->
         @monitorInterval = interval
@@ -65,11 +114,11 @@ class ProcessManager extends EventEmitter
         @log "starting the process #{path}/#{binary} with args ", args, "and options ", options
         child = spawn "#{path}" + "/#{binary}", args, options
         child.unref()
-        ###
-        child.on "error", (err) =>
+        child.once "error", (err) =>
             @log "Error in starting the process. Reason is ", err
             @emit "error", err, child.pid, key
 
+        ###
         child.on "exit", (code, signal) =>
             @log "Process Exit. Reason is ", code, signal
             if code isnt 0

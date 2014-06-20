@@ -356,48 +356,60 @@ class StormFlash extends StormBolt
         opts = service.invocation
         return callback new Error "cannot invoke a service without valid service options" unless opts?
 
-        pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
-        return callback new Error "unable to invoke a new service via processmgr" unless pid?
+        # here we check to see if the requested service is already running
+        try
+            throw new Error "no previous server.instance provided for check" unless service.instance?
+            process.kill service.instance, 0
+            # XXX - here even if the pid exists, we should confirm whether this is OUR process!
+            # some form of ps check?
 
-        service.emit 'running', pid
+        catch notRunning
+            # here, no such process, so let's start it
+            pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
+            return callback new Error "unable to invoke a new service via processmgr" unless pid?
 
-        # this should only be called ONCE for the duration of this service
-        service.once 'destroy', =>
-            @log "service.destroy called for #{service.id} invoked with:", service.invocation
-            @processmgr.stop service.instance, service.id
+        # we want to verify that this PID is running for at least "timeout" period
+        #
+        # The desired condition is err with duration equal or greater than specified timeout
+        @processmgr.waitpid pid, test:false, timeout:500, (err,duration) =>
+            unless err?
+                return callback new Error "#{service.id} stopped running after #{duration} ms!"
 
-        service.on 'changed', =>
-            @log "service.changed called for #{service.id} invoked with:", service.invocation
-            return unless service.isRunning
+            @log "#{service.id} has successfully started, took #{duration} seconds"
 
-            service.isRunning = false
-            @processmgr.stop service.instance, service.id
-            #
-            # wait until PID DIES
-            waitCounter = 0
-            async.until(
-                ->
-                    return true if ++waitCounter > 50 # more than 5 seconds
-                    try
-                        process.kill service.instance, 0
-                        return false
-                    catch err
-                        return true
-                (callback) -> setTimeout callback, 100
-                (err) =>
-                    @log "#{service.id} has successfully stopped, took "+(waitCounter * 100 /1000)+" seconds"
+            # this should only be called ONCE for the duration of this service
+            service.once 'destroy', =>
+                @log "service.destroy called for #{service.id} invoked with:", service.invocation
+                @processmgr.stop service.instance, service.id
+
+            service.on 'changed', =>
+                @log "service.changed called for #{service.id} invoked with:", service.invocation
+                return unless service.isRunning
+
+                service.isRunning = false
+                @processmgr.stop service.instance, service.id
+                #
+                # wait until PID DIES (checking for NOT RUNNING)
+                @processmgr.waitpid service.id, test:false, timeout:5000, (err,duration) =>
+                    if err?
+                        return @log "#{service.id} failed to stop in #{duration} ms... keeping things as-is"
+
+                    @log "#{service.id} has successfully stopped, took #{duration} ms"
                     opts = service.invocation
                     pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
                     unless pid?
                         return @log "failed to handle service.change, unable to start!"
                     service.emit 'running', pid
-            )
 
-        if opts.monitor
-            @processmgr.attach  pid, service.id
-            @processmgr.monitor pid, service.id
+            service.emit 'running', pid
 
-        callback null, pid
+            if opts.monitor
+                undefined
+                #@processmgr.attach  pid, service.id
+                #@processmgr.monitor pid, service.id
+
+            callback null, pid
+
     #----------------------------------------------------------------------------------------
 
     start: (key, callback) ->
