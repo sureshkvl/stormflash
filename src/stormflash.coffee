@@ -349,6 +349,57 @@ class StormFlash extends StormBolt
         else
             callback new Error "Could not find ID! #{id}"
 
+    #----------------------------------------------------------------------------------------
+    # New invoke function to handle process management for Plugins
+    #----------------------------------------------------------------------------------------
+    invoke: (service, callback) ->
+        opts = service.invocation
+        return callback new Error "cannot invoke a service without valid service options" unless opts?
+
+        pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
+        return callback new Error "unable to invoke a new service via processmgr" unless pid?
+
+        service.emit 'running', pid
+
+        # this should only be called ONCE for the duration of this service
+        service.once 'destroy', =>
+            @log "service.destroy called for #{service.id} invoked with:", service.invocation
+            @processmgr.stop service.instance, service.id
+
+        service.on 'change', =>
+            @log "service.change called for #{service.id} invoked with:", service.invocation
+            return unless service.isRunning
+
+            service.isRunning = false
+            @processmgr.stop service.instance, service.id
+            #
+            # wait until PID DIES
+            waitCounter = 0
+            async.until(
+                ->
+                    return true if ++waitCounter > 50 # more than 5 seconds
+                    try
+                        process.kill service.instance, 0
+                        return false
+                    catch err
+                        return true
+                (callback) -> setTimeout callback, 100
+                (err) =>
+                    @log "#{service.id} has successfully stopped, took "+(waitCounter * 100 /1000)+" seconds"
+                    opts = service.invocation
+                    pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
+                    unless pid?
+                        return @log "failed to handle service.change, unable to start!"
+                    service.emit 'running', pid
+            )
+
+        if opts.monitor
+            @processmgr.attach  pid, service.id
+            @processmgr.monitor pid, service.id
+
+        callback null, pid
+    #----------------------------------------------------------------------------------------
+
     start: (key, callback) ->
         entry = @instances.entries[key]
         return callback new Error "Key #{key} does not exist in DB" unless entry? and entry.data?

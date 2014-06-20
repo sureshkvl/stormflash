@@ -1,7 +1,7 @@
 {
 	"name": "stormflash",
 	"description": "stormflash provides remote application lifecycle management on any arbitrary endpoint",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"author": "Peter K. Lee",
 	"homepage": "http://stormstack.org",
 	"license": "MIT",
@@ -41,7 +41,8 @@
 				"agent.list",
 				"agent.start",
 				"agent.stop",
-				"agent.reload"
+				"agent.reload",
+				"agent.invoke"
 			],
 			"events": [
 
