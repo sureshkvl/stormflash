@@ -399,7 +399,11 @@ class StormFlash extends StormBolt
                     pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
                     unless pid?
                         return @log "failed to handle service.change, unable to start!"
-                    service.emit 'running', pid
+                    @processmgr.waitpid pid, test:false, timeout:500, (err,duration) =>
+                        # we WANT an err here with timeout to indicate successful pid running
+                        unless err?
+                            return @log "service did not start successfully after service.change!"
+                        service.emit 'running', pid
 
             service.emit 'running', pid
 
