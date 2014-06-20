@@ -366,8 +366,8 @@ class StormFlash extends StormBolt
             @log "service.destroy called for #{service.id} invoked with:", service.invocation
             @processmgr.stop service.instance, service.id
 
-        service.on 'change', =>
-            @log "service.change called for #{service.id} invoked with:", service.invocation
+        service.on 'changed', =>
+            @log "service.changed called for #{service.id} invoked with:", service.invocation
             return unless service.isRunning
 
             service.isRunning = false
