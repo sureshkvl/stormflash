@@ -421,7 +421,7 @@ class StormFlash extends StormBolt
                             return @log "service did not start successfully after service.change!"
 
                         service.emit 'running', pid
-                        @log "#{service.id} has successfully restarted following service.change!"
+                        @log "#{service.id} has successfully restarted following service.change with PID #{pid}!"
                         process.nextTick ->
                             service.isRestarting = false
 
@@ -430,12 +430,12 @@ class StormFlash extends StormBolt
 
             # now that we've kicked off the new process, let's see if we need to monitor this guy
             if opts.monitor
-                @log "monitor: starting to watch for #{service.id}..."
                 async.whilst(
                     () -> service.isReady
                     (monitor) =>
+                        @log "monitor: starting to watch for #{service.id} running on PID #{service.instance}..."
                         @processmgr.waitpid service.instance, test:false, timeout:-1, interval:1000, (err,duration) =>
-                            @log "monitor: #{service.id} stopped running after #{duration/1000} seconds!"
+                            @log "monitor: #{service.id} running on PID #{service.instance} stopped running after #{duration/1000} seconds!"
                             if service.isRestarting
                                 @log "monitor: ignoring since the process is in the process of re-starting, going back to monitoring..."
                                 setTimeout monitor, 1000
@@ -450,6 +450,8 @@ class StormFlash extends StormBolt
                                 unless err?
                                     throw new Error "service did not start successfully after monitor's attempt at a restart!"
                                 service.emit 'running', pid
+                                @log "monitor: #{service.id} has successfully restarted with PID #{pid}!"
+
                                 setTimeout monitor, 1000
                     (err) =>
                         @log "monitor: #{service.id} service is no longer being monitored!"
