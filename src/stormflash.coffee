@@ -398,26 +398,25 @@ class StormFlash extends StormBolt
                 return unless service.isRunning
 
                 service.isRunning = false
+                service.isRestarting = true
                 @processmgr.stop service.instance, service.id
-                #
                 # wait until PID DIES (checking for NOT RUNNING)
                 @processmgr.waitpid service.instance, test:false, timeout:5000, (err,duration) =>
                     if err?
                         return @log "#{service.id} failed to stop in #{duration/1000} seconds... keeping things as-is"
 
                     @log "#{service.id} has successfully stopped, took #{duration/1000} seconds"
-                    service.isStarting = true
 
                     service.emit 'stopped'
 
                     opts = service.invocation
                     pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
                     unless pid?
-                        service.isStarting = false
+                        service.isRestarting = false
                         return @log "failed to handle service.change, unable to start!"
                     @processmgr.waitpid pid, test:false, timeout:500, (err,duration) =>
                         # we WANT an err here with timeout to indicate successful pid running
-                        service.isStarting = false
+                        service.isRestarting = false
                         unless err?
                             return @log "service did not start successfully after service.change!"
                         service.emit 'running', pid
@@ -433,8 +432,8 @@ class StormFlash extends StormBolt
                     (monitor) =>
                         @processmgr.waitpid service.instance, test:false, timeout:-1, interval:1000, (err,duration) =>
                             @log "monitor: #{service.id} stopped running after #{duration/1000} seconds!"
-                            if service.isStarting
-                                @log "monitor: ignoring since the process is in the process of starting, going back to monitoring..."
+                            if service.isRestarting
+                                @log "monitor: ignoring since the process is in the process of re-starting, going back to monitoring..."
                                 setTimeout monitor, 1000
                                 return
 
