@@ -84,7 +84,7 @@ class ProcessManager extends EventEmitter
     #
     waitpid: (pid,opts,callback) ->
         unless pid? and opts? and opts.test?
-            callback new Error "must pass in proper options for waitpid!"
+            response new Error "must pass in proper options for waitpid!"
 
         test     = opts.test
         timeout  = opts.timeout  ? 0
@@ -100,10 +100,12 @@ class ProcessManager extends EventEmitter
                     return not test
             (wait) ->
                 unless timeout is -1
-                    wait "timeout reached while waiting on PID" if (counter * interval) > timeout
+                    return wait "timeout reached while waiting on PID" if (counter * interval) > timeout
+
                 counter++;
                 setTimeout wait, interval
-            (err) -> callback err, (counter * interval)
+            (err) ->
+                callback err, (counter * interval)
         )
 
     setMonitorInterval: (interval) ->
