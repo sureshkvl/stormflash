@@ -99,7 +99,8 @@ class ProcessManager extends EventEmitter
                 catch err
                     return not test
             (wait) ->
-                throw new Error "timeout reached while waiting on PID" if (counter * interval) > timeout
+                unless timeout is -1
+                    throw new Error "timeout reached while waiting on PID" if (counter * interval) > timeout
                 counter++;
                 setTimeout wait, interval
             (err) -> callback err, (counter * interval)

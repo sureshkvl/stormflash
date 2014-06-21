@@ -169,6 +169,7 @@ class StormFlash extends StormBolt
         fs.mkdir "#{@config.datadir}", () ->
         fs.mkdir "#{@config.datadir}/plugins", () ->
 
+        @services = new StormRegistry
         @packages  = new StormPackages  "#{@config.datadir}/packages.db"
         @instances = new StormInstances "#{@config.datadir}/instances.db"
         @instances.on 'ready', () =>
@@ -177,6 +178,7 @@ class StormFlash extends StormBolt
     status: ->
         state = super
         state.packages  = @packages.list()
+        state.services  = @services.list()
         state.instances = @instances.list()
         state
 
@@ -352,6 +354,9 @@ class StormFlash extends StormBolt
     #----------------------------------------------------------------------------------------
     # New invoke function to handle process management for Plugins
     #----------------------------------------------------------------------------------------
+    #
+    # XXX - we need to handle for a case where PLUGIN is upgraded and reloaded
+    #
     invoke: (service, callback) ->
         opts = service.invocation
         return callback new Error "cannot invoke a service without valid service options" unless opts?
@@ -373,14 +378,16 @@ class StormFlash extends StormBolt
         # The desired condition is err with duration equal or greater than specified timeout
         @processmgr.waitpid pid, test:false, timeout:500, (err,duration) =>
             unless err?
-                return callback new Error "#{service.id} stopped running after #{duration} ms!"
+                return callback new Error "#{service.id} stopped running after #{duration/1000} seconds!"
 
-            @log "#{service.id} has successfully started, took #{duration} seconds"
+            @log "#{service.id} has successfully started (or was previously running), verified running for at least #{duration/1000} seconds"
+            @services.add service.id, invocation: service.invocation, instance: service.instance, running: service.isRunning
 
             # this should only be called ONCE for the duration of this service
             service.once 'destroy', =>
                 @log "service.destroy called for #{service.id} invoked with:", service.invocation
                 @processmgr.stop service.instance, service.id
+                @services.remove service.id # remove my service entry
 
             service.on 'changed', =>
                 @log "service.changed called for #{service.id} invoked with:", service.invocation
@@ -390,11 +397,13 @@ class StormFlash extends StormBolt
                 @processmgr.stop service.instance, service.id
                 #
                 # wait until PID DIES (checking for NOT RUNNING)
-                @processmgr.waitpid service.id, test:false, timeout:5000, (err,duration) =>
+                @processmgr.waitpid service.instance, test:false, timeout:5000, (err,duration) =>
                     if err?
-                        return @log "#{service.id} failed to stop in #{duration} ms... keeping things as-is"
+                        return @log "#{service.id} failed to stop in #{duration/1000} seconds... keeping things as-is"
 
-                    @log "#{service.id} has successfully stopped, took #{duration} ms"
+                    @log "#{service.id} has successfully stopped, took #{duration/1000} seconds"
+                    service.emit 'stopped'
+
                     opts = service.invocation
                     pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
                     unless pid?
@@ -406,13 +415,31 @@ class StormFlash extends StormBolt
                         service.emit 'running', pid
 
             service.emit 'running', pid
+            callback null, pid
 
+            # now that we've kicked off the new process, let's see if we need to monitor this guy
             if opts.monitor
-                undefined
+                @log "monitor: starting to watch for #{service.id}..."
+                async.whilst(
+                    () -> service.isReady
+                    (monitor) =>
+                        @processmgr.waitpid service.instance, test:false, timeout:-1, interval:1000, (err,duration) =>
+                            @log "monitor: #{service.id} stopped running after #{duration/1000} seconds!"
+                            service.emit 'stopped'
+                            opts = service.invocation
+                            @log "monitor: #{service.id} attempting to restart!"
+                            pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
+                            @processmgr.waitpid pid, test:false, timeout:500, (err,duration) =>
+                                # we WANT an err here with timeout to indicate successful pid running
+                                unless err?
+                                    throw new Error "service did not start successfully after monitor's attempt at a restart!"
+                                service.emit 'running', pid
+                                setTimeout monitor, 1000
+                    (err) =>
+                        @log "monitor: #{service.id} service is no longer being monitored!"
+                )
                 #@processmgr.attach  pid, service.id
                 #@processmgr.monitor pid, service.id
-
-            callback null, pid
 
     #----------------------------------------------------------------------------------------
 
