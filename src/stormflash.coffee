@@ -380,6 +380,8 @@ class StormFlash extends StormBolt
         # we want to verify that this PID is running for at least "timeout" period
         #
         # The desired condition is err with duration equal or greater than specified timeout
+        isRestarting = false
+
         @processmgr.waitpid pid, test:false, timeout:500, (err,duration) =>
             unless err?
                 return callback new Error "#{service.id} stopped running after #{duration/1000} seconds!"
@@ -398,7 +400,8 @@ class StormFlash extends StormBolt
                 return unless service.isRunning
 
                 service.isRunning = false
-                service.isRestarting = true
+
+                isRestarting = true
                 @processmgr.stop service.instance, service.id
                 # wait until PID DIES (checking for NOT RUNNING)
                 @processmgr.waitpid service.instance, test:false, timeout:5000, (err,duration) =>
@@ -412,11 +415,11 @@ class StormFlash extends StormBolt
                     opts = service.invocation
                     pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
                     unless pid?
-                        service.isRestarting = false
+                        isRestarting = false
                         return @log "failed to handle service.change, unable to start!"
                     @processmgr.waitpid pid, test:false, timeout:500, (err,duration) =>
                         # we WANT an err here with timeout to indicate successful pid running
-                        service.isRestarting = false
+                        isRestarting = false
                         unless err?
                             return @log "service did not start successfully after service.change!"
                         service.emit 'running', pid
@@ -432,7 +435,7 @@ class StormFlash extends StormBolt
                     (monitor) =>
                         @processmgr.waitpid service.instance, test:false, timeout:-1, interval:1000, (err,duration) =>
                             @log "monitor: #{service.id} stopped running after #{duration/1000} seconds!"
-                            if service.isRestarting
+                            if isRestarting
                                 @log "monitor: ignoring since the process is in the process of re-starting, going back to monitoring..."
                                 setTimeout monitor, 1000
                                 return
