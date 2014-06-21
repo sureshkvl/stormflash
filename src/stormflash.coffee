@@ -361,6 +361,10 @@ class StormFlash extends StormBolt
         opts = service.invocation
         return callback new Error "cannot invoke a service without valid service options" unless opts?
 
+        match = @services.get service.id
+        if match?
+            return callback "DUPLICATE agent.invoke called for #{service.id} from plugin!"
+
         # here we check to see if the requested service is already running
         try
             throw new Error "no previous server.instance provided for check" unless service.instance?
