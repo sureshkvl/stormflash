@@ -403,7 +403,6 @@ class StormFlash extends StormBolt
                 # wait until PID DIES (checking for NOT RUNNING)
                 @processmgr.waitpid service.instance, test:false, timeout:5000, (err,duration) =>
                     if err?
-                        service.isRestarting = false
                         return @log "#{service.id} failed to stop in #{duration/1000} seconds... keeping things as-is"
 
                     @log "#{service.id} has successfully stopped, took #{duration/1000} seconds"
@@ -411,10 +410,6 @@ class StormFlash extends StormBolt
                     service.emit 'stopped'
 
                     opts = service.invocation
-                    if opts.monitor
-                        service.isRestarting = false
-                        @log "Service changed, process #{service.instance} is stopped. Monitor to restart the process #{opts.name}"
-                        return
                     pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
                     unless pid?
                         service.isRestarting = false
@@ -439,7 +434,7 @@ class StormFlash extends StormBolt
                     () -> service.isReady
                     (monitor) =>
                         waitPid = service.instance
-                        do (waitPid) ->
+                        do (waitPid) =>
                             @log "monitor: starting to watch for #{service.id} running on PID #{service.instance}..."
                             @processmgr.waitpid waitPid, test:false, timeout:-1, interval:1000, (err,duration) =>
                                 @log "monitor: #{service.id} running on PID #{waitPid} stopped running after #{duration/1000} seconds!"
