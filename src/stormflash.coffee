@@ -438,26 +438,28 @@ class StormFlash extends StormBolt
                 async.whilst(
                     () -> service.isReady
                     (monitor) =>
-                        @log "monitor: starting to watch for #{service.id} running on PID #{service.instance}..."
-                        @processmgr.waitpid service.instance, test:false, timeout:-1, interval:1000, (err,duration) =>
-                            @log "monitor: #{service.id} running on PID #{service.instance} stopped running after #{duration/1000} seconds!"
-                            if service.isRestarting
-                                @log "monitor: ignoring since the process is in the process of re-starting, going back to monitoring..."
-                                setTimeout monitor, 1000
-                                return
+                        waitPid = service.instance
+                        do (waitPid) ->
+                            @log "monitor: starting to watch for #{service.id} running on PID #{service.instance}..."
+                            @processmgr.waitpid waitPid, test:false, timeout:-1, interval:1000, (err,duration) =>
+                                @log "monitor: #{service.id} running on PID #{waitPid} stopped running after #{duration/1000} seconds!"
+                                if service.isRestarting or (waitPid isnt service.instance)
+                                    @log "monitor: ignoring since the process is in the process of re-starting, going back to monitoring..."
+                                    setTimeout monitor, 1000
+                                    return
 
-                            service.emit 'stopped'
-                            opts = service.invocation
-                            @log "monitor: #{service.id} attempting to restart!"
-                            pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
-                            @processmgr.waitpid pid, test:false, timeout:500, (err,duration) =>
-                                # we WANT an err here with timeout to indicate successful pid running
-                                unless err?
-                                    throw new Error "service did not start successfully after monitor's attempt at a restart!"
-                                service.emit 'running', pid
-                                @log "monitor: #{service.id} has successfully restarted with PID #{pid}!"
+                                service.emit 'stopped'
+                                opts = service.invocation
+                                @log "monitor: #{service.id} attempting to restart!"
+                                pid = @processmgr.start opts.name, opts.path, opts.args, opts.options, service.id
+                                @processmgr.waitpid pid, test:false, timeout:500, (err,duration) =>
+                                    # we WANT an err here with timeout to indicate successful pid running
+                                    unless err?
+                                        throw new Error "service did not start successfully after monitor's attempt at a restart!"
+                                    service.emit 'running', pid
+                                    @log "monitor: #{service.id} has successfully restarted with PID #{pid}!"
 
-                                setTimeout monitor, 1000
+                                    setTimeout monitor, 1000
                     (err) =>
                         @log "monitor: #{service.id} service is no longer being monitored!"
                 )
