@@ -1,247 +1,133 @@
-cloudflash
+stormflash
 ==========
 
-CloudFlash is a web framework for cloud based automation of modules, services, and firmware
 
-CloudFlash supports JSON data serialization format. The format for both the request and the response
-should be specified by using the Content-Type header, the Accept header.
-
-*List of APIs*
-=============
+*List of stormflash APIs*
+=========================
 
 <table>
   <tr>
     <th>Verb</th><th>URI</th><th>Description</th>
   </tr>
+ <tr>
+    <td>POST</td><td>/packages</td><td>Create a package entry</td>
+  </tr> 
   <tr>
-    <td>GET</td><td>/modules</td><td>List summary of modules installed in VCG/CPEs identified by service ID</td>
-  </tr>
-  <tr>
-    <td>POST</td><td>/modules</td><td>Create a new module in VCG/CPE </td>
-  </tr>
-  <tr>
-    <td>GET</td><td>/modules/module-id</td><td>Describes an installed module in VCG/CPEs by module ID</td>
-  </tr>
-   <tr>
-    <td>PUT</td><td>/modules/module-id</td><td>Update existing module configuration in VCG/CPEs by module-id </td>
+    <td>GET</td><td>/packages</td><td>Get list of packages installed identified by package ID</td>
   </tr>
   <tr>
-    <td>DELETE</td><td>/modules/module-id</td><td>Delete an installed module in VCG/CPEs by module ID</td>
+    <td>GET</td><td>/packages/id</td><td>Get a package details by ID</td>
   </tr>
-  
   <tr>
-    <td>POST</td><td>/modules/module-id/action</td><td>Execute command on the VCG/CPEs </td>
-  </tr>
-
+    <td>DELETE</td><td>/packages/id</td><td>Delete a package entry by ID</td>
+  </tr> 
 </table>
 
 
-*Authentication*
+**POST packages API**
 
-Current implementation of cloudflash in VCG/CPEs does not require that each request will include the credentials of
-the user submiting the request.
-Plan is to have Oauth scheme of authentication.
+Verb      URI                       Description
+POST      /packages                 Create a package entry.
 
-*Modules API*
-==============
-
- List Modules
---------------
-
-    Verb	URI	        Description
-    GET	     /modules	     Lists summary of modules configured in VCG/CPEs identified by module ID.
-
-
-Note: The request does not require a message body.
-Success: Returns JSON data with list of modules installed on VCG/CPEs. Each module is identified by module ID
-
-The module ID is generated is a UUID.
+On success it returns JSON data with the UUID with the packages configuration.
 
 **Example Request and Response**
-
-*Request*
-
-    GET /modules HTTP/1.1
-
-*Response*
-
-```
-{
-       "modules":
-       [
-           {
-               "id": "d56467f6-2b53-467e-978a-c17039770353",
-               "description":
-               {
-                   "name": "cloudflash-uproxy",                   
-                   "version": "1.1.0"
-               },
-               "status":
-               {
-                   "installed": true
-               }
-           }
-       ]
-}
-
-```
-
-Create Module
----------------
-
-
-    Verb	URI	        Description
-    POST	/modules	Create a new module in VCG/CPEs.
-
-
-On success it returns JSON data with the UUID for the module created.
-If module not installed return error
-To restrict multiple entry for same module, Return error on POST if entry already exists in DB.
-
-**Example Request and Response**
-
-*Request*
-
-```
-{
-    "name": "cloudflash-uproxy",
-    "version": "1.1.0"
-}
-
-```
-
-*Response JSON*
-
-```
-{
-       "id": "d56467f6-2b53-467e-978a-c17039770353",
-       "description":
-       {
-           "name": "cloudflash-uproxy",           
-           "version": "1.1.0"
-       },
-       "status":
-       {
-           "installed": true
-       }
-}
-
-```
-
-Describe Module
-----------------
-
-    Verb	URI	                 Description
-    GET	    /modules/module-id	 Show a module in VCG/CPEs specified by module-ID
-
-**Example Request and Response**
-
-### Request Headers
-
-    GET /modules/d56467f6-2b53-467e-978a-c17039770353
-
-### Response JSON
-
-    {
-       "id": "d56467f6-2b53-467e-978a-c17039770353",
-       "description":
-       {
-           "name": "cloudflash-uproxy",           "
-           "version": "1.1.0"
-       },
-       "status":
-       {
-           "installed": true,
-           "initialized": false,
-           "enabled": false,
-           "running": false,
-           "result": "Error: Command failed: "
-       }
-    }
-
-
-
-Update Module
-----------------
-
-    Verb	URI	                 Description
-    PUT	    /modules/module-id	 Show a module in VCG/CPEs specified by module-ID
-
-**Example Request and Response**
-
-*Request*
-```
-{
-    "name": "cloudflash-uproxy",
-    "version":"1.1.0"
- 
-}
-```
-
-*Response JSON*
-
-```
-{
-       "id": "d56467f6-2b53-467e-978a-c17039770353",
-       "description":
-       {
-           "name": "cloudflash-uproxy",
-           "version":"1.1.0"
-       },
-       "status":
-       {
-           "installed": true
-       }
-}
-
-```
-
-
-Delete a module
-----------------
-
-    Verb	URI	                  Description
-    DELETE	/modules/module-id	  Delete a module in VCG/CPEs specified by module-ID
-
-On Success returns 200 with JSON data
-
-*TODO: Return appropriate error code and description in case of failure.*
-
-**Example Request and Response**
-
-### Request Headers
-
-    DELETE modules/2ccc8dc8-62c5-491b-b305-3c029bde6f64 
-
-### Response JSON
-
-    {
-       "deleted": true
-    }
-
-
-Action Command API
-------------------
-This API is used to perform the action like start, stop, restart and sync on the installed modules as identified by module-id
-
-    Verb	URI	                 Description
-    POST	/modules/module-id/action	  Execute an action command
-
-**Example Request and Response**
-
-### Request Headers
-
-    POST /modules/2ccc8dc8-62c5-491b-b305-3c029bde6f64/action  HTTP/1.1
 
 ### Request JSON
-
+   
     {
-       "command":"start"
+        "name": "corenova-storm",
+        "version": "*",
+        "source": "npm://"
     }
-
 ### Response JSON
 
     {
-       "result": true
+        "id": "e3db8f5c-00f3-4199-9ae2-2bf423774a17",
+        "data": {
+            "name": "commtouch-storm",
+            "version": "*",
+            "source": "npm://",
+            "type": "npm",
+            "status": {
+                "installed": true,
+                "imported": true
+            },
+            "id": "e3db8f5c-00f3-4199-9ae2-2bf423774a17"
+        },
+        "saved": true
     }
+
+
+**GET packages API**
+
+Verb      URI                       Description
+GET       /packages                 Get list of packages installed.
+
+On success it returns JSON data with the UUID with the packages configuration.
+
+**Example Request and Response**
+
+### Response JSON
+
+    [
+        {
+            "name": "openvpn-storm",
+            "version": "*",
+            "source": "npm://",
+            "type": "npm",
+            "status": {
+                "installed": true,
+                "imported": true
+            },
+            "id": "5d709bbc-4f23-4ae6-9f47-f20f3f0a1add"
+        },
+        {
+            "name": "corenova-storm",
+            "version": "*",
+            "source": "npm://",
+            "type": "npm",
+            "status": {
+                "installed": true,
+                "imported": true
+            },
+            "id": "f30571f3-7c11-4c6f-ac0b-3dcf162ccedf"
+        }
+    ]
+
+Verb      URI                       Description
+GET       /packages/id              Get a package details by ID.
+
+On success it returns JSON data with the UUID with the packages configuration.
+
+**Example Request and Response**
+
+### Response JSON
+    {
+        "name": "corenova-storm",
+        "version": "*",
+        "source": "npm://",
+        "type": "npm",
+        "status": {
+            "installed": true,
+            "imported": true
+        },
+        "id": "f30571f3-7c11-4c6f-ac0b-3dcf162ccedf"
+    }
+
+
+
+**DELETE Packages API**
+
+Verb      URI                           Description
+DELETE   /packages/:id                  Delete existing package configuration by ID.
+
+**Example Request and Response**
+
+### Request Headers
+DELETE /packages/:id
+
+### Response Header
+
+Status Code : 204 No Content
 
