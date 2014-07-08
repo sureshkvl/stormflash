@@ -26,8 +26,8 @@ stormflash
 
 **POST packages API**
 
-Verb      URI                       Description
-POST      /packages                 Create a package entry.
+    Verb      URI                       Description
+    POST      /packages                 Create a package entry.
 
 On success it returns JSON data with the UUID with the packages configuration.
 
@@ -61,8 +61,8 @@ On success it returns JSON data with the UUID with the packages configuration.
 
 **GET packages API**
 
-Verb      URI                       Description
-GET       /packages                 Get list of packages installed.
+    Verb      URI                       Description
+    GET       /packages                 Get list of packages installed.
 
 On success it returns JSON data with the UUID with the packages configuration.
 
@@ -94,9 +94,12 @@ On success it returns JSON data with the UUID with the packages configuration.
             "id": "f30571f3-7c11-4c6f-ac0b-3dcf162ccedf"
         }
     ]
+    
 
-Verb      URI                       Description
-GET       /packages/id              Get a package details by ID.
+**GET packages API**
+
+    Verb      URI                       Description
+    GET       /packages/id              Get a package details by ID.
 
 On success it returns JSON data with the UUID with the packages configuration.
 
@@ -119,8 +122,8 @@ On success it returns JSON data with the UUID with the packages configuration.
 
 **DELETE Packages API**
 
-Verb      URI                           Description
-DELETE   /packages/:id                  Delete existing package configuration by ID.
+    Verb      URI                           Description
+    DELETE   /packages/:id                  Delete existing package configuration by ID.
 
 **Example Request and Response**
 
