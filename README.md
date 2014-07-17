@@ -1,9 +1,11 @@
-stormflash
+Stormflash
 ==========
 
+Stormflash is the core component of stormstack that realizes the intents configured in the stormlight. Stormflash can seamlessly activate, update its environment information to stormtower and thereby gets itself ready to manage the network functions in the installed environment. stormflash provides APIs that can be invoked by an external entity for managing the application lifecycle of the operating environment where stormflash is running.
 
-*List of stormflash APIs*
-=========================
+
+*List of APIs*
+----------------
 
 <table>
   <tr>
@@ -134,3 +136,15 @@ DELETE /packages/:id
 
 Status Code : 204 No Content
 
+
+
+
+*Code Sample*
+-------------------------
+
+
+
+
+
+*Copyrights and License*
+-------------------------
