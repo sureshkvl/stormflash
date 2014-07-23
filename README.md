@@ -1,7 +1,21 @@
 Stormflash
 ==========
 
+Synopsis
+--------
+
 Stormflash is the core component of stormstack that realizes the intents configured in the stormlight. Stormflash can seamlessly activate, update its environment information to stormtower and thereby gets itself ready to manage the network functions in the installed environment. stormflash provides APIs that can be invoked by an external entity for managing the application lifecycle of the operating environment where stormflash is running.
+
+stormflash is inherited from stormbolt ,stormagent class. Hence stormflash has the stormbolt, stormagent functionality in.
+
+stormflash has the package management capbality built in, which performs the below functionality, 
+ - discovers the installed debian, node packages
+ - supports the npm , linux package installation.
+ - monitor the package changes on regualar interval
+ It emits " discovered" event upon discoving the each package.
+ 
+stormflash has the process manager library,  used for managing the process. It supports the start, stop, montior methods. It emits "error","signal","attached","attachedError","detached","detachError"
+
 
 
 *List of APIs*
@@ -137,14 +151,32 @@ DELETE /packages/:id
 Status Code : 204 No Content
 
 
+Copyright & License
+--------
+LICENSE 
 
+MIT
 
-*Code Sample*
--------------------------
+COPYRIGHT AND PERMISSION NOTICE
 
+Copyright (c) 2014-2015, Clearpath Networks, <licensing@clearpathnet.com>.
 
+All rights reserved.
 
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-*Copyrights and License*
--------------------------
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
