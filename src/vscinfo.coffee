@@ -11,6 +11,7 @@ client.get "/status", (err, res, body) =>
 	return null unless res.statusCode == 200
 	@status = body
 	
+	console.log "uuid                      :  " + @status.id if @status?.id?
 	console.log "Activated                 :  " + @status.activated if @status?.activated?
 	console.log "Running                   :  " + @status.running   if @status?.running?
 	console.log "endianness                :  " + @status.os.endianness  if @status?.os?.endianness?
@@ -24,12 +25,13 @@ client.get "/status", (err, res, body) =>
 	console.log "freemem                   :  " + @status.os.freemem if @status?.os?.freemem?
 	console.log "Interfaces                :  " 
 	console.log "wan0                      :  " + @status.os.networkInterfaces.wan0[0].address if @status?.os?.networkInterfaces?.wan0?[0]?.address?
+	pkgs = ""
 	for pkg in @status.packages
-		pkgs = pkgs + " , " + pkg.name
-	console.log "packages installed        :  " +  pkgs if pkgs?
+		pkgs = pkgs + ", " + pkg.name
+	console.log "packages installed        :  " +  pkgs.slice 2 if pkgs?
 	console.log "Services                  :  "
 	for service in @status.services
-		console.log "Name :                  :  " + service.invocation.name if service?.invocation?.name?
-		console.log "Running :               :  " + service.invocation.running if service?.invocation?.running?
+		console.log "    Name                  :  " + service.invocation.name if service?.invocation?.name?
+		console.log "    Running               :  " + service.running if service?.running?
 
 
