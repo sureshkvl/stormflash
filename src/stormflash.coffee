@@ -8,6 +8,8 @@ StormRegistry = require('stormagent').StormRegistry
 query = require('dirty-query').query
 async = require('async')
 
+###
+
 class StormInstance extends StormData
 
     schema =
@@ -37,7 +39,6 @@ class StormInstance extends StormData
         super null, data, schema
 
 #-----------------------------------------------------------------
-
 
 class StormInstances extends StormRegistry
     constructor: (filename) ->
@@ -81,7 +82,7 @@ class StormInstances extends StormRegistry
             if (instance.name is name)
                instance.id = entry.id
                return instance
-
+###
 
 #-----------------------------------------------------------------
 
@@ -171,15 +172,16 @@ class StormFlash extends StormBolt
 
         @services = new StormRegistry
         @packages  = new StormPackages  "#{@config.datadir}/packages.db"
+        ###
         @instances = new StormInstances "#{@config.datadir}/instances.db"
         @instances.on 'ready', () =>
             @instances.discover()
-
+        ###
     status: ->
         state = super
         state.packages  = @packages.list()
         state.services  = @services.list()
-        state.instances = @instances.list()
+        #state.instances = @instances.list()
         state
 
     run: (config) ->
@@ -219,6 +221,7 @@ class StormFlash extends StormBolt
         @log 'loading Storm Instance/Process Manager...'
         @processmgr = new processmgr()
 
+        ###
         @processmgr.on "error", (error, key, pid) =>
             #when a process failed to start, what should be done?
             @log "Error while starting the process for key #{key} ", error
@@ -292,7 +295,7 @@ class StormFlash extends StormBolt
         @processmgr.on "monitor", (pid, key) =>
             @log "Starting monitor on pid #{pid} with key #{key}"
             @processmgr.monitor pid, key
-
+        ###
     install: (pinfo, callback) ->
         # check if already exists
         try
@@ -462,7 +465,7 @@ class StormFlash extends StormBolt
                 #@processmgr.monitor pid, service.id
 
     #----------------------------------------------------------------------------------------
-
+    ###
     start: (key, callback) ->
         entry = @instances.entries[key]
         return callback new Error "Key #{key} does not exist in DB" unless entry? and entry.data?
@@ -506,7 +509,7 @@ class StormFlash extends StormBolt
                 @processmgr.attach pid, key if entry.data.monitor is true
                 callback key,pid if callback?
                 @processmgr.emit "monitor", pid, key if entry.monitorOn is true
-
+    ###
 
     newInstance: (body) ->
         try
@@ -518,7 +521,7 @@ class StormFlash extends StormBolt
 # SINGLETON CLASS OBJECT
 ###
 module.exports.StormFlash = StormFlash
-module.exports.StormInstance = StormInstance
+#module.exports.StormInstance = StormInstance
 module.exports.StormPackage = StormPackage
 
 
