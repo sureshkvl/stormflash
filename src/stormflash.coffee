@@ -160,7 +160,7 @@ class StormFlash extends StormBolt
     path = require 'path'
     uuid = require('node-uuid')
     spm = require './spm'
-    processmgr = require('./processmgr')
+    #processmgr = require('./processmgr')
 
     constructor: (config) ->
         super config
@@ -218,8 +218,8 @@ class StormFlash extends StormBolt
             @log "SPM started Monitoring the system for packages..."
             @spm.monitor @config.repeatInterval
 
-        @log 'loading Storm Instance/Process Manager...'
-        @processmgr = new processmgr()
+        #@log 'loading Storm Instance/Process Manager...'
+        #@processmgr = new processmgr()
 
         ###
         @processmgr.on "error", (error, key, pid) =>
@@ -326,6 +326,7 @@ class StormFlash extends StormBolt
         return undefined unless pkg?
 
         # Kill the instances and clean up StormInstance Registry
+        ###
         instance = @instances.match pkg.name
 
         if instance?
@@ -337,7 +338,7 @@ class StormFlash extends StormBolt
 
             # Generate event to process Manager to stop the process
             @processmgr.emit 'stop', instance.key, instance.pid
-
+        ###
         @spm.uninstall pinfo, (result) =>
             return callback new Error result if result instanceof Error
             @emit 'uinstalled', pkg.name, pkg.id
@@ -360,6 +361,12 @@ class StormFlash extends StormBolt
     #
     # XXX - we need to handle for a case where PLUGIN is upgraded and reloaded
     #
+    addServices :(service) ->
+        @services.add service.id, invocation: service.invocation, instance: service.instance, running: service.isRunning
+
+    removeServices :(service) ->
+        @services.remove service.id # remove my service entry
+    ###
     invoke: (service, callback) ->
         opts = service.invocation
         return callback new Error "cannot invoke a service without valid service options" unless opts?
@@ -465,7 +472,7 @@ class StormFlash extends StormBolt
                 #@processmgr.monitor pid, service.id
 
     #----------------------------------------------------------------------------------------
-    ###
+    
     start: (key, callback) ->
         entry = @instances.entries[key]
         return callback new Error "Key #{key} does not exist in DB" unless entry? and entry.data?
