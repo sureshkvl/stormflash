@@ -115,6 +115,10 @@ class StormPackages extends StormRegistry
             if entry?
                 entry.saved = true
                 @add key, entry
+                if entry.data.type is "npm"
+                    entry.data.status.installed  = true
+                    entry.data.status.imported = false
+                    @update key, entry
 
         @on 'removed', (key) ->
             # an entry is removed in Registry
