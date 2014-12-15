@@ -324,6 +324,8 @@ class StormFlash extends StormBolt
             spkg.data.status = {}
             spkg.data.status.installed  = true
             spkg.data.status.imported = false
+            # persist the updated changes.
+            spkg.saved = false
             result = @packages.update spkg.id, spkg
             result.data.id = result.id
             @log 'installed the package ', result
