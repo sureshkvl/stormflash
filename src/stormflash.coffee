@@ -196,11 +196,11 @@ class StormFlash extends StormBolt
                 spkg.data.status = {}
                 @packages.add spkg.id, spkg
 
-        @packages.on 'added', (pkginfo) =>
+        @packages.on 'updated', (pkginfo) =>
             return unless pkginfo? or pkginfo.data?
             pkg = pkginfo.data
-            #@log "Package #{pkg.name} of type #{pkg.type} and source #{pkg.source} just added into Registry"
-            # Package is added into DB, include the plugin if its not builtin
+            #@log "Package #{pkg.name} of type #{pkg.type} and source #{pkg.source} just updated into Registry"
+            # Package is updated into DB, include the plugin if its not builtin
             if pkg.type is "npm" and /npm:/.test(pkg.source)
                 try
                     @import pkg.name
@@ -305,13 +305,22 @@ class StormFlash extends StormBolt
             @log "Found matching package name #{pkg.name}"
             return callback pkg
 
+        # Add the package entry to registry to avoid duplicate additions
+        # on concurrent calls for package installs, for the next concurrent call,
+        # the existing package info will be returned from registry
+        spkg.data.status = {}
+        spkg.data.status.installed  = false
+        spkg.data.status.imported = false
+        result = @packages.add spkg.id, spkg
+        result.data.id = result.id
+
         @spm.install pinfo, (pkg) =>
             return callback new Error pkg if pkg instanceof Error
             spkg.data = pkg
             spkg.data.status = {}
             spkg.data.status.installed  = true
             spkg.data.status.imported = false
-            result = @packages.add spkg.id, spkg
+            result = @packages.update spkg.id, spkg
             result.data.id = result.id
             @log 'installed the package ', result
             callback result
