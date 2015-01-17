@@ -196,6 +196,20 @@ class StormFlash extends StormBolt
                 spkg.data.status = {}
                 @packages.add spkg.id, spkg
 
+        # Initialize the spm installation queue
+        @packageQueue = async.queue((task, callback) =>
+            @spm.install  task.data, (pkg) =>
+                return callback? new Error pkg if pkg instanceof Error
+                task.data = pkg
+                task.data.status ?= {}
+                task.data.status.installed  = true
+                task.data.status.imported = false
+                result = @packages.update task.id, task
+                result.data.id = result.id
+                @log 'installed the package ', result
+                callback? result
+        , 10)
+
         @packages.on 'updated', (pkginfo) =>
             return unless pkginfo? or pkginfo.data?
             pkg = pkginfo.data
@@ -313,17 +327,8 @@ class StormFlash extends StormBolt
         spkg.data.status.imported = false
         result = @packages.add spkg.id, spkg
         result.data.id = result.id
-
-        @spm.install pinfo, (pkg) =>
-            return callback new Error pkg if pkg instanceof Error
-            spkg.data = pkg
-            spkg.data.status = {}
-            spkg.data.status.installed  = true
-            spkg.data.status.imported = false
-            result = @packages.update spkg.id, spkg
-            result.data.id = result.id
-            @log 'installed the package ', result
-            callback result
+        callback result
+        @packageQueue.push spkg
 
 
     uninstall: (pinfo, callback) ->

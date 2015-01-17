@@ -54,6 +54,13 @@ class StormPackageManager extends EventEmitter
         @repeatInterval?= 8000
         @log ?= console.log
 
+        @syncInstallerQueue = async.queue((task, callback) =>
+            @log 'running installer queue ', task
+            @execute task.cmd, (result) =>
+                return callback new Error if result instanceof Error
+                callback task.pinfo
+        , 1)
+
         _discoverEnvironment  (env) =>
             @env = env
             throw env if env instanceof Error
@@ -245,9 +252,10 @@ class StormPackageManager extends EventEmitter
                                 cmd = @getCommand "dpkg", "install", pinfo, filename
 
                                 return callback new Error "Unable to install package install" unless cmd?
-                                @execute  cmd, (result) =>
-                                    return callback new Error result if result instanceof Error
-                                    callback pinfo
+                                task = {}
+                                task.cmd = cmd
+                                task.pinfo = pinfo
+                                return @syncInstallerQueue.push task, callback
                             else
                                 return callback new Error "unable to download package"
 
@@ -258,6 +266,11 @@ class StormPackageManager extends EventEmitter
                     append = ""
                     append = "=#{pinfo.version}" if pinfo.version isnt "*"
                     cmd = @getCommand "apt-get", "install", pinfo, "#{pinfo.name}#{append}"
+                    task = {}
+                    task.cmd = cmd
+                    task.pinfo = pinfo
+                    @syncInstallerQueue.push task, callback
+                    return
                 else
                     return callback new Error "Unsupported package manager"
             try
