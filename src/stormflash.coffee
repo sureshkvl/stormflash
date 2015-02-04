@@ -194,7 +194,7 @@ class StormFlash extends StormBolt
                 @log "SPM Discovered a new package #{pinfo.name}"
                 spkg = new StormPackage null, pinfo
                 spkg.data.status = {}
-                @packages.add spkg.id, spkg
+                @packages.update spkg.id, spkg
 
         @packages.on 'updated', (pkginfo) =>
             return unless pkginfo? or pkginfo.data?
@@ -394,6 +394,7 @@ class StormFlash extends StormBolt
                 return callback new Error "#{service.id} stopped running after #{duration/1000} seconds!"
 
             @log "#{service.id} has successfully started (or was previously running), verified running for at least #{duration/1000} seconds"
+            service.isRunning = true
             @services.add service.id, invocation: service.invocation, instance: service.instance, running: service.isRunning
 
             # this should only be called ONCE for the duration of this service
@@ -430,6 +431,7 @@ class StormFlash extends StormBolt
                             return @log "service did not start successfully after service.change!"
 
                         service.emit 'running', pid
+                        service.isRunning = true
                         @log "#{service.id} has successfully restarted following service.change with PID #{pid}!"
                         process.nextTick ->
                             service.isRestarting = false
