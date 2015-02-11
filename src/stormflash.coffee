@@ -116,7 +116,7 @@ class StormPackages extends StormRegistry
             if entry?
                 entry.saved = true
                 @add key,entry
-                if entry.data.type is "npm" and /-storm/i.test(pkg.name)
+                if entry.data.type is "npm" and /-storm/i.test(entry.data.name)
                     entry.data.status.installed  = true
                     entry.data.status.imported = false
                     @update key, entry
