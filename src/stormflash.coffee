@@ -86,6 +86,7 @@ class StormInstances extends StormRegistry
 #-----------------------------------------------------------------
 
 class StormPackage extends StormData
+
     schema =
         name: "package"
         type: "object"
@@ -114,7 +115,11 @@ class StormPackages extends StormRegistry
             entry = new StormPackage key,val
             if entry?
                 entry.saved = true
-                @add key, entry
+                @add key,entry
+                if entry.data.type is "npm" and /-storm/i.test(entry.data.name)
+                    entry.data.status.installed  = true
+                    entry.data.status.imported = false
+                    @update key, entry
 
         @on 'removed', (key) ->
             # an entry is removed in Registry
@@ -193,8 +198,12 @@ class StormFlash extends StormBolt
             unless pkg?
                 @log "SPM Discovered a new package #{pinfo.name}"
                 spkg = new StormPackage null, pinfo
-                spkg.data.status = {}
                 @packages.add spkg.id, spkg
+                if spkg.data.type is "npm"
+                    spkg.data.status = {}
+                    spkg.data.status.installed  = true                           
+                    spkg.data.status.imported = false                   
+                    @packages.update spkg.id, spkg
 
         # Initialize the spm installation queue
         @packageQueue = async.queue((task, callback) =>
@@ -211,17 +220,19 @@ class StormFlash extends StormBolt
         , 10)
 
         @packages.on 'updated', (pkginfo) =>
+            @log "Update event"
             return unless pkginfo? or pkginfo.data?
             pkg = pkginfo.data
             #@log "Package #{pkg.name} of type #{pkg.type} and source #{pkg.source} just updated into Registry"
             # Package is updated into DB, include the plugin if its not builtin
-            if pkg.type is "npm" and /npm:/.test(pkg.source)
+            if pkg.type is "npm" and /-storm/i.test(pkg.name)
                 try
                     @import pkg.name
-                    pkginfo.data.status.imported = true
-                    pkginfo.data.status.installed = true
                 catch err
                     @log "Not able to import the module #{pkg.name}"
+                    
+                pkginfo.data.status.imported = true
+                pkginfo.data.status.installed = true
             else
                 pkginfo.data.status.installed = true
 
@@ -399,6 +410,7 @@ class StormFlash extends StormBolt
                 return callback new Error "#{service.id} stopped running after #{duration/1000} seconds!"
 
             @log "#{service.id} has successfully started (or was previously running), verified running for at least #{duration/1000} seconds"
+            service.isRunning = true
             @services.add service.id, invocation: service.invocation, instance: service.instance, running: service.isRunning
 
             # this should only be called ONCE for the duration of this service
@@ -435,6 +447,7 @@ class StormFlash extends StormBolt
                             return @log "service did not start successfully after service.change!"
 
                         service.emit 'running', pid
+                        service.isRunning = true
                         @log "#{service.id} has successfully restarted following service.change with PID #{pid}!"
                         process.nextTick ->
                             service.isRestarting = false
