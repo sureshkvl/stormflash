@@ -102,7 +102,7 @@ class StormPackage extends StormData
                 properties:
                     installed: { type: "boolean", "required": false}
                     imported:  { type: "boolean", "required" : false}
-            type:   { type: "string", "required": false}
+            type:   { type: "string", "required": true}
 
     constructor: (id, data) ->
         super id, data, schema
@@ -173,6 +173,7 @@ class StormFlash extends StormBolt
         @import module
         fs.mkdir "#{@config.datadir}", () ->
         fs.mkdir "#{@config.datadir}/plugins", () ->
+        fs.mkdir "#{@config.datadir}/meta", () ->
 
         @services = new StormRegistry
         @packages  = new StormPackages  "#{@config.datadir}/packages.db"

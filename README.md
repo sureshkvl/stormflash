@@ -54,7 +54,8 @@ On success it returns JSON data with the UUID with the packages configuration.
     {
         "name": "corenova-storm",
         "version": "*",
-        "source": "npm://"
+        "source": "npm://",
+        "type": "npm"
     }
 ### Response JSON
 
